@@ -1,12 +1,12 @@
 import { afterAll, describe, expect, it } from "vitest";
 
-import { createApi } from "../../src/app/create-api.js";
-import { createCondominiumId } from "../../src/core/condominium-scope.js";
-import { createDevelopmentIdentityRepository } from "../../src/identity/development-identity-repository.js";
+import { createApi } from "../../apps/api/app/create-api.js";
+import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
+import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 import {
   createUserId,
   type MembershipRepository
-} from "../../src/identity/authorized-condominium-context.js";
+} from "../../apps/api/identity/authorized-condominium-context.js";
 
 describe("seleção de condomínio", () => {
   const app = createApi({

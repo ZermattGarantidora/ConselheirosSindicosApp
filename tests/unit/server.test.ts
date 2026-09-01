@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { startServer } from "../../src/app/server.js";
+import { startServer } from "../../apps/api/app/server.js";
 
 describe("servidor local", () => {
   it("inicia em loopback com porta efêmera", async () => {

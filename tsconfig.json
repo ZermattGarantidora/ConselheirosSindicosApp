@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "vite.config.ts", "web/**/*.tsx"]
+  "include": ["apps/**/*.ts", "apps/**/*.tsx", "tests/**/*.ts", "vite.config.ts"]
 }

@@ -2,6 +2,22 @@
 
 MVP de um conselheiro documental que ajuda síndicos a encontrar informações nos documentos do condomínio, entender a base utilizada e transformar resultados em próximos passos seguros.
 
+## Estrutura do repositório
+
+```text
+apps/
+  api/             API Fastify, regras de domínio e worker
+  web/             cliente React/Vite
+  prototype/       protótipo estático de produto
+infrastructure/
+  database/        migrations PostgreSQL/RLS
+  docker/          inicialização local do banco
+docs/              produto, specs, ADRs, segurança e qualidade
+tests/             testes unitários, e2e e integração
+evals/             corpus e estratégia de avaliação sintéticos
+scripts/           validações e utilitários de desenvolvimento
+```
+
 ## Estado atual
 
 O projeto possui uma fundação local em TypeScript, pnpm e Git. A Spec 001 foi aprovada para implementação local com corpus sintético; as decisões de arquitetura estão nos ADRs 0001–0006. Não há dados reais, provedor de IA, cloud ou interface de produto implementados ainda.
@@ -24,7 +40,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 - [Tarefas](docs/specs/001-consulta-documental/tasks.md)
 - [Decisões arquiteturais](docs/adr/)
 - [Estrutura de banco de dados](docs/architecture/database-schema.md)
-- [Protótipo PWA — onboarding e chat](prototype/README.md)
+- [Protótipo PWA — onboarding e chat](apps/prototype/README.md)
 - [Modelo de ameaças](docs/security/threat-model.md)
 - [Política inicial de dados e riscos aceitos](docs/security/data-handling-inicial.md)
 - [Gates de qualidade](docs/quality/quality-gates.md)

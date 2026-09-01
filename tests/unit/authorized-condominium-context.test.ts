@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { createCondominiumId } from "../../src/core/condominium-scope.js";
+import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 import {
   AccessDeniedError,
   createUserId,
   resolveAuthorizedCondominiumContext,
   type Membership,
   type MembershipRepository
-} from "../../src/identity/authorized-condominium-context.js";
+} from "../../apps/api/identity/authorized-condominium-context.js";
 
 const now = new Date("2026-09-01T12:00:00.000Z");
 const userId = createUserId("sindico-1");

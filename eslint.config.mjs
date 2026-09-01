@@ -9,7 +9,7 @@ export default tseslint.config(
       "docs/**",
       "evals/**",
       "contracts/**",
-      "web/dist/**"
+      "apps/web/dist/**"
     ]
   },
   js.configs.recommended,
@@ -24,7 +24,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ["prototype/app.js"],
+    files: ["apps/prototype/app.js"],
     languageOptions: {
       globals: {
         clearTimeout: "readonly",
@@ -36,7 +36,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ["prototype/sw.js"],
+    files: ["apps/prototype/sw.js"],
     languageOptions: {
       globals: {
         URL: "readonly",

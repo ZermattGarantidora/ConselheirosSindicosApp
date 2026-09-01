@@ -19,7 +19,7 @@ if (
 }
 
 const migrationPath = fileURLToPath(
-  new URL("../migrations/001_identity_and_tenant_isolation.sql", import.meta.url)
+  new URL("../infrastructure/database/001_identity_and_tenant_isolation.sql", import.meta.url)
 );
 const migration = await readFile(migrationPath, "utf8");
 const client = new Client({ connectionString: databaseUrl });

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createCondominiumId } from "../../src/core/condominium-scope.js";
-import { processOne } from "../../src/worker/processing-worker.js";
-import { startWorker } from "../../src/worker/worker.js";
+import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
+import { processOne } from "../../apps/api/worker/processing-worker.js";
+import { startWorker } from "../../apps/api/worker/worker.js";
 
 describe("worker de processamento", () => {
   it("fica ocioso quando não há job", async () => {

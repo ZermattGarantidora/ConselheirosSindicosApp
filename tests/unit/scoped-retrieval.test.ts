@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { createCondominiumId } from "../../src/core/condominium-scope.js";
+import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 import {
   createUserId,
   resolveAuthorizedCondominiumContext,
   type MembershipRepository
-} from "../../src/identity/authorized-condominium-context.js";
-import { ScopedEvidenceStore, TenantScopedCache } from "../../src/retrieval/scoped-retrieval.js";
+} from "../../apps/api/identity/authorized-condominium-context.js";
+import {
+  ScopedEvidenceStore,
+  TenantScopedCache
+} from "../../apps/api/retrieval/scoped-retrieval.js";
 
 const alameda = createCondominiumId("alameda");
 const bosque = createCondominiumId("bosque");

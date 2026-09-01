@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createCondominiumId, withCondominiumScope } from "../../src/core/condominium-scope.js";
+import {
+  createCondominiumId,
+  withCondominiumScope
+} from "../../apps/api/core/condominium-scope.js";
 
 describe("CondominiumScope", () => {
   it("normaliza e preserva o identificador do condomínio no escopo", () => {

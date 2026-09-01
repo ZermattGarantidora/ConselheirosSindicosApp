@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createCondominiumId } from "../../src/core/condominium-scope.js";
+import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 import {
   createDevelopmentIdentityRepository,
   developmentUserId
-} from "../../src/identity/development-identity-repository.js";
+} from "../../apps/api/identity/development-identity-repository.js";
 
 describe("adapter de identidade de desenvolvimento", () => {
   it("expõe somente memberships sintéticas conhecidas", async () => {
