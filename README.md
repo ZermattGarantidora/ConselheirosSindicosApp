@@ -1,0 +1,106 @@
+# Conselheiro virtual para síndicos
+
+MVP de um conselheiro documental que ajuda síndicos a encontrar informações nos documentos do condomínio, entender a base utilizada e transformar resultados em próximos passos seguros.
+
+## Estado atual
+
+O projeto possui uma fundação local em TypeScript, pnpm e Git. A Spec 001 foi aprovada para implementação local com corpus sintético; as decisões de arquitetura estão nos ADRs 0001–0006. Não há dados reais, provedor de IA, cloud ou interface de produto implementados ainda.
+
+A primeira fatia vertical é a consulta documental com citações e isolamento entre condomínios. O código só deve ser iniciado depois da revisão dos contratos desta fatia.
+
+O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com referências às seções do briefing, que permanece dentro dessa visão.
+
+## Documentação
+
+- [Briefing — visão canônica](BRIEFING_PRODUTO_CONSELHEIRO_SINDICO.md)
+- [Definição do MVP](docs/product/mvp.md)
+- [Diretriz de estratégia competitiva](docs/product/estrategia-competitiva.md)
+- [Glossário](docs/product/glossary.md)
+- [Template obrigatório de spec](docs/specs/TEMPLATE.md)
+- [Spec 001 — consulta documental](docs/specs/001-consulta-documental/spec.md)
+- [Spec 002 — fundação local de engenharia](docs/specs/002-fundacao-engenharia/spec.md)
+- [Critérios de aceitação](docs/specs/001-consulta-documental/acceptance.md)
+- [Plano técnico](docs/specs/001-consulta-documental/plan.md)
+- [Tarefas](docs/specs/001-consulta-documental/tasks.md)
+- [Decisões arquiteturais](docs/adr/)
+- [Estrutura de banco de dados](docs/architecture/database-schema.md)
+- [Protótipo PWA — onboarding e chat](prototype/README.md)
+- [Modelo de ameaças](docs/security/threat-model.md)
+- [Política inicial de dados e riscos aceitos](docs/security/data-handling-inicial.md)
+- [Gates de qualidade](docs/quality/quality-gates.md)
+- [Política de merge](docs/quality/merge-policy.md)
+- [Adoção futura de GitHub](docs/quality/github-deferred.md)
+- [Rastreabilidade](docs/quality/traceability.md)
+- [Estratégia de evals](evals/README.md)
+
+## Fluxo spec-driven
+
+1. Ler o briefing completo e identificar os limites da visão aplicáveis.
+2. Criar a spec pelo template e preencher seu alinhamento com o briefing.
+3. Escrever exemplos de aceitação e casos de falha.
+4. Registrar decisões arquiteturais relevantes.
+5. Atualizar a matriz de rastreabilidade.
+6. Criar testes e evals antes ou junto da implementação.
+7. Implementar uma tarefa pequena por vez.
+8. Executar os gates, validar novamente o alinhamento e revisar o diff.
+9. Incorporar bugs e aprendizados como novos casos de regressão.
+
+## Estado da implementação
+
+O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migration inicial de identidade. A seleção de condomínio, a negação de acesso, a revogação, o cache e a recuperação sintética já possuem testes. A validação de RLS contra PostgreSQL real no Neon, exclusivamente com fixtures sintéticas, ainda é obrigatória antes de considerar a camada de persistência entregue.
+
+O próximo marco é executar a migration no banco Neon exclusivo de integração e rodar os testes de RLS; depois, iniciaremos ingestão e versão de documentos. GitHub e CI remoto continuam adiados, mas os gates locais são obrigatórios. Dados reais e piloto exigem uma política de dados específica aprovada.
+
+## Comandos
+
+Validar se todas as specs possuem a estrutura obrigatória de alinhamento com a visão:
+
+```powershell
+pwsh -NoProfile -File scripts/validate-spec-vision.ps1
+```
+
+Instalar e validar a fundação:
+
+```powershell
+pnpm install --frozen-lockfile
+pnpm run check
+```
+
+Para uma integração local, use também o registro de review:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-merge.ps1 -ReviewFile docs/reviews/<identificador>.md
+```
+
+## Desenvolvimento local
+
+Em terminais separados, execute:
+
+```powershell
+pnpm run dev:api
+pnpm run dev:web
+pnpm run worker
+```
+
+A API usa `http://127.0.0.1:3000`, o cliente usa `http://127.0.0.1:5173` e ambos trabalham somente com dados sintéticos. Para executar o cenário end-to-end de seleção de condomínio:
+
+```powershell
+pnpm run test:e2e
+```
+
+Para gerar o cliente estático:
+
+```powershell
+pnpm run build:web
+```
+
+No Neon, crie um projeto/branch exclusivo para integração sintética e copie a string de conexão direta com SSL. Em seguida, defina as variáveis apenas no terminal atual, aplique a migration e execute a integração de RLS:
+
+```powershell
+$env:NEON_INTEGRATION_DATABASE_URL = "postgresql://<role>:<password>@<host>.neon.tech/<database>?sslmode=require"
+$env:NEON_INTEGRATION_CONFIRMATION = "synthetic-only"
+pnpm run db:migrate:neon
+pnpm run test:integration
+```
+
+O Neon é permitido somente para este teste, com dados sintéticos e confirmação explícita; nunca informe essa URL no chat, commit ou arquivo `.env`. Docker continua como alternativa local futura.

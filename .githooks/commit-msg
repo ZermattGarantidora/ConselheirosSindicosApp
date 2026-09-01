@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+set -eu
+
+message_file="$1"
+pattern='^(build|chore|ci|docs|feat|fix|refactor|test)(\([a-z0-9-]+\))?!?: .+$'
+
+if ! grep -Eq "$pattern" "$message_file"; then
+  echo "Mensagem de commit inválida. Use: tipo(escopo): descrição" >&2
+  echo "Tipos aceitos: build, chore, ci, docs, feat, fix, refactor, test." >&2
+  exit 1
+fi

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f4f7f5" />
+    <meta name="description" content="Cora, a conselheira digital do seu condomínio." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>cora · conselheira do condomínio</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell" id="appShell">
+      <main class="onboarding-shell" id="onboardingView">
+        <section class="welcome-panel" aria-label="Apresentação da Cora">
+          <div class="ambient ambient-one"></div>
+          <div class="ambient ambient-two"></div>
+          <div class="welcome-content">
+            <div class="brand brand-light">
+              <span class="brand-mark">c</span>
+              <span>cora</span>
+            </div>
+            <p class="eyebrow">CONSELHEIRA PARA SÍNDICOS</p>
+            <h1>Seu condomínio, com mais clareza.</h1>
+            <p class="welcome-copy">
+              Converse com os documentos do condomínio, encontre respostas com fonte e não deixe as
+              decisões importantes se perderem.
+            </p>
+            <div class="trust-list">
+              <div class="trust-item">
+                <span class="trust-icon">✓</span>
+                <span>Respostas com documento, página e trecho</span>
+              </div>
+              <div class="trust-item">
+                <span class="trust-icon">✓</span>
+                <span>Contexto separado para cada condomínio</span>
+              </div>
+              <div class="trust-item">
+                <span class="trust-icon">✓</span>
+                <span>Você confirma antes de qualquer próximo passo</span>
+              </div>
+            </div>
+            <div class="welcome-footer">
+              <span class="status-dot"></span>
+              <span>Feito para a rotina real da sindicatura</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-panel" aria-live="polite">
+          <div class="mobile-brand brand">
+            <span class="brand-mark">c</span>
+            <span>cora</span>
+          </div>
+          <div class="progress-wrap">
+            <div class="progress-meta">
+              <span id="stepLabel">Passo 1 de 3</span>
+              <span class="progress-hint">leva menos de 2 min</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <span class="progress-fill" id="progressFill"></span>
+            </div>
+          </div>
+          <div id="onboardingContent"></div>
+          <p class="privacy-note">
+            <span class="privacy-lock" aria-hidden="true">⌑</span>
+            Seus dados ficam protegidos e separados por condomínio.
+          </p>
+        </section>
+      </main>
+
+      <main class="chat-shell" id="chatView" hidden>
+        <p class="prototype-notice" role="status">
+          Demonstração: respostas, documentos e fontes são simulados; nenhum arquivo é enviado ou
+          armazenado.
+        </p>
+        <aside class="chat-sidebar" id="chatSidebar" aria-label="Navegação principal">
+          <div class="sidebar-topline">
+            <div class="brand">
+              <span class="brand-mark">c</span>
+              <span>cora</span>
+            </div>
+            <button class="icon-button sidebar-close" id="closeSidebar" aria-label="Fechar menu">
+              ×
+            </button>
+          </div>
+          <div class="profile-card">
+            <div class="profile-avatar" id="profileAvatar">RM</div>
+            <div class="profile-copy">
+              <strong id="profileName">Rafael Martins</strong>
+              <span id="profileRole">Síndico profissional</span>
+            </div>
+            <button class="more-button" aria-label="Mais opções">•••</button>
+          </div>
+          <div class="sidebar-section">
+            <div class="section-label-row">
+              <span>SEUS CONDOMÍNIOS</span>
+              <button class="mini-add" aria-label="Adicionar condomínio">+</button>
+            </div>
+            <button class="condo-switcher active">
+              <span class="condo-avatar">RA</span>
+              <span class="condo-copy"
+                ><strong id="sidebarCondoName">Residencial Aurora</strong
+                ><small>São Paulo, SP</small></span
+              >
+              <span class="active-check">✓</span>
+            </button>
+          </div>
+          <nav class="primary-nav" aria-label="Seções">
+            <button class="nav-item active">
+              <span class="nav-icon">◌</span><span>Conversas</span><span class="nav-count">1</span>
+            </button>
+            <button class="nav-item" data-nav="documentos">
+              <span class="nav-icon">▤</span><span>Documentos</span>
+            </button>
+            <button class="nav-item" data-nav="pendencias">
+              <span class="nav-icon">✓</span><span>Pendências</span
+              ><span class="nav-count accent">3</span>
+            </button>
+          </nav>
+          <div class="sidebar-help">
+            <div class="help-orb">✦</div>
+            <div>
+              <strong>Comece por uma pergunta</strong>
+              <p>A Cora consulta apenas a base autorizada do condomínio.</p>
+            </div>
+          </div>
+          <div class="sidebar-footer">
+            <span class="online-dot"></span>Base atualizada hoje, 08:42
+          </div>
+        </aside>
+
+        <section class="chat-main" aria-label="Conversa com a Cora">
+          <header class="chat-header">
+            <button class="icon-button menu-trigger" id="openSidebar" aria-label="Abrir menu">
+              ☰
+            </button>
+            <div class="agent-avatar" aria-hidden="true"><span>c</span><i></i></div>
+            <div class="agent-heading">
+              <div><strong>Cora</strong><span class="verified-badge">✓</span></div>
+              <span>Conselheira do condomínio <b class="header-online">online</b></span>
+            </div>
+            <div class="header-actions">
+              <button class="header-action" aria-label="Pesquisar">⌕</button>
+              <button class="header-action" aria-label="Mais opções">•••</button>
+            </div>
+          </header>
+
+          <div class="chat-canvas" id="chatCanvas">
+            <div class="conversation-meta"><span>Hoje</span></div>
+            <div id="messageList"></div>
+          </div>
+
+          <div class="composer-area">
+            <div class="composer-note">
+              <span class="shield-icon">⌾</span> A Cora usa somente os documentos autorizados deste
+              condomínio.
+            </div>
+            <form class="composer" id="composerForm">
+              <button
+                type="button"
+                class="attach-button"
+                id="attachButton"
+                aria-label="Anexar documento"
+              >
+                ＋
+              </button>
+              <input type="file" id="fileInput" accept=".pdf,.doc,.docx,image/*" hidden />
+              <textarea
+                id="messageInput"
+                rows="1"
+                placeholder="Escreva uma pergunta..."
+                aria-label="Escreva uma pergunta"
+              ></textarea>
+              <button type="submit" class="send-button" aria-label="Enviar pergunta">↑</button>
+            </form>
+            <div class="composer-disclaimer">
+              A Cora pode errar. Confira as fontes antes de tomar uma decisão.
+            </div>
+          </div>
+        </section>
+
+        <aside class="source-drawer" id="sourceDrawer" aria-hidden="true">
+          <div class="source-drawer-head">
+            <div>
+              <span class="source-eyebrow">BASE DOCUMENTAL</span>
+              <h2>Trecho da fonte</h2>
+            </div>
+            <button class="icon-button" id="closeSource" aria-label="Fechar fonte">×</button>
+          </div>
+          <div class="source-doc-card">
+            <span class="doc-icon">▤</span>
+            <div>
+              <strong>Convenção do condomínio</strong><small>Versão confirmada · 2022</small>
+            </div>
+          </div>
+          <div class="source-page"><span>Página 8</span><span>Seção 3.2</span></div>
+          <blockquote id="sourceExcerpt">
+            “A locação das unidades por temporada deverá observar o limite de 30 dias, respeitando o
+            sossego e a segurança das áreas comuns.”
+          </blockquote>
+          <p class="source-note">Este trecho foi usado para formular a resposta acima.</p>
+          <button class="source-open-button" id="sourceOpenButton">
+            Abrir documento completo <span>↗</span>
+          </button>
+        </aside>
+        <div class="sidebar-scrim" id="sidebarScrim"></div>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
