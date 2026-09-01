@@ -7,10 +7,11 @@ Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser cali
 
 ## AC-001 — Selecionar condomínio autorizado (P0)
 
-**Dado** um usuário associado aos condomínios Alameda e Bosque  
+**Dado** um usuário associado aos condomínios Alameda e Bosque
 **Quando** ele seleciona Alameda  
 **Então** o contexto ativo passa a ser Alameda  
-**E** toda operação posterior inclui esse contexto validado no servidor.
+**E** toda operação posterior inclui esse contexto validado no servidor
+**E** consultas do chat retornam somente dados de Alameda, mesmo que o usuário também tenha acesso a Bosque.
 
 ## AC-002 — Bloquear condomínio não autorizado (P0)
 
@@ -153,3 +154,10 @@ Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser cali
 **Quando** o usuário faz uma pergunta  
 **Então** `answerMode` é `failed` ou a requisição retorna erro recuperável  
 **E** nenhuma resposta sintética aparenta ter sido baseada nos documentos.
+
+## AC-022 — Exigir condomínio selecionado no banco (P0)
+
+**Dado** um usuário associado a Alameda e Bosque
+**Quando** uma transação de runtime não fixa `app.condominium_id`
+**Então** o banco não retorna dados de nenhum condomínio
+**E** quando fixa Alameda, não retorna linhas de Bosque.

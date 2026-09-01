@@ -110,13 +110,19 @@ Para gerar o cliente estático:
 pnpm run build:web
 ```
 
-No Neon, crie um projeto/branch exclusivo para integração sintética e copie a string de conexão direta com SSL. Em seguida, defina as variáveis apenas no terminal atual, aplique a migration e execute a integração de RLS:
+No Neon, crie um projeto/branch exclusivo e vazio para integração sintética. Antes da primeira execução, aplique uma única vez o marcador de segurança usando a conexão desse banco:
 
 ```powershell
 $env:NEON_INTEGRATION_DATABASE_URL = "postgresql://<role>:<password>@<host>.neon.tech/<database>?sslmode=require"
+psql $env:NEON_INTEGRATION_DATABASE_URL -f infrastructure/neon/001-integration-guard.sql
+```
+
+O marcador precisa existir previamente; os scripts nunca o criam automaticamente. Isso faz a migration e o teste falharem antes de qualquer alteração quando a URL aponta para outro banco. Depois, defina as variáveis apenas no terminal atual, aplique a migration e execute a integração de RLS:
+
+```powershell
 $env:NEON_INTEGRATION_CONFIRMATION = "synthetic-only"
 pnpm run db:migrate:neon
 pnpm run test:integration
 ```
 
-O Neon é permitido somente para este teste, com dados sintéticos e confirmação explícita; nunca informe essa URL no chat, commit ou arquivo `.env`. Docker continua como alternativa local futura.
+As URLs aceitas devem usar `postgresql:`/`postgres:` e `sslmode=require` ou `sslmode=verify-full`. O Neon é permitido somente para este banco marcado, com dados sintéticos e confirmação explícita; nunca informe essa URL no chat, commit ou arquivo `.env`. Docker continua como alternativa local futura.

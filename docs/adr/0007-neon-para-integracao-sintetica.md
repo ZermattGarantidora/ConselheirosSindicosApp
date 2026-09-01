@@ -12,9 +12,11 @@ O ambiente local com Docker exige uma instalação que ainda não está disponí
 Usar um projeto Neon dedicado, sem dados reais, somente para executar migrations e testes de integração de PostgreSQL/RLS.
 
 - a conexão será fornecida exclusivamente pela variável `NEON_INTEGRATION_DATABASE_URL` e nunca será versionada;
-- o projeto/branch será identificado como integração sintética e não poderá compartilhar dados com qualquer ambiente de piloto ou produção;
+- o projeto/branch será identificado como integração sintética, deverá ser vazio e não poderá compartilhar dados com qualquer ambiente de piloto ou produção;
+- o banco deverá ser provisionado previamente com `infrastructure/neon/001-integration-guard.sql`; migration e testes recusam qualquer banco sem o marcador persistente;
 - a migration cria a extensão `vector` e o papel sem login `app_runtime`, sem `BYPASSRLS`;
-- os testes exigem a confirmação explícita `NEON_INTEGRATION_CONFIRMATION=synthetic-only`, recusam qualquer host que não termine em `.neon.tech` e continuam usando somente fixtures sintéticas;
+- os comandos exigem URL PostgreSQL com TLS (`sslmode=require` ou `verify-full`), a confirmação explícita `NEON_INTEGRATION_CONFIRMATION=synthetic-only`, endpoint `.neon.tech` e marcador persistente; continuam usando somente fixtures sintéticas;
+- `app_runtime` é validado como papel sem login, sem privilégios elevados, sem `BYPASSRLS`, sem memberships e sem objetos próprios; configuração incompatível interrompe a execução;
 - Docker local continua como alternativa futura, mas deixa de bloquear a validação atual.
 
 ## Consequências
@@ -23,6 +25,7 @@ Usar um projeto Neon dedicado, sem dados reais, somente para executar migrations
 - há uma dependência externa temporária, documentada e limitada ao banco de integração;
 - nenhum dado de cliente, documento real, piloto, provedor de IA, storage remoto ou autenticação real é autorizado por esta decisão;
 - credenciais precisam permanecer fora do repositório e ser revogadas se expostas.
+- o marcador não deve ser aplicado em nenhum banco de piloto ou produção; como os testes executam `TRUNCATE`, a ausência do marcador é uma barreira obrigatória.
 
 ## Alinhamento e gate de decisão
 

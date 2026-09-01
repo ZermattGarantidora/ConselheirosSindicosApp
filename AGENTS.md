@@ -99,7 +99,7 @@ pnpm run audit:dependencies
 pwsh -NoProfile -File scripts/verify-merge.ps1 -ReviewFile docs/reviews/<identificador>.md
 ```
 
-O ambiente Docker local requer WSL e Docker Desktop. No ambiente atual, use o Neon exclusivamente para integração sintética conforme ADR 0007: antes de `pnpm run db:migrate:neon` e `pnpm run test:integration`, defina `NEON_INTEGRATION_DATABASE_URL` e `NEON_INTEGRATION_CONFIRMATION=synthetic-only`; os comandos recusam hosts não Neon. Ao implementar evals, adicione seu comando único ao `package.json`, ao `README.md` e a esta seção antes de declarar a tarefa pronta. Execute os gates aplicáveis antes de encerrar a tarefa.
+O ambiente Docker local requer WSL e Docker Desktop. No ambiente atual, use o Neon exclusivamente para integração sintética conforme ADR 0007: em um banco Neon vazio e dedicado, aplique uma vez `infrastructure/neon/001-integration-guard.sql`; antes de `pnpm run db:migrate:neon` e `pnpm run test:integration`, defina `NEON_INTEGRATION_DATABASE_URL` com `sslmode=require` ou `sslmode=verify-full` e `NEON_INTEGRATION_CONFIRMATION=synthetic-only`. Os comandos recusam hosts não Neon, URLs sem TLS, confirmações ausentes e bancos sem o marcador persistente; o teste também executa `TRUNCATE` das fixtures. Ao implementar evals, adicione seu comando único ao `package.json`, ao `README.md` e a esta seção antes de declarar a tarefa pronta. Execute os gates aplicáveis antes de encerrar a tarefa.
 
 ## Definition of Done
 

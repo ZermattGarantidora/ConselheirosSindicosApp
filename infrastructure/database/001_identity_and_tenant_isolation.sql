@@ -1,5 +1,7 @@
 BEGIN;
 
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE SCHEMA IF NOT EXISTS app;
 
 CREATE TABLE app.users (
@@ -50,6 +52,14 @@ AS $$
   SELECT NULLIF(current_setting('app.user_id', true), '')::uuid;
 $$;
 
+CREATE FUNCTION app.current_condominium_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT NULLIF(current_setting('app.condominium_id', true), '')::uuid;
+$$;
+
 ALTER TABLE app.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.users FORCE ROW LEVEL SECURITY;
 ALTER TABLE app.condominiums ENABLE ROW LEVEL SECURITY;
@@ -66,11 +76,16 @@ CREATE POLICY users_current_identity ON app.users
 
 CREATE POLICY memberships_current_identity ON app.memberships
   FOR SELECT
-  USING (user_id = app.current_user_id());
+  USING (
+    user_id = app.current_user_id()
+    AND condominium_id = app.current_condominium_id()
+  );
 
 CREATE POLICY condominiums_active_membership ON app.condominiums
   FOR SELECT
   USING (
+    id = app.current_condominium_id()
+    AND
     EXISTS (
       SELECT 1
       FROM app.memberships

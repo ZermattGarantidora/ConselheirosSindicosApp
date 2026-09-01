@@ -87,9 +87,9 @@ Síndico profissional que administra mais de um condomínio e precisa consultar 
 
 ## 7. Requisitos funcionais
 
-### RQ-001 — Contexto autorizado
+### RQ-001 — Contexto autorizado e selecionado
 
-Toda operação deve receber o condomínio selecionado e validar a associação do usuário. Identificadores fornecidos pelo cliente nunca são autorização suficiente.
+Toda operação deve receber o condomínio selecionado, validar a associação do usuário e fixar `condominium_id` no contexto transacional antes de consultar dados. Identificadores fornecidos pelo cliente nunca são autorização suficiente. Quando um usuário administra mais de um condomínio, uma operação no condomínio A não pode recuperar linhas, evidências, cache ou contexto do condomínio B.
 
 ### RQ-002 — Ingestão de PDF
 

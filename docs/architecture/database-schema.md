@@ -354,11 +354,11 @@ O runtime de usuário recebe políticas `USING` e `WITH CHECK` que exigem:
 3. membership ativa e dentro da vigência;
 4. permissão para a operação quando aplicável.
 
-O runtime, o worker e a migração usam papéis separados. Runtime e worker não são donos das tabelas e não possuem `BYPASSRLS`. O worker só recebe privilégios de processamento e sempre ativa um único tenant a partir de um job já persistido. Queries administrativas e purge usam papéis dedicados, autenticação reforçada e auditoria.
+O runtime, o worker e a migração usam papéis separados. Runtime e worker não são donos das tabelas e não possuem `BYPASSRLS`. O runtime fixa `app.user_id` e `app.condominium_id` com `SET LOCAL` antes do caso de uso; ausência do tenant selecionado falha fechado. A seleção valida o condomínio no contexto autorizado antes de abrir a transação de dados. O worker só recebe privilégios de processamento e sempre ativa um único tenant a partir de um job já persistido. Queries administrativas e purge usam papéis dedicados, autenticação reforçada e auditoria.
 
 A consulta de membership usada pelas policies deve ficar em uma função mínima `SECURITY DEFINER`, pertencente a um papel `NOLOGIN`, com `search_path` fixo, sem SQL dinâmico e com permissão de execução restrita. Isso evita recursão de RLS sem transformar a função em uma API genérica de leitura.
 
-`condominiums` recebe política sobre `id = active_condominium_id`. `users` possui política própria para a identidade atual e não é consultada como tabela de conteúdo de tenant.
+`condominiums` recebe política sobre `id = active_condominium_id`. `memberships` também exige o tenant ativo. `users` possui política própria para a identidade atual e não é consultada como tabela de conteúdo de tenant.
 
 ### Contexto transacional
 

@@ -16,13 +16,14 @@ Tratar `condominium_id` como fronteira obrigatória de tenant em todas as entida
 1. autenticar o usuário;
 2. resolver a associação vigente no servidor;
 3. criar um contexto autorizado imutável;
-4. aplicar política de escopo no repositório/caso de uso;
-5. reforçar no banco com políticas de linha ou mecanismo equivalente;
-6. separar caminhos/chaves no storage;
-7. incluir e validar tenant em mensagens e jobs;
-8. filtrar o índice antes de ranking;
-9. segmentar caches por tenant, permissão e versão;
-10. minimizar logs e manter tenant apenas como identificador seguro de correlação.
+4. fixar `app.user_id` e `app.condominium_id` no contexto transacional;
+5. aplicar política de escopo no repositório/caso de uso;
+6. reforçar no banco com políticas de linha ou mecanismo equivalente;
+7. separar caminhos/chaves no storage;
+8. incluir e validar tenant em mensagens e jobs;
+9. filtrar o índice antes de ranking;
+10. segmentar caches por tenant, permissão e versão;
+11. minimizar logs e manter tenant apenas como identificador seguro de correlação.
 
 Um identificador enviado pelo cliente nunca substitui a autorização resolvida pelo servidor.
 
@@ -41,6 +42,7 @@ Um identificador enviado pelo cliente nunca substitui a autorização resolvida 
 - testes de cache, jobs, storage e índice, não apenas SQL;
 - revogação concorrente durante sessão;
 - tentativa de IDOR com identificadores conhecidos;
+- consulta sem `app.condominium_id` e consulta de A com membership simultânea em B;
 - inspeção de prompt e telemetria para confirmar ausência cruzada;
 - gate P0 com tolerância zero.
 

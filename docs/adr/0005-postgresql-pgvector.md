@@ -20,13 +20,14 @@ O desenho inicial segue estas regras:
 3. todas as tabelas de tenant habilitam e forçam Row-Level Security com negação por padrão;
 4. papéis de runtime não são proprietários das tabelas nem possuem `BYPASSRLS`;
 5. a política do runtime de usuário exige o condomínio ativo e uma associação vigente;
-6. o worker usa papel separado, escopo transacional de um único condomínio e privilégios limitados às tabelas necessárias;
-7. arquivos originais permanecem em storage privado; o banco guarda identidade, metadados, procedência e chave opaca do objeto;
-8. texto integral de páginas e chunks pode ficar no PostgreSQL para busca, citação e consistência, sujeito à política de retenção;
-9. a busca inicial combina full-text search e distância vetorial exata somente depois do filtro autorizado;
-10. não haverá índice HNSW ou IVFFlat compartilhado no MVP; um índice aproximado só entra após medição e desenho que preserve isolamento e recall por tenant;
-11. `processing_jobs` é a fonte transacional do trabalho assíncrono inicial; uma fila externa continua opcional e exigirá outro ADR;
-12. migrations e testes P0 usam PostgreSQL real. SQLite não é substituto para testes de políticas, constraints ou retrieval.
+6. cada transação de runtime fixa `app.user_id` e `app.condominium_id`; sem condomínio selecionado, o RLS não retorna dados de tenant;
+7. o worker usa papel separado, escopo transacional de um único condomínio e privilégios limitados às tabelas necessárias;
+8. arquivos originais permanecem em storage privado; o banco guarda identidade, metadados, procedência e chave opaca do objeto;
+9. texto integral de páginas e chunks pode ficar no PostgreSQL para busca, citação e consistência, sujeito à política de retenção;
+10. a busca inicial combina full-text search e distância vetorial exata somente depois do filtro autorizado;
+11. não haverá índice HNSW ou IVFFlat compartilhado no MVP; um índice aproximado só entra após medição e desenho que preserve isolamento e recall por tenant;
+12. `processing_jobs` é a fonte transacional do trabalho assíncrono inicial; uma fila externa continua opcional e exigirá outro ADR;
+13. migrations e testes P0 usam PostgreSQL real. SQLite não é substituto para testes de políticas, constraints ou retrieval.
 
 O modelo físico detalhado está em `docs/architecture/database-schema.md`.
 

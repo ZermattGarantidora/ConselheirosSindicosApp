@@ -3,20 +3,16 @@ import { fileURLToPath } from "node:url";
 
 import { Client } from "pg";
 
+import {
+  assertSafeRuntimeRole,
+  assertSyntheticIntegrationTarget,
+  parseNeonIntegrationUrl,
+  requireSyntheticIntegrationConfirmation
+} from "./neon-integration-guard.js";
+
 const databaseUrl = process.env.NEON_INTEGRATION_DATABASE_URL;
-
-if (databaseUrl === undefined) {
-  throw new Error("Defina NEON_INTEGRATION_DATABASE_URL para aplicar a migration no Neon.");
-}
-
-const database = new URL(databaseUrl);
-
-if (
-  !database.hostname.endsWith(".neon.tech") ||
-  process.env.NEON_INTEGRATION_CONFIRMATION !== "synthetic-only"
-) {
-  throw new Error("A migration exige um host Neon e NEON_INTEGRATION_CONFIRMATION=synthetic-only.");
-}
+parseNeonIntegrationUrl(databaseUrl);
+requireSyntheticIntegrationConfirmation(process.env.NEON_INTEGRATION_CONFIRMATION);
 
 const migrationPath = fileURLToPath(
   new URL("../infrastructure/database/001_identity_and_tenant_isolation.sql", import.meta.url)
@@ -26,8 +22,12 @@ const client = new Client({ connectionString: databaseUrl });
 
 await client.connect();
 
+let transactionStarted = false;
+
 try {
+  await assertSyntheticIntegrationTarget(client);
   await client.query("BEGIN");
+  transactionStarted = true;
   await client.query(`
     DO $$
     BEGIN
@@ -37,11 +37,14 @@ try {
     END
     $$;
   `);
+  await assertSafeRuntimeRole(client);
   await client.query("GRANT app_runtime TO CURRENT_USER");
   await client.query(migration);
   await client.query("COMMIT");
 } catch (error: unknown) {
-  await client.query("ROLLBACK");
+  if (transactionStarted) {
+    await client.query("ROLLBACK");
+  }
   throw error;
 } finally {
   await client.end();

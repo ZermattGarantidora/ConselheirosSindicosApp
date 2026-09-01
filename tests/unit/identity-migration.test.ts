@@ -12,7 +12,9 @@ describe("migration de identidade e isolamento", () => {
     expect(migration).toContain("CREATE TABLE app.users");
     expect(migration).toContain("CREATE TABLE app.condominiums");
     expect(migration).toContain("CREATE TABLE app.memberships");
+    expect(migration).toContain("CREATE FUNCTION app.current_condominium_id()");
     expect(migration).toContain("ALTER TABLE app.memberships FORCE ROW LEVEL SECURITY");
+    expect(migration).toContain("condominium_id = app.current_condominium_id()");
     expect(migration).toContain("memberships.status = 'active'");
   });
 });
