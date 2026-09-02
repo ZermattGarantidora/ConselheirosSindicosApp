@@ -4,10 +4,12 @@ const state = {
   role: "Síndico profissional",
   condo: "",
   address: "",
+  condominiums: [],
+  activeCondominiumId: undefined,
   messages: [],
-  pending: false
+  pending: false,
+  activeSource: undefined
 };
-
 const onboardingView = document.querySelector("#onboardingView");
 const chatView = document.querySelector("#chatView");
 const onboardingContent = document.querySelector("#onboardingContent");
@@ -18,12 +20,11 @@ const chatCanvas = document.querySelector("#chatCanvas");
 const messageInput = document.querySelector("#messageInput");
 const composerForm = document.querySelector("#composerForm");
 const toast = document.querySelector("#toast");
-
-const icons = {
-  building: "⌂",
-  people: "♧",
-  manager: "✦"
-};
+const condominiumList = document.querySelector("#condominiumList");
+const workspaceDrawer = document.querySelector("#workspaceDrawer");
+const workspaceCurrent = document.querySelector("#workspaceCurrent");
+const workspaceFiles = document.querySelector("#workspaceFiles");
+const icons = { building: "⌂", people: "♧", manager: "✦" };
 
 function escapeHtml(value) {
   return String(value)
@@ -33,51 +34,62 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
 function initials(name) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
   return (
-    parts
+    name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0])
-      .join("") || "RM"
+      .join("") || "CO"
   ).toUpperCase();
+}
+function activeCondominium() {
+  return state.condominiums.find((condominium) => condominium.id === state.activeCondominiumId);
+}
+function createCondominium(name, location, includeDemoFile = false) {
+  const condominium = {
+    id: `condominium-${Date.now()}-${state.condominiums.length}`,
+    name: name.trim(),
+    location: location.trim() || "Contexto privado",
+    files: includeDemoFile
+      ? [
+          {
+            id: "demo-convencao",
+            name: "Convenção condominial — demonstração.txt",
+            details: "Versão confirmada · página 8",
+            excerpt:
+              "A locação das unidades por temporada deverá observar o limite de 30 dias, respeitando o sossego e a segurança das áreas comuns."
+          }
+        ]
+      : []
+  };
+  state.condominiums.push(condominium);
+  state.activeCondominiumId = condominium.id;
+  return condominium;
 }
 
 function renderOnboarding() {
   const step = state.step;
   stepLabel.textContent = `Passo ${step} de 3`;
   progressFill.style.width = `${step * 33.333}%`;
-
   if (step === 1) {
-    onboardingContent.innerHTML = `
-      <p class="step-kicker">BEM-VINDO À CORA</p>
-      <h1 class="step-title">Vamos deixar tudo pronto para você.</h1>
-      <p class="step-copy">Antes de começar, conte só o essencial. Assim a Cora fala com você do jeito certo.</p>
-      <div class="field-group">
-        <span class="field-label">Como podemos te chamar?</span>
-        <input class="text-field" id="nameField" autocomplete="name" placeholder="Seu nome" value="${escapeHtml(state.name)}" />
-      </div>
-      <div class="field-group">
-        <span class="field-label">Qual é o seu perfil?</span>
-        <div class="role-grid" role="group" aria-label="Perfil profissional">
-          ${[
-            ["manager", "Síndico profissional"],
-            ["building", "Síndico morador"],
-            ["people", "Administradora"]
-          ]
-            .map(
-              ([symbol, label]) =>
-                `<button type="button" class="role-option ${state.role === label ? "selected" : ""}" data-role="${label}"><span class="role-symbol">${icons[symbol]}</span>${label}</button>`
-            )
-            .join("")}
-        </div>
-      </div>
-      <div class="button-row"><button class="primary-button" type="button" data-action="next">Continuar <span class="button-arrow">→</span></button></div>
-    `;
-    document.querySelector("#nameField").addEventListener("input", (event) => {
-      state.name = event.target.value;
-    });
+    onboardingContent.innerHTML = `<p class="step-kicker">BEM-VINDO À CORA</p><h1 class="step-title">Vamos deixar tudo pronto para você.</h1><p class="step-copy">Antes de começar, conte só o essencial. Assim a Cora fala com você do jeito certo.</p><div class="field-group"><span class="field-label">Como podemos te chamar?</span><input class="text-field" id="nameField" autocomplete="name" placeholder="Seu nome" value="${escapeHtml(state.name)}" /></div><div class="field-group"><span class="field-label">Qual é o seu perfil?</span><div class="role-grid" role="group" aria-label="Perfil profissional">${[
+      ["manager", "Síndico profissional"],
+      ["building", "Síndico morador"],
+      ["people", "Administradora"]
+    ]
+      .map(
+        ([symbol, label]) =>
+          `<button type="button" class="role-option ${state.role === label ? "selected" : ""}" data-role="${label}"><span class="role-symbol">${icons[symbol]}</span>${label}</button>`
+      )
+      .join(
+        ""
+      )}</div></div><div class="button-row"><button class="primary-button" type="button" data-action="next">Continuar <span class="button-arrow">→</span></button></div>`;
+    document
+      .querySelector("#nameField")
+      .addEventListener("input", (event) => (state.name = event.target.value));
     document.querySelectorAll("[data-role]").forEach((button) =>
       button.addEventListener("click", () => {
         state.role = button.dataset.role;
@@ -85,52 +97,21 @@ function renderOnboarding() {
       })
     );
   } else if (step === 2) {
-    onboardingContent.innerHTML = `
-      <p class="step-kicker">SEU PRIMEIRO CONTEXTO</p>
-      <h1 class="step-title">Qual condomínio você cuida primeiro?</h1>
-      <p class="step-copy">A Cora mantém cada condomínio em um espaço separado. Você poderá adicionar outros depois.</p>
-      <div class="field-group">
-        <label class="field-label" for="condoField">Nome do condomínio</label>
-        <input class="text-field" id="condoField" autocomplete="organization" placeholder="Ex.: Residencial Aurora" value="${escapeHtml(state.condo)}" />
-      </div>
-      <div class="field-group">
-        <label class="field-label" for="addressField">Cidade e estado <span style="color:#9aa7a7;font-weight:500">(opcional)</span></label>
-        <input class="text-field" id="addressField" autocomplete="address-level2" placeholder="Ex.: São Paulo, SP" value="${escapeHtml(state.address)}" />
-      </div>
-      <div id="stepValidation"></div>
-      <div class="button-row"><button class="secondary-button" type="button" data-action="back">Voltar</button><button class="primary-button" type="button" data-action="next">Continuar <span class="button-arrow">→</span></button></div>
-    `;
-    document.querySelector("#condoField").addEventListener("input", (event) => {
-      state.condo = event.target.value;
-    });
-    document.querySelector("#addressField").addEventListener("input", (event) => {
-      state.address = event.target.value;
-    });
+    onboardingContent.innerHTML = `<p class="step-kicker">SEU PRIMEIRO CONTEXTO</p><h1 class="step-title">Qual condomínio você cuida primeiro?</h1><p class="step-copy">A Cora mantém cada condomínio em um espaço separado. Você poderá adicionar outros depois.</p><div class="field-group"><label class="field-label" for="condoField">Nome do condomínio</label><input class="text-field" id="condoField" autocomplete="organization" placeholder="Ex.: Residencial Aurora" value="${escapeHtml(state.condo)}" /></div><div class="field-group"><label class="field-label" for="addressField">Cidade e estado <span style="color:#9aa7a7;font-weight:500">(opcional)</span></label><input class="text-field" id="addressField" autocomplete="address-level2" placeholder="Ex.: São Paulo, SP" value="${escapeHtml(state.address)}" /></div><div id="stepValidation"></div><div class="button-row"><button class="secondary-button" type="button" data-action="back">Voltar</button><button class="primary-button" type="button" data-action="next">Continuar <span class="button-arrow">→</span></button></div>`;
+    document
+      .querySelector("#condoField")
+      .addEventListener("input", (event) => (state.condo = event.target.value));
+    document
+      .querySelector("#addressField")
+      .addEventListener("input", (event) => (state.address = event.target.value));
   } else {
-    const safeName = escapeHtml(state.name || "Síndico");
-    const safeCondo = escapeHtml(state.condo || "Seu condomínio");
-    const safeAddress = escapeHtml(state.address || "Contexto privado");
-    onboardingContent.innerHTML = `
-      <p class="step-kicker">TUDO PRONTO</p>
-      <h1 class="step-title">Seu espaço está preparado.</h1>
-      <p class="step-copy">A partir de agora, suas perguntas ficam organizadas no contexto certo e a Cora já pode começar a ajudar.</p>
-      <div class="ready-card">
-        <div class="ready-card-head"><div class="ready-avatar">${escapeHtml(initials(state.name))}</div><div><strong>${safeName}</strong><span>${escapeHtml(state.role)}</span></div></div>
-        <div class="ready-message"><strong>${safeCondo}</strong><span>${safeAddress}</span></div>
-      </div>
-      <div class="button-row"><button class="secondary-button" type="button" data-action="back">Voltar</button><button class="primary-button" type="button" data-action="start">Abrir meu chat <span class="button-arrow">↗</span></button></div>
-    `;
+    onboardingContent.innerHTML = `<p class="step-kicker">TUDO PRONTO</p><h1 class="step-title">Seu espaço está preparado.</h1><p class="step-copy">A partir de agora, suas perguntas ficam organizadas no contexto certo e a Cora já pode começar a ajudar.</p><div class="ready-card"><div class="ready-card-head"><div class="ready-avatar">${escapeHtml(initials(state.name))}</div><div><strong>${escapeHtml(state.name || "Síndico")}</strong><span>${escapeHtml(state.role)}</span></div></div><div class="ready-message"><strong>${escapeHtml(state.condo || "Seu condomínio")}</strong><span>${escapeHtml(state.address || "Contexto privado")}</span></div></div><div class="button-row"><button class="secondary-button" type="button" data-action="back">Voltar</button><button class="primary-button" type="button" data-action="start">Abrir meu chat <span class="button-arrow">↗</span></button></div>`;
   }
-
   document.querySelector('[data-action="next"]')?.addEventListener("click", () => {
-    if (state.step === 1 && !state.name.trim()) {
-      showValidation("Digite seu nome para continuar.");
-      return;
-    }
-    if (state.step === 2 && !state.condo.trim()) {
-      showValidation("Digite o nome do condomínio para continuar.");
-      return;
-    }
+    if (state.step === 1 && !state.name.trim())
+      return showValidation("Digite seu nome para continuar.");
+    if (state.step === 2 && !state.condo.trim())
+      return showValidation("Digite o nome do condomínio para continuar.");
     state.step += 1;
     renderOnboarding();
   });
@@ -140,91 +121,110 @@ function renderOnboarding() {
   });
   document.querySelector('[data-action="start"]')?.addEventListener("click", startChat);
 }
-
 function showValidation(message) {
   const target = document.querySelector("#stepValidation") || onboardingContent;
-  const existing = target.querySelector(".validation-message");
-  if (existing) existing.remove();
+  target.querySelector(".validation-message")?.remove();
   const error = document.createElement("p");
   error.className = "validation-message";
   error.textContent = message;
   target.append(error);
 }
-
 function startChat() {
+  createCondominium(state.condo || "Residencial Aurora", state.address, true);
   onboardingView.hidden = true;
   chatView.hidden = false;
   document.querySelector("#profileName").textContent = state.name || "Rafael Martins";
   document.querySelector("#profileRole").textContent = state.role;
   document.querySelector("#profileAvatar").textContent = initials(state.name || "Rafael Martins");
-  document.querySelector("#sidebarCondoName").textContent = state.condo || "Residencial Aurora";
+  renderCondominiums();
   renderMessages();
-  setTimeout(() => messageInput.focus(), 100);
+  window.setTimeout(() => messageInput.focus(), 100);
 }
 
+function renderCondominiums() {
+  condominiumList.innerHTML = state.condominiums
+    .map(
+      (condominium) =>
+        `<button class="condo-switcher ${condominium.id === state.activeCondominiumId ? "active" : ""}" data-condominium-id="${condominium.id}"><span class="condo-avatar">${escapeHtml(initials(condominium.name))}</span><span class="condo-copy"><strong>${escapeHtml(condominium.name)}</strong><small>${escapeHtml(condominium.location)}</small></span>${condominium.id === state.activeCondominiumId ? '<span class="active-check">✓</span>' : ""}</button>`
+    )
+    .join("");
+  document.querySelectorAll("[data-condominium-id]").forEach((button) =>
+    button.addEventListener("click", () => {
+      state.activeCondominiumId = button.dataset.condominiumId;
+      state.messages = [];
+      state.activeSource = undefined;
+      closeSource();
+      renderCondominiums();
+      renderMessages();
+      renderWorkspace();
+      toggleSidebar(false);
+    })
+  );
+}
 function renderMessages() {
-  const defaultMessages = [{ role: "assistant", type: "welcome" }];
-  const messages = state.messages.length ? state.messages : defaultMessages;
+  const condominium = activeCondominium();
+  const messages = state.messages.length
+    ? state.messages
+    : [{ role: "assistant", type: "welcome" }];
   messageList.innerHTML = messages
     .map((message) => {
-      if (message.role === "user") {
+      if (message.role === "user")
         return `<div class="message-row user"><div class="message-content"><div class="message-bubble"><p>${escapeHtml(message.text)}</p></div><div class="message-time">agora · enviado</div></div></div>`;
-      }
-      if (message.type === "welcome") {
-        return `<div class="message-row"><div class="message-avatar">c</div><div class="message-content"><div class="message-bubble welcome-message"><p class="message-intro">Oi, ${escapeHtml(state.name || "tudo bem")}! Eu sou a Cora. ✨</p><p>Estou aqui para encontrar respostas nos documentos do <strong>${escapeHtml(state.condo || "seu condomínio")}</strong> e te ajudar a decidir com mais segurança.</p><p>Por onde começamos?</p><div class="quick-actions"><button class="quick-action" data-suggestion="Consultar a convenção sobre locação por temporada">Consultar um documento</button><button class="quick-action" data-suggestion="Quais são as pendências desta semana?">Ver pendências</button><button class="quick-action" data-suggestion="Preciso preparar um aviso para os moradores">Preparar um aviso</button></div></div><div class="message-time">agora · Cora</div></div></div>`;
-      }
+      if (message.type === "welcome")
+        return `<div class="message-row"><div class="message-avatar">c</div><div class="message-content"><div class="message-bubble welcome-message"><p class="message-intro">Oi, ${escapeHtml(state.name || "tudo bem")}! Eu sou a Cora. ✨</p><p>Estou no contexto de <strong>${escapeHtml(condominium.name)}</strong>. Há <strong>${condominium.files.length} arquivo${condominium.files.length === 1 ? "" : "s"}</strong> disponível${condominium.files.length === 1 ? "" : "is"} só aqui.</p><p>Por onde começamos?</p><div class="quick-actions"><button class="quick-action" data-suggestion="Consultar a convenção sobre locação por temporada">Consultar um documento</button><button class="quick-action" data-suggestion="Quais são as pendências desta semana?">Ver pendências</button><button class="quick-action" data-suggestion="Preciso preparar um aviso para os moradores">Preparar um aviso</button></div></div><div class="message-time">agora · Cora</div></div></div>`;
       const citation = message.citation
-        ? `<button class="citation-link" data-citation="source"><span class="citation-dot"></span>${escapeHtml(message.citation)}</button>`
+        ? `<button class="citation-link" data-citation-id="${message.citation.id}"><span class="citation-dot"></span>${escapeHtml(message.citation.name)} · ${escapeHtml(message.citation.details)}</button>`
         : "";
       return `<div class="message-row"><div class="message-avatar">c</div><div class="message-content"><div class="message-bubble"><p>${message.html || escapeHtml(message.text)}</p>${citation}</div><div class="message-time">agora · Cora</div></div></div>`;
     })
     .join("");
-  if (state.pending) {
+  if (state.pending)
     messageList.insertAdjacentHTML(
       "beforeend",
       '<div class="message-row"><div class="message-avatar">c</div><div class="message-content"><div class="message-bubble typing-bubble"><span></span><span></span><span></span></div></div></div>'
     );
-  }
   document
     .querySelectorAll("[data-suggestion]")
     .forEach((button) =>
       button.addEventListener("click", () => submitPrompt(button.dataset.suggestion))
     );
   document
-    .querySelectorAll("[data-citation]")
-    .forEach((button) => button.addEventListener("click", openSource));
+    .querySelectorAll("[data-citation-id]")
+    .forEach((button) =>
+      button.addEventListener("click", () => openSource(button.dataset.citationId))
+    );
   chatCanvas.scrollTop = chatCanvas.scrollHeight;
 }
-
 function getResponse(prompt) {
+  const condominium = activeCondominium();
   const normalized = prompt.toLowerCase();
+  if (!condominium.files.length)
+    return {
+      html: `Não encontrei documentos no espaço de <strong>${escapeHtml(condominium.name)}</strong>. Para não usar informações de outro condomínio, anexe um arquivo a este contexto antes de responder.`
+    };
+  const demoCitation = condominium.files.find((file) => file.id === "demo-convencao");
   if (normalized.includes("locação") || normalized.includes("temporada")) {
+    if (!demoCitation)
+      return {
+        html: "Há arquivos neste condomínio, mas esta prévia não lê seu conteúdo. Por isso, não consigo confirmar uma regra sobre locação por temporada sem inventar uma resposta."
+      };
     return {
-      html: "Na versão confirmada da Convenção, a locação por temporada deve respeitar o limite de 30 dias e as regras de sossego e segurança das áreas comuns. Como esse tema pode envolver interpretação e legislação externa, vale validar o caso concreto antes de aplicar qualquer medida.",
-      citation: "Convenção do condomínio · p. 8"
+      html: "No documento de demonstração disponível neste condomínio, a locação por temporada deve respeitar o limite de 30 dias e as regras de sossego e segurança. Como o tema pode envolver interpretação jurídica, valide o caso concreto antes de aplicar qualquer medida.",
+      citation: demoCitation
     };
   }
-  if (normalized.includes("pendência") || normalized.includes("semana")) {
+  if (normalized.includes("pendência") || normalized.includes("semana"))
     return {
-      html: "Encontrei <strong>3 pendências</strong> abertas para esta semana: renovar o contrato de manutenção dos elevadores, confirmar a vistoria dos extintores e revisar o orçamento da pintura. Posso abrir cada uma e mostrar a fonte relacionada."
+      html: "Nesta prévia, as pendências são simuladas. Em uma versão funcional, elas seriam extraídas apenas dos arquivos deste condomínio, com fonte e confirmação humana."
     };
-  }
-  if (normalized.includes("aviso") || normalized.includes("moradores")) {
+  if (normalized.includes("aviso") || normalized.includes("moradores"))
     return {
-      html: "Posso preparar um rascunho de aviso usando apenas os fatos confirmados nos documentos. Antes de qualquer envio, você revisa o texto e confirma o destinatário."
+      html: "Posso preparar um rascunho usando apenas fatos confirmados nos arquivos deste condomínio. Antes de qualquer envio, você revisa o texto e confirma o destinatário."
     };
-  }
-  if (normalized.includes("assembleia") || normalized.includes("voto")) {
-    return {
-      html: "Posso verificar a regra de quórum e quem pode votar. Para responder com segurança, vou cruzar a Convenção vigente com a ata mais recente e destacar qualquer conflito.",
-      citation: "Convenção do condomínio · p. 12"
-    };
-  }
   return {
-    html: "Posso procurar isso nos documentos autorizados do condomínio. Se eu não encontrar evidência suficiente, vou te avisar claramente e indicar o que precisa ser confirmado."
+    html: "Posso procurar isso somente nos arquivos do condomínio ativo. Se a base não for suficiente, vou indicar essa limitação em vez de usar outro contexto."
   };
 }
-
 function submitPrompt(prompt) {
   const text = String(prompt || "").trim();
   if (!text || state.pending) return;
@@ -238,19 +238,42 @@ function submitPrompt(prompt) {
     renderMessages();
   }, 650);
 }
-
-function openSource() {
-  const drawer = document.querySelector("#sourceDrawer");
-  drawer.classList.add("open");
-  drawer.setAttribute("aria-hidden", "false");
+function openSource(fileId) {
+  state.activeSource = activeCondominium().files.find((file) => file.id === fileId);
+  if (!state.activeSource) return;
+  document.querySelector(".source-doc-card strong").textContent = state.activeSource.name;
+  document.querySelector(".source-doc-card small").textContent = state.activeSource.details;
+  document.querySelector("#sourceExcerpt").textContent =
+    `“${state.activeSource.excerpt || "O conteúdo do arquivo não é processado nesta prévia."}”`;
+  document.querySelector("#sourceDrawer").classList.add("open");
+  document.querySelector("#sourceDrawer").setAttribute("aria-hidden", "false");
 }
-
 function closeSource() {
-  const drawer = document.querySelector("#sourceDrawer");
-  drawer.classList.remove("open");
-  drawer.setAttribute("aria-hidden", "true");
+  document.querySelector("#sourceDrawer").classList.remove("open");
+  document.querySelector("#sourceDrawer").setAttribute("aria-hidden", "true");
 }
-
+function renderWorkspace() {
+  const condominium = activeCondominium();
+  if (!condominium) return;
+  workspaceCurrent.innerHTML = `<strong>${escapeHtml(condominium.name)}</strong><small>${escapeHtml(condominium.location)} · ${condominium.files.length} arquivo${condominium.files.length === 1 ? "" : "s"}</small>`;
+  workspaceFiles.innerHTML = condominium.files.length
+    ? condominium.files
+        .map(
+          (file) =>
+            `<div class="workspace-file"><span>▤</span><div><strong>${escapeHtml(file.name)}</strong><small>${escapeHtml(file.details)}</small></div></div>`
+        )
+        .join("")
+    : '<div class="workspace-empty">Nenhum arquivo foi adicionado a este condomínio. Anexe um dos arquivos fictícios para testar.</div>';
+}
+function openWorkspace() {
+  renderWorkspace();
+  workspaceDrawer.classList.add("open");
+  workspaceDrawer.setAttribute("aria-hidden", "false");
+}
+function closeWorkspace() {
+  workspaceDrawer.classList.remove("open");
+  workspaceDrawer.setAttribute("aria-hidden", "true");
+}
 let toastTimer;
 function showToast(message) {
   toast.textContent = message;
@@ -258,7 +281,6 @@ function showToast(message) {
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 2700);
 }
-
 function toggleSidebar(open) {
   document.querySelector("#chatSidebar").classList.toggle("open", open);
   document.querySelector("#sidebarScrim").classList.toggle("visible", open);
@@ -277,8 +299,34 @@ document
   .addEventListener("click", () => document.querySelector("#fileInput").click());
 document.querySelector("#fileInput").addEventListener("change", (event) => {
   const file = event.target.files?.[0];
-  if (file) showToast(`“${file.name}” pronto para entrar na base documental.`);
+  if (file) {
+    activeCondominium().files.push({
+      id: `file-${Date.now()}`,
+      name: file.name,
+      details: "Anexado nesta sessão · demonstração",
+      excerpt: "O conteúdo do arquivo não é processado nesta prévia."
+    });
+    renderWorkspace();
+    renderMessages();
+    showToast(`“${file.name}” foi adicionado somente a ${activeCondominium().name}.`);
+  }
   event.target.value = "";
+});
+document.querySelector("#addCondominium").addEventListener("click", openWorkspace);
+document.querySelector("#closeWorkspace").addEventListener("click", closeWorkspace);
+document.querySelector("#addCondominiumForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = document.querySelector("#newCondominiumName").value.trim();
+  const location = document.querySelector("#newCondominiumLocation").value.trim();
+  if (!name) return showToast("Informe o nome do novo condomínio.");
+  const condominium = createCondominium(name, location);
+  state.messages = [];
+  document.querySelector("#newCondominiumName").value = "";
+  document.querySelector("#newCondominiumLocation").value = "";
+  renderCondominiums();
+  renderMessages();
+  renderWorkspace();
+  showToast(`${condominium.name} foi criado com um espaço de arquivos separado.`);
 });
 document.querySelector("#openSidebar").addEventListener("click", () => toggleSidebar(true));
 document.querySelector("#closeSidebar").addEventListener("click", () => toggleSidebar(false));
@@ -287,20 +335,17 @@ document.querySelector("#closeSource").addEventListener("click", closeSource);
 document
   .querySelector("#sourceOpenButton")
   .addEventListener("click", () =>
-    showToast("Visualização completa da fonte ficará disponível no próximo passo.")
+    showToast("A visualização do arquivo completo será incluída em uma próxima etapa.")
   );
 document
   .querySelectorAll("[data-nav]")
   .forEach((button) =>
     button.addEventListener("click", () =>
-      showToast(
-        `${button.dataset.nav === "documentos" ? "Documentos" : "Pendências"}: seção demonstrativa.`
-      )
+      button.dataset.nav === "documentos"
+        ? openWorkspace()
+        : showToast("Pendências: seção demonstrativa.")
     )
   );
-
 renderOnboarding();
-
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator)
   navigator.serviceWorker.register("./sw.js").catch(() => undefined);
-}

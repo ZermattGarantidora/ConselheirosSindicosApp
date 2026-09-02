@@ -95,16 +95,11 @@
           <div class="sidebar-section">
             <div class="section-label-row">
               <span>SEUS CONDOMÍNIOS</span>
-              <button class="mini-add" aria-label="Adicionar condomínio">+</button>
+              <button class="mini-add" id="addCondominium" aria-label="Adicionar condomínio">
+                +
+              </button>
             </div>
-            <button class="condo-switcher active">
-              <span class="condo-avatar">RA</span>
-              <span class="condo-copy"
-                ><strong id="sidebarCondoName">Residencial Aurora</strong
-                ><small>São Paulo, SP</small></span
-              >
-              <span class="active-check">✓</span>
-            </button>
+            <div id="condominiumList"></div>
           </div>
           <nav class="primary-nav" aria-label="Seções">
             <button class="nav-item active">
@@ -165,7 +160,7 @@
               >
                 ＋
               </button>
-              <input type="file" id="fileInput" accept=".pdf,.doc,.docx,image/*" hidden />
+              <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt,image/*" hidden />
               <textarea
                 id="messageInput"
                 rows="1"
@@ -204,10 +199,39 @@
             Abrir documento completo <span>↗</span>
           </button>
         </aside>
+        <aside class="workspace-drawer" id="workspaceDrawer" aria-hidden="true">
+          <div class="source-drawer-head">
+            <div>
+              <span class="source-eyebrow">ESPAÇO DE DEMONSTRAÇÃO</span>
+              <h2>Condomínios e arquivos</h2>
+            </div>
+            <button class="icon-button" id="closeWorkspace" aria-label="Fechar painel">×</button>
+          </div>
+          <p class="workspace-intro">
+            Os arquivos abaixo pertencem somente ao condomínio selecionado. Nesta prévia, tudo fica
+            apenas nesta sessão do navegador.
+          </p>
+          <div class="workspace-current" id="workspaceCurrent"></div>
+          <div class="workspace-files" id="workspaceFiles"></div>
+          <form class="workspace-form" id="addCondominiumForm">
+            <label for="newCondominiumName">Adicionar outro condomínio</label>
+            <input
+              id="newCondominiumName"
+              class="text-field"
+              placeholder="Ex.: Edifício Horizonte"
+            />
+            <input
+              id="newCondominiumLocation"
+              class="text-field"
+              placeholder="Cidade e estado (opcional)"
+            />
+            <button type="submit" class="primary-button">Criar condomínio</button>
+          </form>
+        </aside>
         <div class="sidebar-scrim" id="sidebarScrim"></div>
       </main>
     </div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>
