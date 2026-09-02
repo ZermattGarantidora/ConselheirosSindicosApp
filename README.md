@@ -48,6 +48,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 - [Adoção futura de GitHub](docs/quality/github-deferred.md)
 - [Rastreabilidade](docs/quality/traceability.md)
 - [Estratégia de evals](evals/README.md)
+- [Roadmap diário por blocos B1–B8](docs/product/roadmap-blocos.md)
 
 ## Fluxo spec-driven
 
@@ -63,9 +64,9 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 
 ## Estado da implementação
 
-O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migration inicial de identidade. A seleção de condomínio, a negação de acesso, a revogação, o cache e a recuperação sintética já possuem testes. A validação de RLS contra PostgreSQL real no Neon, exclusivamente com fixtures sintéticas, ainda é obrigatória antes de considerar a camada de persistência entregue.
+O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migration inicial de identidade. A seleção de condomínio, a negação de acesso, a revogação, o cache e a recuperação sintética já possuem testes. A validação de RLS contra PostgreSQL real no Neon foi concluída em 2026-09-02, exclusivamente com fixtures sintéticas: 4/4 cenários passaram.
 
-O próximo marco é executar a migration no banco Neon exclusivo de integração e rodar os testes de RLS; depois, iniciaremos ingestão e versão de documentos. GitHub e CI remoto continuam adiados, mas os gates locais são obrigatórios. Dados reais e piloto exigem uma política de dados específica aprovada.
+O próximo marco é iniciar ingestão e versionamento de documentos. GitHub e CI remoto continuam adiados, mas os gates locais são obrigatórios. Dados reais e piloto exigem uma política de dados específica aprovada.
 
 ## Comandos
 

@@ -25,7 +25,7 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 
 - [x] **T201** Modelar `User`, `Condominium` e `Membership` na migration inicial e nos contratos TypeScript.
 - [x] **T202** Implementar `AuthorizedCondominiumContext` e negação por padrão no caso de uso e na API.
-- [~] **T203** Implementar políticas de isolamento na persistência. A migration com RLS e os testes de integração foram criados; falta criar o banco Neon exclusivo de integração, executar a migration e registrar o resultado contra PostgreSQL real.
+- [x] **T203** Implementar políticas de isolamento na persistência. A migration existente no banco Neon exclusivo de integração foi verificada e os testes contra PostgreSQL/RLS real passaram: 4/4 cenários em 2026-09-02.
 - [x] **T204** Criar dois condomínios sintéticos com frases-canário distintas para testes de recuperação.
 - [x] **T205** Automatizar AC-001, AC-002, AC-003, AC-008 e AC-009 com testes e2e e unitários sintéticos.
 

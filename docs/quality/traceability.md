@@ -1,7 +1,7 @@
 # Matriz de rastreabilidade — Spec 001
 
-**Status:** primeira fatia local parcialmente implementada  
-**Atualizado em:** 2026-09-01
+**Status:** primeira fatia local parcialmente implementada; isolamento RLS validado em PostgreSQL real
+**Atualizado em:** 2026-09-02
 
 Esta matriz liga promessas a critérios de aceitação e evidàncias de verificação. Os identificadores de testes serão preenchidos quando o scaffold for criado.
 
@@ -30,7 +30,7 @@ Esta matriz liga promessas a critérios de aceitação e evidàncias de verifica
 | RQ-012 Auditoria e custo | AC-020 | — | `audit/answer-trace` |
 | RQ-013 Falha segura | AC-021 | EVAL-019 | `answers/dependency-failure` |
 | RQ-014 Formato da resposta | AC-010, AC-014, AC-016, AC-018 | EVAL-018 | `answers/response-schema` |
-| ADR 0007 — alvo Neon sintético | marcador persistente, URL PostgreSQL com TLS e papel runtime seguro | — | `scripts/neon-integration-guard.ts`; `tests/unit/neon-integration-guard.test.ts`; `tests/integration/rls-tenant-isolation.test.ts` |
+| ADR 0007 — alvo Neon sintético | marcador persistente, URL PostgreSQL com TLS e papel runtime seguro; migration existente verificada; 4/4 testes RLS aprovados em 2026-09-02 | — | `scripts/neon-integration-guard.ts`; `tests/unit/neon-integration-guard.test.ts`; `tests/integration/rls-tenant-isolation.test.ts` |
 
 ## Regra de manutenção
 
