@@ -31,10 +31,10 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 
 ## Fase 3 — Documentos
 
-- [ ] **T301** Modelar `Document`, `DocumentVersion`, páginas, chunks e jobs.
-- [ ] **T302** Implementar upload privado com validação e hash.
-- [ ] **T303** Implementar extração de PDF textual preservando páginas.
-- [ ] **T304** Implementar adaptador de OCR e indicador de qualidade.
+- [x] **T301** Modelar `Document`, `DocumentVersion`, páginas, chunks e jobs. A migration 002 e os contratos TypeScript preservam tenant, imutabilidade de versão, estados e vigência pendente; a aplicação no banco ocorre junto do próximo gate de integração sintética. Verificação em 02/09/2026: `pnpm run check` aprovado (37 testes); a integração requer o alvo Neon sintético configurado.
+- [x] **T302** Implementar upload privado com validação e hash. O endpoint aceita somente PDF com assinatura válida, limita o tamanho, exige contexto autorizado com permissão de upload, cria uma chave opaca por condomínio e remove o original quando o registro falha. Verificação em 02/09/2026: `pnpm run check` aprovado; a persistência PostgreSQL e o processamento assíncrono serão conectados nas próximas tarefas.
+- [x] **T303** Implementar extração de PDF textual preservando páginas. O adaptador local PDF.js extrai texto em ordem, registra índice interno, página humana, hash e sinal de texto ausente, sem logar conteúdo. Verificação em 02/09/2026: `pnpm run check` aprovado; a execução pelo job persistido será conectada junto do fluxo de processamento.
+- [x] **T304** Implementar adaptador de OCR e indicador de qualidade. O contrato permite troca de provedor; sem OCR local configurado ou abaixo do piso, a versão fica em `needs_review`, sem publicar resultado como pronto. Verificação em 02/09/2026: `pnpm run check` aprovado. A seleção de um provedor permanece bloqueada pelo ADR 0006 e pela avaliação de privacidade, custo e qualidade.
 - [ ] **T305** Implementar versão, vigência e estados de processamento.
 - [ ] **T306** Automatizar AC-004 a AC-007.
 

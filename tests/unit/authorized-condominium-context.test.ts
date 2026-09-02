@@ -45,7 +45,7 @@ describe("AuthorizedCondominiumContext", () => {
       condominiumId: "alameda",
       userId: "sindico-1",
       roleKey: "manager",
-      permissions: ["document:read"]
+      permissions: ["document:read", "document:upload"]
     });
     expect(Object.isFrozen(context)).toBe(true);
   });

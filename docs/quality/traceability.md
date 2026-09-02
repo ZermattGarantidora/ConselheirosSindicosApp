@@ -17,8 +17,8 @@ Esta matriz liga promessas a critérios de aceitação e evidàncias de verifica
 | Requisito | Critérios de aceitação | Evals | Teste determinístico futuro |
 |---|---|---|---|
 | RQ-001 Contexto autorizado e selecionado | AC-001, AC-002, AC-003, AC-022 | EVAL-010, EVAL-011, EVAL-012 | `tests/e2e/identity-context.e2e.test.ts`; `tests/unit/authorized-condominium-context.test.ts`; `tests/integration/rls-tenant-isolation.test.ts` |
-| RQ-002 Ingestão de PDF | AC-004, AC-005 | EVAL-014 | `documents/pdf-ingestion` |
-| RQ-003 Versão e vigência | AC-006, AC-007 | EVAL-008, EVAL-009 | `documents/version-validity` |
+| RQ-002 Ingestão de PDF | AC-004, AC-005 | EVAL-014 | `documents/pdf-ingestion`; `tests/unit/document-model.test.ts`; `tests/unit/upload-document.test.ts`; `tests/unit/extract-pdf-text.test.ts`; `tests/unit/ocr-quality.test.ts`; `tests/e2e/identity-context.e2e.test.ts` |
+| RQ-003 Versão e vigência | AC-006, AC-007 | EVAL-008, EVAL-009 | `documents/version-validity`; `tests/unit/document-model.test.ts` |
 | RQ-004 Recuperação isolada | AC-008, AC-009 | EVAL-010, EVAL-012 | `tests/unit/scoped-retrieval.test.ts` |
 | RQ-005 Resposta fundamentada | AC-010, AC-011 | EVAL-001–EVAL-005, EVAL-015 | `answers/grounded-response` |
 | RQ-006 Citações verificáveis | AC-012, AC-013 | EVAL-001–EVAL-005, EVAL-015 | `citations/source-location` |
