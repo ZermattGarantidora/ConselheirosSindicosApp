@@ -21,7 +21,7 @@
 ## Riscos aceitos para esta fase
 
 - Não há criptografia em repouso adicional para corpus sintético local; a aceitação não se estende a dados reais.
-- Não há provedor externo de identidade, storage, OCR ou IA; portanto, não há transferência de conteúdo a terceiros.
+- Não há provedor externo de identidade ou storage. A exceção limitada do ADR 0009 permite enviar exclusivamente PDFs sintéticos ao OCR da OpenAI, com `store: false`, sem registrar conteúdo ou chave em logs. Nenhum dado real, pessoal ou de piloto pode ser enviado.
 - Não há disponibilidade, backup, disaster recovery ou suporte operacional prometidos nesta fase.
 
 ## Riscos não aceitos

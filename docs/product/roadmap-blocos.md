@@ -1,93 +1,74 @@
-# Roadmap diário por blocos
+# Cronograma e visão de futuro por blocos
 
 **Status:** referência operacional do projeto  
-**Atualizado em:** 2026-09-02
+**Atualizado em:** 2026-09-03
 
-Este documento define a nomenclatura usada para acompanhar o trabalho diário. Os blocos organizam entregas por dependência e importância; não representam versões do produto nem substituem as tarefas da Spec 001.
+Este documento explica o caminho do produto em blocos. Cada bloco representa uma etapa compreensível do trabalho. A previsão abaixo é indicativa: um bloco só é dado como concluído quando o código, os testes, a segurança e a documentação estiverem coerentes.
 
-## Regra de execução
+## Em que ponto estamos
 
-- A meta normal é concluir um bloco principal por dia.
-- Blocos grandes devem ser divididos em subblocos, sem pular testes, segurança ou documentação.
-- Um bloco só é concluído quando seu código, testes, documentação e gates aplicáveis estiverem coerentes.
-- A sequência padrão é B1 → B2 → B3 → B4 → B5 → B6 → B7.
+Os blocos **B1**, **B2** e **B3** já foram concluídos. A separação entre condomínios foi validada com dados sintéticos, e o fluxo documental foi automatizado com upload privado, processamento persistido, OCR, versões e vigência.
 
-## Blocos
+## Cronograma
 
-### B1 — Neon e isolamento RLS ✅
+| Bloco | Quando, aproximadamente | O que faremos | O que ficará visível ao final |
+|---|---|---|---|
+| **B1 — Separar os condomínios** ✅ | Concluído em 02/09/2026 | Garantir que cada condomínio tenha seus próprios dados e que ninguém veja informações sem autorização. | Uma pessoa pode trabalhar com mais de um condomínio sem misturar as informações. |
+| **B2 — Fechar a base atual** ✅ | Concluído em 02/09/2026 | Rodar os testes, revisar as alterações e deixar a fundação pronta para receber as próximas partes. | Uma base de desenvolvimento confiável para continuar construindo. |
+| **B3 — Colocar os documentos para dentro** ✅ | Concluído em 03/09/2026 | Receber arquivos, guardar o original, ler PDFs, reconhecer documentos escaneados e controlar versões e datas de validade. | O síndico consegue enviar documentos e saber se estão prontos para consulta ou precisam de revisão. |
+| **B4 — Encontrar os trechos certos** 🔴 | Semanas 3 e 4 | Criar a busca que procura somente dentro do condomínio escolhido e encontra as páginas mais relevantes. | O sistema localiza a regra ou decisão relacionada à pergunta. |
+| **B5 — Criar o chat confiável** 🔴 | Semanas 5 e 6 | Permitir perguntas e continuações em linguagem natural, montar respostas com fontes, reconhecer falta de informação, mostrar conflitos e recomendar especialista quando necessário. | O síndico conversa sem aprender comandos, recebe uma resposta direta, confere a fonte e entende quando não há segurança para responder. |
+| **B6 — Aprender com o uso** 🔴 | Semana 7 | Registrar avaliações, erros, facilidade de uso, tempo de resposta e custo; executar os casos de teste e corrigir problemas. | Sabemos se as respostas estão corretas, se a conversa é fácil, se as fontes ajudam e quanto custa cada resposta aprovada. |
+| **B7 — Preparar e conduzir o piloto** 🔴 | Semanas 8 e 9 | Fazer os últimos testes de segurança, definir uma cobrança acessível, organizar documentos autorizados ou anonimizados e começar um piloto pequeno. Depois que o núcleo demonstrar confiança, testar um convite separado e opcional para conhecer a Zermatt. | Síndicos testam a primeira versão com acompanhamento humano; medimos utilidade, confiança, custo e interesse comercial consentido. |
+| **B8 — Evoluir depois da validação** ⏸️ | Após os gates e o piloto | Avaliar provedor real de IA, GitHub e CI remoto, uso de dados reais, integrações, automações e evolução do fluxo comercial somente quando houver autorização, política de dados e evidência de valor. | O produto evolui sem colocar confiança, segurança ou custo em risco. |
 
-Concluído em 2026-09-02.
+O cronograma começa no ponto atual e pode ser ajustado conforme os testes. Se um bloco encontrar um problema de segurança, a prioridade será corrigi-lo antes de avançar.
 
-- Banco Neon exclusivo de integração sintética.
-- Marcador persistente, TLS e confirmação `synthetic-only`.
-- Validação de segurança do papel `app_runtime`.
-- Isolamento por `app.user_id` e `app.condominium_id`.
-- 4/4 cenários reais de RLS aprovados.
-- T203 concluída.
+## Visão de futuro em linguagem simples
 
-### B2 — Fechamento da entrega atual ✅
+No futuro, o síndico abrirá o sistema, escolherá o condomínio e poderá perguntar algo como:
 
-Concluído em 2026-09-02.
+> “O que a convenção diz sobre aluguel por temporada?”
 
-- `pnpm run check` e `pnpm run test:e2e` aprovados após as últimas alterações.
-- PATH do `pnpm` corrigido no hook Git e validado pelo próprio Git.
-- Diff completo revisado sem achados P0/P1.
-- Registro de code review criado e gate `verify:merge` aprovado.
-- Alterações documentais pendentes commitadas.
+O sistema procurará nos documentos autorizados daquele condomínio e responderá em cinco partes:
 
-### B3 — Documentos 🔴
+1. uma resposta curta e direta;
+2. o documento, a versão, a página e o trecho usados;
+3. pontos que merecem cuidado;
+4. um próximo passo sugerido;
+5. um aviso para consultar advogado, contador, engenheiro ou outro especialista quando o assunto exigir.
 
-- Modelar documentos, versões, páginas, chunks e jobs.
-- Implementar upload privado com validação e hash.
-- Extrair texto de PDF preservando páginas.
-- Criar adaptador de OCR e indicador de qualidade.
-- Implementar vigência e estados de processamento.
-- Automatizar AC-004 a AC-007.
+Se os documentos não forem suficientes, o sistema dirá isso claramente. Se duas fontes trouxerem regras diferentes, mostrará as duas em vez de escolher uma escondido.
 
-### B4 — Retrieval 🔴
+Com o tempo, o mesmo lugar também ajudará o síndico a:
 
-- Definir contrato de evidência e estratégia de chunking.
-- Implementar indexação textual e semântica.
-- Filtrar por condomínio antes do ranking.
-- Avaliar suficiência, conflito e relevância.
-- Implementar cache por condomínio, permissão e versão.
-- Testar isolamento em todas as interfaces.
+- acompanhar vencimentos, manutenções e obrigações;
+- lembrar o que está atrasado ou próximo do prazo;
+- preparar rascunhos de comunicados, sempre para aprovação humana;
+- resumir atas, convenções e contratos;
+- guardar a memória das decisões do condomínio;
+- identificar problemas que se repetem;
+- trabalhar com vários condomínios sem misturar seus dados.
 
-### B5 — Chat fundamentado 🔴
+Para o síndico, a experiência deve ser fácil: fazer uma pergunta, conferir a fonte e decidir o próximo passo. O produto pode ser sofisticado, mas a complexidade ficará por trás do sistema, que usará o recurso mais econômico capaz de dar uma resposta segura e registrará como chegou a cada conclusão.
 
-- Criar o endpoint real do chat.
-- Fixar o contexto autorizado antes de cada consulta.
-- Gerar respostas com citações verificáveis.
-- Implementar abstenção, conflito e falha segura.
-- Implementar risco e escalonamento para especialista.
-- Conectar a interface web ao backend.
+## O que o produto não pretende virar agora
 
-### B6 — Feedback, auditoria e evals 🔴
+O projeto não começa tentando substituir o sistema inteiro de administração do condomínio. Permanecem fora do início contabilidade completa, boletos e banco, portaria, aplicativo completo para moradores, marketplace de fornecedores, envio automático de mensagens e decisões irreversíveis.
 
-- Implementar feedback imutável.
-- Criar auditoria e telemetria mínima.
-- Executar o corpus sintético e os evals.
-- Medir correção, citações, abstenção, custo e latência.
-- Criar regressões automatizadas.
+Essas escolhas mantêm o foco na pergunta principal: **o síndico consegue encontrar uma informação confiável e agir com mais segurança e menos perda de tempo?**
 
-### B7 — Preparação e execução do piloto 🔴
+## Critério para avançar
 
-- Testar upload malicioso e prompt injection.
-- Validar exportação, exclusão, retenção e revogação.
-- Preparar procedimento de incidentes e rollback.
-- Ampliar o corpus com documentos anonimizados.
-- Executar checklist de release.
+Depois do B7, só ampliaremos o produto se o piloto mostrar que os síndicos:
 
-### B8 — Itens adiados ⏸️
+- voltam a usar o sistema semanalmente;
+- economizam tempo de forma perceptível;
+- confiam nas respostas porque conseguem conferir as fontes;
+- aceitam pagar um preço acessível que ajude a cobrir o custo do serviço;
+- geram um custo sustentável por condomínio;
+- e, sem pressão, parte deles solicita conhecer ou simular os serviços da Zermatt.
 
-- GitHub, CI remoto e proteção remota de branch.
-- Provedor real de IA.
-- Dados reais de clientes.
-- Piloto em produção antes dos gates de segurança e qualidade.
-- Ações externas automatizadas.
+Enquanto esses sinais não aparecerem, continuaremos melhorando o núcleo documental em vez de adicionar funções apenas por volume.
 
-## Versão e piloto
-
-`v0.1` será a primeira versão candidata a uso, depois que B3 a B6 estiverem implementados e os gates aplicáveis passarem.
-
-O piloto é uma fase controlada de validação da `v0.1`, com usuários e condomínios selecionados, documentos autorizados ou anonimizados, revisão humana e métricas de qualidade. Portanto, `v0.1` e piloto são relacionados, mas não são a mesma coisa.
+O fluxo comercial não muda os blocos B4, B5 e B6. Primeiro o produto precisa encontrar a evidência certa, conversar bem, errar o mínimo possível e demonstrar confiança. A aproximação com a Zermatt entra no piloto apenas como uma opção separada, acionada pelo próprio usuário e sem uso oculto dos documentos para prospecção.

@@ -75,3 +75,11 @@ Avaliação do usuário sobre uma resposta: correta, incorreta, incompleta ou de
 ## Eval
 
 Avaliação repetível do comportamento probabilístico da aplicação, executada sobre casos controlados e sem dados reais de clientes.
+
+## Lead ou oportunidade comercial qualificada
+
+Usuário que manifesta explicitamente interesse em conhecer, simular ou conversar sobre os serviços da Zermatt. Visualizar uma oferta, fazer uma pergunta relacionada a finanças ou possuir determinado conteúdo em um documento não é suficiente para classificar alguém como lead.
+
+## Consentimento comercial
+
+Ação clara pela qual o usuário solicita ou autoriza contato da Zermatt e o compartilhamento dos dados mínimos necessários com a equipe comercial. Aceitar os termos do aplicativo ou apenas utilizar uma funcionalidade não equivale a consentimento comercial.
