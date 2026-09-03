@@ -34,7 +34,10 @@ function averageQuality(pages: readonly OcrPageResult[]): number {
   return pages.reduce((sum, page) => sum + page.qualityScore, 0) / pages.length;
 }
 
-export function assessOcrResult(result: OcrResult): OcrProcessingDecision {
+export function assessOcrResult(
+  result: OcrResult,
+  expectedPageCount?: number
+): OcrProcessingDecision {
   if (result.status === "unavailable") {
     return Object.freeze({
       processingStatus: "needs_review",
@@ -43,7 +46,13 @@ export function assessOcrResult(result: OcrResult): OcrProcessingDecision {
     });
   }
 
+  const hasExpectedPageSet =
+    expectedPageCount === undefined ||
+    (expectedPageCount > 0 &&
+      result.pages.length === expectedPageCount &&
+      result.pages.every((page, index) => page.pageIndex === index));
   const hasValidPages =
+    hasExpectedPageSet &&
     result.pages.length > 0 &&
     result.pages.every((page) => {
       return (

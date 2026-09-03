@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import type { CondominiumId } from "../core/condominium-scope.js";
@@ -15,6 +15,12 @@ export interface PrivateDocumentStorage {
   removeOriginal(
     input: Readonly<{ condominiumId: CondominiumId; objectId: string }>
   ): Promise<void>;
+}
+
+export interface PrivateDocumentReader {
+  readOriginal(
+    input: Readonly<{ condominiumId: CondominiumId; objectId: string }>
+  ): Promise<Buffer>;
 }
 
 function tenantStorageSegment(condominiumId: CondominiumId): string {
@@ -47,7 +53,9 @@ export function createPrivateStorageKey(condominiumId: CondominiumId, objectId: 
   return `tenants/${tenantStorageSegment(condominiumId)}/objects/${objectId}`;
 }
 
-export function createLocalPrivateDocumentStorage(rootDirectory: string): PrivateDocumentStorage {
+export function createLocalPrivateDocumentStorage(
+  rootDirectory: string
+): PrivateDocumentStorage & PrivateDocumentReader {
   return {
     async storeOriginal({ condominiumId, objectId, content }) {
       const target = objectPath(rootDirectory, condominiumId, objectId);
@@ -58,6 +66,9 @@ export function createLocalPrivateDocumentStorage(rootDirectory: string): Privat
     },
     async removeOriginal({ condominiumId, objectId }) {
       await rm(objectPath(rootDirectory, condominiumId, objectId), { force: true });
+    },
+    async readOriginal({ condominiumId, objectId }) {
+      return readFile(objectPath(rootDirectory, condominiumId, objectId));
     }
   };
 }

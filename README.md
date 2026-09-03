@@ -20,7 +20,7 @@ scripts/           validações e utilitários de desenvolvimento
 
 ## Estado atual
 
-O projeto possui uma fundação local em TypeScript, pnpm e Git. A Spec 001 foi aprovada para implementação local com corpus sintético; as decisões de arquitetura estão nos ADRs 0001–0006. Não há dados reais, provedor de IA, cloud ou interface de produto implementados ainda.
+O projeto possui uma fundação local em TypeScript, pnpm e Git. A Spec 001 foi aprovada para implementação local com corpus sintético; as decisões de arquitetura estão nos ADRs 0001–0009. Não há dados reais ou piloto autorizados. O OCR da OpenAI é permitido exclusivamente para corpus sintético, conforme ADR 0009.
 
 A primeira fatia vertical é a consulta documental com citações e isolamento entre condomínios. O código só deve ser iniciado depois da revisão dos contratos desta fatia.
 
@@ -64,9 +64,9 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 
 ## Estado da implementação
 
-O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migration inicial de identidade. A seleção de condomínio, a negação de acesso, a revogação, o cache e a recuperação sintética já possuem testes. A validação de RLS contra PostgreSQL real no Neon foi concluída em 2026-09-02, exclusivamente com fixtures sintéticas: 4/4 cenários passaram.
+O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migrations PostgreSQL/RLS. A seleção de condomínio, a negação de acesso, a revogação, o cache, a recuperação sintética e a ingestão documental já possuem testes. O fluxo B3 registra o original e a versão, enfileira o processamento, extrai PDF por página, encaminha OCR fraco para revisão e preserva versões e vigências.
 
-O próximo marco é iniciar ingestão e versionamento de documentos. GitHub e CI remoto continuam adiados, mas os gates locais são obrigatórios. Dados reais e piloto exigem uma política de dados específica aprovada.
+O próximo marco é iniciar o retrieval isolado do B4. GitHub e CI remoto continuam adiados, mas os gates locais são obrigatórios. Dados reais e piloto exigem uma política de dados específica aprovada.
 
 ## Comandos
 
@@ -96,8 +96,16 @@ Em terminais separados, execute:
 ```powershell
 pnpm run dev:api
 pnpm run dev:web
+```
+
+Com PostgreSQL disponível e `DATABASE_URL` definido, a API usa identidade, upload e fila persistidos; execute o worker persistido para processar um job:
+
+```powershell
+$env:DATABASE_URL = "postgresql://postgres:local-development-only@127.0.0.1:5432/conselheiro"
 pnpm run worker
 ```
+
+Para criar uma nova versão, envie o `x-document-id` da versão anterior no upload; sem esse cabeçalho, a API cria um documento novo.
 
 A API usa `http://127.0.0.1:3000`, o cliente usa `http://127.0.0.1:5173` e ambos trabalham somente com dados sintéticos. Para executar o cenário end-to-end de seleção de condomínio:
 

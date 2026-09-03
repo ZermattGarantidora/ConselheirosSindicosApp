@@ -76,6 +76,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       "x-development-user-id"?: string;
       "x-document-title"?: string;
       "x-document-type"?: string;
+      "x-document-id"?: string;
     };
     Body: Buffer;
   }>("/v1/condominiums/:condominiumId/documents", async (request, reply) => {
@@ -96,6 +97,9 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       const uploaded = await uploadDocument(documentStorage, documentUploadRepository, context, {
         title: request.headers["x-document-title"] ?? "",
         documentType: request.headers["x-document-type"] ?? "",
+        ...(request.headers["x-document-id"] === undefined
+          ? {}
+          : { documentId: request.headers["x-document-id"] }),
         content: request.body
       });
 

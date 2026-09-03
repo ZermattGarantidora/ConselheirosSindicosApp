@@ -47,6 +47,8 @@ const documentTypes: readonly DocumentType[] = [
   "other"
 ];
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
 function assertPdf(content: Buffer): void {
   if (content.length === 0 || content.length > maximumPdfUploadBytes) {
     throw new InvalidDocumentUploadError("O PDF excede o limite permitido.");
@@ -75,7 +77,12 @@ export async function uploadDocument(
   storage: PrivateDocumentStorage,
   repository: DocumentUploadRepository,
   context: AuthorizedCondominiumContext,
-  input: Readonly<{ title: string; documentType: string; content: Buffer }>
+  input: Readonly<{
+    title: string;
+    documentType: string;
+    content: Buffer;
+    documentId?: string;
+  }>
 ): Promise<UploadedDocumentRecord> {
   if (!context.permissions.includes("document:upload")) {
     throw new DocumentUploadForbiddenError();
@@ -83,7 +90,10 @@ export async function uploadDocument(
 
   assertPdf(input.content);
   const documentType = validateMetadata(input);
-  const documentId = randomUUID();
+  const documentId = input.documentId?.trim() || randomUUID();
+  if (!uuidPattern.test(documentId)) {
+    throw new InvalidDocumentUploadError("O identificador do documento é inválido.");
+  }
   const documentVersionId = randomUUID();
   const storageObjectId = randomUUID();
   const stored = await storage.storeOriginal({

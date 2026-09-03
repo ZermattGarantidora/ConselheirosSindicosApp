@@ -142,4 +142,42 @@ describe("upload privado de documento", () => {
     ).rejects.toBeInstanceOf(DocumentUploadForbiddenError);
     expect(fixture.stored).toEqual([]);
   });
+
+  it("aceita o identificador de um documento existente para criar nova versão", async () => {
+    const fixture = createStorage();
+    const documentId = "11111111-1111-4111-8111-111111111111";
+    let recorded: UploadedDocumentRecord | undefined;
+
+    await uploadDocument(
+      fixture.storage,
+      {
+        async recordUploaded(record) {
+          recorded = record;
+        }
+      },
+      context,
+      {
+        title: "Convenção revisada",
+        documentType: "convention",
+        documentId,
+        content: Buffer.from("%PDF-1.7")
+      }
+    );
+
+    expect(recorded?.documentId).toBe(documentId);
+  });
+
+  it("rejeita identificador de documento inválido antes de gravar", async () => {
+    const fixture = createStorage();
+
+    await expect(
+      uploadDocument(fixture.storage, { async recordUploaded() {} }, context, {
+        title: "Documento inválido",
+        documentType: "other",
+        documentId: "documento-inválido",
+        content: Buffer.from("%PDF-1.7")
+      })
+    ).rejects.toThrow("identificador do documento");
+    expect(fixture.stored).toEqual([]);
+  });
 });

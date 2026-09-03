@@ -13,7 +13,7 @@
     "dev:api": "tsx -e \"import('./apps/api/app/server.ts').then(({ startServer }) => startServer())\"",
     "dev:web": "vite --config vite.config.ts",
     "build:web": "vite build --config vite.config.ts",
-    "worker": "tsx -e \"import('./apps/api/worker/worker.ts').then(({ startWorker }) => startWorker())\"",
+    "worker": "tsx -e \"import('./apps/api/worker/worker.ts').then(({ startPersistentWorkerFromEnvironment }) => startPersistentWorkerFromEnvironment())\"",
     "db:up": "docker compose up -d database",
     "db:migrate": "docker compose exec -T database sh -c \"for migration in /migrations/*.sql; do psql -U postgres -d conselheiro -v ON_ERROR_STOP=1 -f \\\"$migration\\\" || exit 1; done\"",
     "db:migrate:neon": "tsx scripts/migrate-neon-integration.ts",

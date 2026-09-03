@@ -29,6 +29,9 @@ export type DocumentVersion = Readonly<{
 export type DocumentVersionState = Readonly<{
   processingStatus: DocumentProcessingStatus;
   validityStatus: DocumentValidityStatus;
+  validFrom: string | null;
+  validUntil: string | null;
+  ocrQualityScore: number | null;
 }>;
 
 export type DocumentPage = Readonly<{
@@ -71,6 +74,89 @@ export function createDocumentVersion(
 
   return Object.freeze({
     version: Object.freeze({ ...input }),
-    state: Object.freeze({ processingStatus: "uploaded", validityStatus: "pending" })
+    state: Object.freeze({
+      processingStatus: "uploaded",
+      validityStatus: "pending",
+      validFrom: null,
+      validUntil: null,
+      ocrQualityScore: null
+    })
   });
+}
+
+const allowedProcessingTransitions: Readonly<
+  Record<DocumentProcessingStatus, readonly DocumentProcessingStatus[]>
+> = Object.freeze({
+  uploaded: ["processing", "failed"],
+  processing: ["ready", "needs_review", "failed"],
+  ready: [],
+  needs_review: ["processing", "failed"],
+  failed: ["processing"]
+});
+
+function freezeState(state: DocumentVersionState): DocumentVersionState {
+  return Object.freeze({ ...state });
+}
+
+function assertValidDateRange(validFrom: Date | null, validUntil: Date | null): void {
+  if (validFrom !== null && Number.isNaN(validFrom.getTime())) {
+    throw new Error("A data inicial de vigência é inválida.");
+  }
+
+  if (validUntil !== null && Number.isNaN(validUntil.getTime())) {
+    throw new Error("A data final de vigência é inválida.");
+  }
+
+  if (validFrom !== null && validUntil !== null && validUntil <= validFrom) {
+    throw new Error("A data final de vigência deve ser posterior à data inicial.");
+  }
+}
+
+export function transitionDocumentProcessing(
+  state: DocumentVersionState,
+  processingStatus: DocumentProcessingStatus,
+  ocrQualityScore: number | null = state.ocrQualityScore
+): DocumentVersionState {
+  if (!allowedProcessingTransitions[state.processingStatus].includes(processingStatus)) {
+    throw new Error("Transição de processamento documental não permitida.");
+  }
+
+  if (
+    ocrQualityScore !== null &&
+    (!Number.isFinite(ocrQualityScore) || ocrQualityScore < 0 || ocrQualityScore > 1)
+  ) {
+    throw new Error("A qualidade de OCR deve estar entre 0 e 1.");
+  }
+
+  if (processingStatus === "ready" && state.validityStatus === "superseded") {
+    throw new Error("Uma versão substituída não pode voltar a ficar pronta para consulta.");
+  }
+
+  return freezeState({ ...state, processingStatus, ocrQualityScore });
+}
+
+export function confirmDocumentValidity(
+  state: DocumentVersionState,
+  input: Readonly<{ validFrom: Date | null; validUntil: Date | null }>
+): DocumentVersionState {
+  if (state.validityStatus !== "pending") {
+    throw new Error("Somente uma vigência pendente pode ser confirmada.");
+  }
+
+  assertValidDateRange(input.validFrom, input.validUntil);
+
+  return freezeState({
+    ...state,
+    validityStatus: "confirmed",
+    validFrom: input.validFrom === null ? null : input.validFrom.toISOString(),
+    validUntil: input.validUntil === null ? null : input.validUntil.toISOString()
+  });
+}
+
+export function markDocumentVersionSuperseded(state: DocumentVersionState): DocumentVersionState {
+  if (state.validityStatus !== "confirmed") {
+    throw new Error("Somente uma versão com vigência confirmada pode ser substituída.");
+  }
+
+  return freezeState({ ...state, validityStatus: "superseded" });
 }

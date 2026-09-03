@@ -37,6 +37,12 @@ describe("storage privado de documentos", () => {
         storageKey: createPrivateStorageKey(createCondominiumId("alameda"), objectId)
       });
       await expect(
+        storage.readOriginal({
+          condominiumId: createCondominiumId("alameda"),
+          objectId
+        })
+      ).resolves.toEqual(Buffer.from("%PDF-1.7"));
+      await expect(
         storage.removeOriginal({ condominiumId: createCondominiumId("alameda"), objectId })
       ).resolves.toBeUndefined();
     } finally {
