@@ -11,6 +11,7 @@ export type UserId = string & {
 };
 
 export type MembershipStatus = "active" | "revoked" | "expired";
+export type Permission = "document:read" | "document:upload";
 
 export type Membership = Readonly<{
   condominiumId: CondominiumId;
@@ -27,7 +28,7 @@ export type AuthorizedCondominiumContext = Readonly<
     userId: UserId;
     roleKey: Membership["roleKey"];
     membershipRevision: string;
-    permissions: readonly ["document:read"];
+    permissions: readonly Permission[];
   }
 >;
 
@@ -74,11 +75,14 @@ export async function resolveAuthorizedCondominiumContext(
     throw new AccessDeniedError();
   }
 
+  const permissions: readonly Permission[] =
+    membership.roleKey === "manager" ? ["document:read", "document:upload"] : ["document:read"];
+
   return Object.freeze({
     ...withCondominiumScope(input.condominiumId),
     userId: input.userId,
     roleKey: membership.roleKey,
     membershipRevision: membership.revision,
-    permissions: ["document:read"] as const
+    permissions
   });
 }

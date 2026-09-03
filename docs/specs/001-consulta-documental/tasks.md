@@ -25,18 +25,18 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 
 - [x] **T201** Modelar `User`, `Condominium` e `Membership` na migration inicial e nos contratos TypeScript.
 - [x] **T202** Implementar `AuthorizedCondominiumContext` e negação por padrão no caso de uso e na API.
-- [~] **T203** Implementar políticas de isolamento na persistência. A migration com RLS e os testes de integração foram criados; falta criar o banco Neon exclusivo de integração, executar a migration e registrar o resultado contra PostgreSQL real.
+- [x] **T203** Implementar políticas de isolamento na persistência. A migration existente no banco Neon exclusivo de integração foi verificada e os testes contra PostgreSQL/RLS real passaram: 4/4 cenários em 2026-09-02.
 - [x] **T204** Criar dois condomínios sintéticos com frases-canário distintas para testes de recuperação.
 - [x] **T205** Automatizar AC-001, AC-002, AC-003, AC-008 e AC-009 com testes e2e e unitários sintéticos.
 
 ## Fase 3 — Documentos
 
-- [ ] **T301** Modelar `Document`, `DocumentVersion`, páginas, chunks e jobs.
-- [ ] **T302** Implementar upload privado com validação e hash.
-- [ ] **T303** Implementar extração de PDF textual preservando páginas.
-- [ ] **T304** Implementar adaptador de OCR e indicador de qualidade.
-- [ ] **T305** Implementar versão, vigência e estados de processamento.
-- [ ] **T306** Automatizar AC-004 a AC-007.
+- [x] **T301** Modelar `Document`, `DocumentVersion`, páginas, chunks e jobs. As migrations 002–006 e os contratos TypeScript preservam tenant, imutabilidade de versão, estados, vigência pendente, identidade externa e fence de tentativa do worker. Verificação inicial em 02/09/2026 e integração sintética ampliada em 03/09/2026.
+- [x] **T302** Implementar upload privado com validação e hash. O endpoint aceita somente PDF com assinatura válida, limita o tamanho, exige contexto autorizado com permissão de upload, cria uma chave opaca por condomínio, registra original/versão/job em transação e remove o original quando o registro falha. Verificação em 03/09/2026: `pnpm run check` e testes persistidos sintéticos aprovados.
+- [x] **T303** Implementar extração de PDF textual preservando páginas. O adaptador local PDF.js extrai texto em ordem, registra índice interno, página humana, hash e sinal de texto ausente; o worker persistido grava as páginas e chunks no tenant do job. Verificação em 03/09/2026: `pnpm run check` e E2E sintético aprovados.
+- [x] **T304** Implementar adaptador de OCR e indicador de qualidade. O contrato permite troca de provedor; sem OCR local configurado ou abaixo do piso, a versão fica em `needs_review`, sem publicar resultado como pronto. O adaptador da OpenAI foi autorizado somente para PDFs sintéticos no ADR 0009 e é testado sem rede; dados reais e piloto seguem bloqueados. Verificação em 03/09/2026: `pnpm run check` aprovado.
+- [x] **T305** Implementar versão, vigência e estados de processamento. O ciclo de domínio só aceita transições explícitas, impede promoção direta de arquivo enviado, exige confirmação para vigência e para marcar uma versão anterior como substituída, e valida datas. Verificação em `tests/unit/document-model.test.ts` e `tests/unit/version-validity.test.ts`.
+- [x] **T306** Automatizar AC-004 a AC-007. O fluxo persistido conecta API, storage privado, fila, extração local, OCR com piso de qualidade, persistência de páginas/chunks e estados finais; a seleção determinística prioriza a versão vigente, preserva versões anteriores para auditoria, não escolhe silenciosamente vigências sobrepostas e rejeita resultados de tentativas antigas. Verificação em 03/09/2026: `pnpm run check`, `pnpm run test:e2e` e integração Neon sintética 6/6 aprovados com fixtures sintéticas.
 
 ## Fase 4 — Retrieval
 

@@ -1,4 +1,12 @@
 #!/usr/bin/env sh
 set -eu
 
-pnpm run precommit
+PATH="/c/Program Files/nodejs:$LOCALAPPDATA/pnpm:$APPDATA/npm:$PATH"
+export PATH
+
+if ! pnpm.cmd --version >/dev/null 2>&1; then
+  echo "pnpm não foi encontrado no PATH do hook Git." >&2
+  exit 1
+fi
+
+pnpm.cmd run precommit

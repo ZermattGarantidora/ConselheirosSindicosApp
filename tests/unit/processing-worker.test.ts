@@ -18,7 +18,8 @@ describe("worker de processamento", () => {
           return {
             jobId: "job-1",
             condominiumId: createCondominiumId("alameda"),
-            documentVersionId: "version-1"
+            documentVersionId: "version-1",
+            attemptCount: 1
           };
         }
       },
@@ -30,6 +31,39 @@ describe("worker de processamento", () => {
     );
 
     expect(result).toBe("processed");
-    expect(received).toEqual([{ condominiumId: "alameda", documentVersionId: "version-1" }]);
+    expect(received).toEqual([
+      { condominiumId: "alameda", documentVersionId: "version-1", jobId: "job-1", attemptCount: 1 }
+    ]);
+  });
+
+  it("delega a falha ao repositório persistido e preserva o erro original", async () => {
+    const failed: string[] = [];
+    const expected = new Error("falha sintética");
+    const job = {
+      jobId: "job-1",
+      condominiumId: createCondominiumId("alameda"),
+      documentVersionId: "version-1",
+      attemptCount: 1
+    };
+
+    await expect(
+      processOne(
+        {
+          async claimNext() {
+            return job;
+          },
+          async fail(failedJob) {
+            failed.push(failedJob.jobId);
+          }
+        },
+        {
+          async process() {
+            throw expected;
+          }
+        }
+      )
+    ).rejects.toBe(expected);
+
+    expect(failed).toEqual(["job-1"]);
   });
 });
