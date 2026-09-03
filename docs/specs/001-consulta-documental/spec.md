@@ -83,7 +83,7 @@ Síndico profissional que administra mais de um condomínio e precisa consultar 
 - Existe uma associação autorizada entre o usuário e o condomínio.
 - O documento foi processado e seu estado permite consulta.
 - Versão e vigência foram confirmadas ou estão explicitamente marcadas como pendentes.
-- A implementação segue os ADRs 0001 a 0007. Dados reais, provedores externos de produto e piloto continuam bloqueados pela política inicial de dados; o Neon é permitido exclusivamente para integração sintética conforme ADR 0007.
+- A implementação segue os ADRs 0001 a 0009. Dados reais e piloto continuam bloqueados pela política inicial de dados; o Neon é permitido exclusivamente para integração sintética conforme ADR 0007, e o OCR da OpenAI exclusivamente para PDFs sintéticos conforme ADR 0009.
 
 ## 7. Requisitos funcionais
 
