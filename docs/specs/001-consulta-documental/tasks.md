@@ -56,8 +56,8 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 - [ ] **T406** Criar testes de isolamento em todas as interfaces do retrieval. A cobertura inclui
   store/cache sintéticos, ranking, índice PostgreSQL e cenário RLS Neon; a execução Neon depende
   das variáveis sintéticas obrigatórias do ambiente. Os testes foram criados, mas o gate de
-  execução permanece pendente porque `NEON_INTEGRATION_DATABASE_URL` e
-  `NEON_INTEGRATION_CONFIRMATION=synthetic-only` não estavam configurados.
+  execução permanece pendente até corrigir as falhas encontradas no primeiro cenário Neon
+  (`document_chunks` sem leitura para o worker e projeção incompleta de `content_sha256`).
 
 ## Fase 5 — Respostas e citações
 

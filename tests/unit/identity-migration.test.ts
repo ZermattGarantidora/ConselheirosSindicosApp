@@ -100,4 +100,15 @@ describe("migration de identidade e isolamento", () => {
     );
     expect(migration).toContain("current_user = 'app_worker'");
   });
+
+  it("permite ao worker ler chunks para validar a FK do embedding sob RLS", async () => {
+    const migration = await readFile(
+      "infrastructure/database/008_retrieval_worker_rls.sql",
+      "utf8"
+    );
+
+    expect(migration).toContain("CREATE POLICY document_chunks_worker_read");
+    expect(migration).toContain("FOR SELECT TO app_worker");
+    expect(migration).toContain("condominium_id = app.current_condominium_id()");
+  });
 });

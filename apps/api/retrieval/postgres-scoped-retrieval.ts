@@ -131,6 +131,7 @@ export function createPostgresScopedRetrievalIndex(
                 dc.start_offset,
                 dc.end_offset,
                 dc.content,
+                dc.content_sha256,
                 dp.page_number,
                 dp.extraction_method,
                 dp.quality_score,
