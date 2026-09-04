@@ -2,17 +2,25 @@
 
 ## 1. Visão do produto
 
-Criar um produto **AI First** que funcione como um conselheiro operacional do síndico. A IA conversa em linguagem natural e responde usando o contexto autorizado de cada condomínio, como convenção, regimento interno, atas, contratos, orçamentos, fornecedores, manutenções e histórico de ocorrências.
+Construir um conselheiro de IA robusto, fácil de usar, acessível e confiável para síndicos. O produto deve reunir profundidade documental e inteligência operacional em uma experiência intuitiva: o usuário explica sua necessidade em linguagem natural e o sistema encontra o contexto autorizado do condomínio, apresenta a resposta, as evidências, os pontos de atenção e o próximo passo aplicável.
+
+O produto pode ser sofisticado em suas capacidades, mas não deve transferir essa complexidade ao síndico. A IA deve compreender conversas, localizar e cruzar os documentos e versões corretos, produzir recomendações fundamentadas, gerar alertas relevantes e reconhecer situações de risco, conflito ou incerteza.
 
 O produto não deve ser apenas um “ChatGPT com documentos”. Seu valor precisa estar em transformar documentos dispersos em respostas fundamentadas, tarefas acompanháveis e alertas úteis, reduzindo tempo, esquecimento e risco operacional.
 
-O produto também deve ser concebido para ter **o menor custo sustentável possível para o síndico**. A acessibilidade de preço é parte da proposta de valor e da arquitetura, não uma otimização posterior. Cada tarefa deve usar o modelo mais barato que alcance o nível mínimo exigido de precisão, segurança e qualidade.
+Para a Zermatt Garantidora, o aplicativo será um canal de aquisição, relacionamento e construção de confiança com síndicos. Seu objetivo econômico principal não é maximizar a margem da assinatura, mas viabilizar uso recorrente e gerar oportunidades comerciais qualificadas para os serviços da Zermatt, sempre de forma transparente, opcional e consentida.
+
+As respostas, recomendações e alertas da IA devem permanecer independentes do interesse comercial da Zermatt. A utilidade vem antes da oferta: uma oportunidade comercial só pode ser apresentada separadamente quando houver relação legítima com a necessidade do usuário, e nenhum contato pode ocorrer sem uma ação ou confirmação clara do síndico.
+
+O produto deve operar com **o menor custo sustentável capaz de preservar o piso de qualidade**. A acessibilidade de preço é parte da proposta de valor e da arquitetura, não uma otimização posterior. Cada tarefa deve usar o caminho mais econômico que alcance o nível mínimo exigido de precisão, segurança e qualidade. A redução de custo nunca pode justificar uma resposta menos confiável.
 
 ## 2. Hipótese central
 
 Síndicos perdem tempo procurando informações, interpretando regras, cobrando fornecedores, acompanhando prazos e redigindo comunicações. Um conselheiro com memória específica do condomínio pode reduzir esse esforço e ajudar o síndico a decidir com mais segurança.
 
 Esta é uma hipótese a validar. Não assumir que chat é necessariamente a melhor interface, que o síndico pagará pelo produto ou que confiará em recomendações jurídicas e financeiras feitas por IA.
+
+Também é hipótese a validar que utilidade recorrente e confiança no aplicativo podem gerar interesse comercial qualificado pelos serviços da Zermatt sem tornar a experiência invasiva, enviesar recomendações ou reduzir a confiança do síndico.
 
 ## 3. Público inicial recomendado
 
@@ -59,7 +67,7 @@ As respostas devem:
 
 ## 5. Proposta de valor
 
-> Encontre respostas confiáveis nos documentos do condomínio, acompanhe obrigações e prepare decisões em minutos — sempre com indicação da fonte.
+> Converse naturalmente com uma IA que entende o contexto do condomínio, encontra a fonte correta e ajuda a tomar decisões e acompanhar obrigações com segurança.
 
 Benefícios esperados:
 
@@ -69,7 +77,16 @@ Benefícios esperados:
 - comunicação mais rápida e consistente;
 - histórico organizado para troca de gestão;
 - ganho de escala para síndicos profissionais.
+- experiência fácil de usar, sem exigir conhecimento técnico ou comandos complexos;
 - preço acessível, viabilizado por uso eficiente e seletivo de modelos de IA.
+
+### Valor para a Zermatt
+
+- relacionamento recorrente com síndicos antes de qualquer abordagem comercial;
+- oportunidades qualificadas geradas por interesse explícito do usuário;
+- fortalecimento da confiança e da lembrança da marca por utilidade real;
+- aprendizado sobre as necessidades dos síndicos sem usar documentos confidenciais para prospecção oculta;
+- custo de aquisição mensurável em relação ao uso e às oportunidades consentidas.
 
 ## 6. Principais oportunidades
 
@@ -98,6 +115,7 @@ Benefícios esperados:
 8. Extração de datas, obrigações e responsáveis para uma lista de pendências.
 9. Feedback do usuário: correto, incorreto, incompleto ou desatualizado.
 10. Registro das fontes e do raciocínio operacional apresentado ao usuário.
+11. Caminho comercial separado e opcional para que o usuário solicite conhecer ou simular os serviços da Zermatt, sempre com confirmação explícita.
 
 ### Prioridade 2 — após validação
 
@@ -119,6 +137,9 @@ Benefícios esperados:
 - automação irreversível de decisões;
 - parecer jurídico definitivo;
 - integração com muitos sistemas antes de comprovar uso recorrente.
+- prospecção automática baseada no conteúdo confidencial dos documentos;
+- contato comercial sem solicitação ou confirmação do usuário;
+- recomendação comercial disfarçada de orientação imparcial da IA.
 
 ## 8. Funcionalidades proativas
 
@@ -169,6 +190,8 @@ O diferencial não pode ser apenas permitir perguntas. O produto deve oferecer:
 - histórico auditável;
 - critérios explícitos para encaminhamento a especialistas;
 - experiência multi-condomínio.
+- conversa natural e contextual sem exigir que o síndico aprenda a formular prompts;
+- experiência fácil de usar apesar da complexidade documental e operacional tratada pelo sistema.
 
 Se essas capacidades não forem claramente melhores do que carregar arquivos em uma IA genérica, o produto terá pouco poder de diferenciação.
 
@@ -181,12 +204,15 @@ Se essas capacidades não forem claramente melhores do que carregar arquivos em 
 3. Sistema classifica os arquivos, extrai datas e aponta documentos ausentes ou duplicados.
 4. Usuário confirma o que está vigente.
 
+O onboarding deve exigir poucos passos, explicar claramente o estado de cada documento e permitir que o síndico comece sem treinamento técnico.
+
 ### Uso
 
 1. Usuário pergunta ou seleciona uma tarefa.
 2. Sistema recupera apenas o contexto relevante daquele condomínio.
 3. Resposta apresenta conclusão, evidências, ressalvas e próximo passo.
 4. Usuário pode abrir a fonte, corrigir a resposta ou transformar o resultado em comunicado ou pendência.
+5. Quando houver relação legítima com os serviços da Zermatt, a interface pode apresentar separadamente um convite opcional para conhecer o serviço ou solicitar uma simulação.
 
 ### Formato recomendado da resposta
 
@@ -208,6 +234,10 @@ Se essas capacidades não forem claramente melhores do que carregar arquivos em 
 - Implementar exclusão, exportação, retenção e controle de acesso compatíveis com a LGPD.
 - Não usar documentos dos clientes para treinamento sem consentimento específico.
 - Separar claramente “informação encontrada”, “interpretação da IA” e “recomendação”.
+- Não alterar respostas ou recomendações para favorecer uma oportunidade comercial da Zermatt.
+- Não usar o conteúdo dos documentos para qualificação ou prospecção comercial sem consentimento específico, claro e informado.
+- Separar visualmente a orientação da IA de qualquer convite comercial.
+- Não iniciar contato comercial sem confirmação humana explícita, nem reduzir a utilidade do produto quando uma oferta for recusada.
 
 ## 13. Situações que exigem especialista
 
@@ -238,6 +268,7 @@ Uma aplicação web com:
 - extração de datas e pendências;
 - feedback sobre as respostas;
 - painel básico de documentos e obrigações.
+- acesso separado e opcional para solicitar informações ou uma simulação dos serviços da Zermatt.
 
 Não automatizar ações externas no MVP. O objetivo inicial é provar que as respostas são confiáveis, economizam tempo e geram uso recorrente.
 
@@ -306,6 +337,7 @@ Não escolher o provedor apenas pelo preço dos tokens. O preço é fundamental,
 6. Avaliar as respostas às cegas com síndicos e especialistas.
 7. Cobrar por um piloto, ainda que pequeno, para validar disposição de pagamento.
 8. Observar uso durante quatro a oito semanas, não apenas intenção declarada.
+9. Medir se usuários satisfeitos solicitam voluntariamente conhecer a Zermatt e se a presença da oferta comercial afeta sua percepção de confiança.
 
 ### Métricas de sucesso
 
@@ -323,6 +355,11 @@ Não escolher o provedor apenas pelo preço dos tokens. O preço é fundamental,
 - custo médio por resposta aprovada;
 - percentual de tarefas resolvidas por modelos econômicos;
 - percentual de perguntas escaladas para modelos mais caros;
+- tempo até o usuário obter valor na primeira sessão;
+- oportunidades comerciais qualificadas com consentimento explícito;
+- percentual de usuários ativos que solicitam conhecer ou simular os serviços da Zermatt;
+- custo do aplicativo por usuário ativo e por oportunidade qualificada;
+- percepção do usuário de que a abordagem comercial é transparente e não invasiva;
 
 ## 17. Critérios de continuidade
 
@@ -334,6 +371,8 @@ Continuar investindo se houver evidência de que:
 - pelo menos um segmento aceita pagar;
 - profissionais ativam vários condomínios;
 - erros graves são raros, detectáveis e controláveis.
+- o preço acessível ajuda a cobrir o custo variável do aplicativo sem reduzir o uso útil;
+- usuários satisfeitos geram oportunidades comerciais voluntárias e qualificadas para a Zermatt.
 
 Reavaliar a hipótese se:
 
@@ -343,18 +382,20 @@ Reavaliar a hipótese se:
 - a IA não conseguir distinguir versões e regras conflitantes;
 - usuários não confiarem em enviar dados;
 - o custo de aquisição e suporte superar o valor percebido.
+- a abordagem comercial reduzir a confiança ou a recorrência;
+- o aplicativo atrair uso, mas não gerar interesse qualificado pelos serviços da Zermatt.
 
 ## 18. Modelo de cobrança a testar
 
-- assinatura por condomínio;
-- assinatura por carteira, com faixas de condomínios;
+- assinatura acessível por condomínio;
+- assinatura por carteira, com faixas de condomínios e limites justos de utilização;
 - plano profissional com usuários adicionais;
-- taxa de implantação para organização inicial dos documentos;
-- plano corporativo para administradoras, após validação.
+- taxa opcional de implantação para organização inicial dos documentos;
+- plano corporativo para administradoras, somente após validação.
 
-Evitar cobrança por mensagem na interface, pois pode desestimular o uso. Controlar o custo internamente por limites justos, roteamento de modelos e cache.
+O aplicativo não será gratuito por padrão. O preço deve ajudar a cobrir os custos de inteligência artificial, infraestrutura, suporte e operação, além de desestimular abuso, sem buscar maximizar a margem direta do software. Evitar cobrança por mensagem na interface, pois pode desestimular o uso; preferir uma assinatura compreensível, com limites justos, roteamento de modelos e cache.
 
-O preço-alvo deve ser definido depois dos pilotos, mas o produto deve buscar uma margem que permita cobrar pouco sem depender de uso artificialmente limitado. O usuário não precisa saber qual modelo respondeu; ele deve receber a melhor resposta dentro do padrão de qualidade contratado.
+O preço-alvo deve ser definido depois dos pilotos. A equação econômica deve considerar o custo por usuário ativo, o custo por resposta aprovada e o custo por oportunidade comercial qualificada. O usuário não precisa saber qual modelo respondeu; ele deve receber a melhor resposta dentro do padrão de qualidade contratado.
 
 ## 19. Riscos principais
 
@@ -364,6 +405,8 @@ O preço-alvo deve ser definido depois dos pilotos, mas o produto deve buscar um
 - percepção de ser apenas um chat genérico;
 - onboarding trabalhoso;
 - alertas excessivos ou irrelevantes.
+- oferta comercial percebida como insistente, oculta ou conflitante com o interesse do síndico;
+- preço tão baixo que atraia abuso ou impeça manter a qualidade esperada.
 
 ### Técnicos
 
@@ -381,6 +424,8 @@ O preço-alvo deve ser definido depois dos pilotos, mas o produto deve buscar um
 - decisão errada baseada em resposta incompleta;
 - ausência de consentimento ou base legal para determinados dados;
 - falta de transparência sobre armazenamento e uso das informações.
+- uso indevido de documentos ou comportamento do usuário para prospecção comercial;
+- confusão entre recomendação independente da IA e oferta de serviços da Zermatt.
 
 ## 20. Decisões que ainda precisam ser validadas
 
@@ -394,6 +439,10 @@ O preço-alvo deve ser definido depois dos pilotos, mas o produto deve buscar um
 - modelo de IA com melhor relação entre qualidade, privacidade e custo.
 - custo máximo de IA aceitável por condomínio ativo e por resposta aprovada;
 - quais tarefas podem usar modelos econômicos sem perda relevante de confiança;
+- qual preço acessível ajuda a cobrir o custo variável sem prejudicar adoção e recorrência;
+- o que caracteriza uma oportunidade comercial qualificada para a Zermatt;
+- em qual momento e formato uma oferta opcional é útil sem ser invasiva;
+- quais sinais comerciais podem ser usados com consentimento sem analisar documentos confidenciais para prospecção.
 
 ## 21. Recomendação do que construir primeiro
 
@@ -412,9 +461,11 @@ Esse núcleo testa as premissas mais importantes:
 
 Somente depois disso adicionar automações, integrações e módulos operacionais.
 
+Depois que o núcleo documental demonstrar utilidade e confiança, o piloto deve testar um caminho comercial mínimo, separado da conversa da IA, pelo qual o síndico possa solicitar voluntariamente informações ou uma simulação da Zermatt. Esse fluxo não deve alterar a resposta, usar documentos para prospecção oculta nem iniciar contato sem confirmação explícita.
+
 ## 22. Instrução resumida para o Codex
 
-> Desenvolva um MVP web de um conselheiro virtual para síndicos. O sistema deve manter dados completamente separados por condomínio, receber documentos, processar PDFs e imagens, controlar versão e vigência, responder perguntas usando apenas fontes recuperadas daquele condomínio e citar documento, página e trecho. Também deve gerar comunicados e extrair datas e obrigações para uma lista de pendências. Não implemente contabilidade, boletos, portaria, marketplace ou envio automático de mensagens. Priorize confiança, baixo custo operacional, rastreabilidade, LGPD, confirmação humana e capacidade de trocar ou combinar provedores de IA. Implemente roteamento por complexidade, cache, recuperação apenas dos trechos relevantes, limites de tokens e medição do custo por tarefa e condomínio. Use o modelo mais barato que alcance o nível mínimo de qualidade e escale somente quando necessário. Toda resposta deve separar conclusão, evidência, ressalvas e próximo passo, declarando quando não houver base suficiente ou quando for necessário consultar um especialista.
+> Desenvolva um MVP web de um conselheiro de IA robusto e fácil de usar para síndicos. O sistema deve manter dados completamente separados por condomínio, receber documentos, processar PDFs e imagens, controlar versão e vigência, responder perguntas usando apenas fontes recuperadas daquele condomínio e citar documento, página e trecho. Também deve gerar comunicados e extrair datas e obrigações para uma lista de pendências. Não implemente contabilidade, boletos, portaria, marketplace ou envio automático de mensagens. Priorize conversa natural, confiança, baixo custo operacional, rastreabilidade, LGPD, confirmação humana e capacidade de trocar ou combinar provedores de IA. Implemente roteamento por complexidade, cache, recuperação apenas dos trechos relevantes, limites de tokens e medição do custo por tarefa e condomínio. Use o caminho mais econômico que alcance o nível mínimo de qualidade e escale somente quando necessário. Toda resposta deve separar conclusão, evidência, ressalvas e próximo passo, declarando quando não houver base suficiente ou quando for necessário consultar um especialista. O aplicativo deve cobrar um preço acessível para ajudar a cobrir seus custos e funcionar como canal de relacionamento da Zermatt, com qualquer oferta comercial separada da orientação da IA, opcional e dependente de confirmação explícita. Não use documentos confidenciais para prospecção oculta.
 
 ## 23. Referências de mercado e preços consultadas
 

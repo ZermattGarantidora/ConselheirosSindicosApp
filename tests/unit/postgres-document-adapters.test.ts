@@ -289,14 +289,80 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
       expect.stringContaining("set_config('app.condominium_id'"),
       expect.stringContaining("set_config('app.processing_job_id'"),
       expect.stringContaining("FROM app.processing_jobs"),
+      expect.stringContaining("DELETE FROM app.document_chunk_embeddings"),
       expect.stringContaining("DELETE FROM app.document_chunks"),
       expect.stringContaining("DELETE FROM app.document_pages"),
       expect.stringContaining("INSERT INTO app.document_pages"),
       expect.stringContaining("INSERT INTO app.document_chunks"),
+      expect.stringContaining("INSERT INTO app.document_chunk_embeddings"),
       expect.stringContaining("UPDATE app.document_version_states"),
       expect.stringContaining("UPDATE app.processing_jobs"),
       "COMMIT"
     ]);
+  });
+
+  it("mantém o índice dos chunks único em toda a versão, entre páginas", async () => {
+    const fake = createFakeClient([
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      {
+        rows: [{ active: 1 }],
+        rowCount: 1
+      }
+    ]);
+    const repository = createPostgresDocumentProcessingRepository(createPool(fake.client), {
+      async readOriginal() {
+        return content;
+      }
+    });
+
+    await repository.saveProcessingResult({
+      condominiumId: createCondominiumId("alameda"),
+      documentVersionId: "version-1",
+      jobId: "job-1",
+      attemptCount: 1,
+      outcome: {
+        status: "completed",
+        state: {
+          processingStatus: "ready",
+          validityStatus: "pending",
+          validFrom: null,
+          validUntil: null,
+          ocrQualityScore: null
+        },
+        pages: [
+          {
+            id: "page-1",
+            condominiumId: createCondominiumId("alameda"),
+            documentVersionId: "version-1",
+            pageIndex: 0,
+            pageNumber: 1,
+            extractedText: "Regra da primeira página",
+            extractionMethod: "pdf_text",
+            qualityScore: 1,
+            contentSha256: "c".repeat(64)
+          },
+          {
+            id: "page-2",
+            condominiumId: createCondominiumId("alameda"),
+            documentVersionId: "version-1",
+            pageIndex: 1,
+            pageNumber: 2,
+            extractedText: "Regra da segunda página",
+            extractionMethod: "pdf_text",
+            qualityScore: 1,
+            contentSha256: "d".repeat(64)
+          }
+        ]
+      }
+    });
+
+    const chunkQueries = fake.queries.filter((query) =>
+      query.sql.includes("INSERT INTO app.document_chunks")
+    );
+    expect(chunkQueries.map((query) => query.values?.[4])).toEqual([0, 1]);
   });
 
   it("faz rollback quando o job não está mais em processamento", async () => {

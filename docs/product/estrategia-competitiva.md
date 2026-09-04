@@ -2,7 +2,7 @@
 
 **Status:** ativa  
 **Responsáveis:** produto e engenharia  
-**Atualizado em:** 2026-09-01  
+**Atualizado em:** 2026-09-03
 **Revisão prevista:** trimestral ou quando surgir evidência relevante de mercado ou de piloto
 
 ## 1. Autoridade e relação com a visão
@@ -16,12 +16,13 @@ Em especial, esta diretriz detalha:
 - o problema inicial de encontrar, cruzar e explicar informações com evidência, conforme §4;
 - o controle de versão, vigência, procedência, conflitos e confirmação humana, conforme §§9, 11 e 12;
 - a validação de confiança, recorrência, economia de tempo, disposição de pagamento e custo sustentável, conforme §§15 a 18 e 21.
+- o papel do aplicativo como canal acessível de relacionamento e aquisição para a Zermatt, sem comprometer a independência das respostas, conforme §§1, 5, 12, 16 a 21.
 
 Em caso de conflito, prevalecem o briefing e, depois, a definição do MVP. Uma divergência estratégica só pode prosseguir com aprovação explícita e atualização da fonte superior correspondente.
 
 ## 2. Decisão de posicionamento
 
-O produto deve se posicionar como um **conselheiro documental auditável para síndicos**, e não como um sistema completo de gestão condominial nem como um chatbot genérico para moradores.
+O produto deve se posicionar como um **conselheiro documental auditável, robusto e fácil de usar para síndicos**, e não como um sistema completo de gestão condominial nem como um chatbot genérico para moradores.
 
 ### Público principal
 
@@ -39,6 +40,12 @@ Ajudar o síndico a encontrar a regra, decisão ou obrigação aplicável; verif
 
 A unidade de valor não é uma mensagem trocada com a IA. É uma **decisão fundamentada aceita pelo usuário**, uma abstenção correta que evita erro ou uma obrigação confirmada a partir de evidência.
 
+### Papel comercial para a Zermatt
+
+O aplicativo é um canal de aquisição orientado por produto: primeiro entrega utilidade recorrente e conquista confiança; depois oferece, de forma separada e opcional, a possibilidade de conhecer ou simular os serviços da Zermatt. A assinatura deve ajudar a cobrir o custo variável e operacional, mas a margem direta do software não é o principal resultado econômico.
+
+Uma oportunidade comercial só conta como valor quando o próprio usuário manifesta interesse ou autoriza contato. O conteúdo confidencial dos documentos não pode ser usado para prospecção oculta, e a orientação da IA não pode ser alterada para favorecer conversão.
+
 ## 3. Premissa competitiva
 
 Permitir upload de documentos, perguntas em linguagem natural e citações já é uma capacidade oferecida por IAs genéricas e por fornecedores especializados. Portanto, esses elementos isolados são requisitos básicos, não diferenciais suficientes.
@@ -51,6 +58,8 @@ O produto deve ser claramente superior em pelo menos uma combinação verificáv
 4. transformação controlada da evidência em próximo passo;
 5. isolamento auditável entre condomínios;
 6. qualidade e custo medidos por resposta aprovada.
+7. conversa natural e facilidade de uso sem exigir conhecimento de prompts;
+8. confiança suficiente para gerar relacionamento comercial voluntário, sem pressão ou viés.
 
 Se uma entrega não fortalece a hipótese central, uma dessas capacidades ou uma aprendizagem necessária de validação, ela deve ser adiada.
 
@@ -123,6 +132,18 @@ Modelos, prompts e estratégias de recuperação devem ser escolhidos pelo custo
 
 O nome ou prestígio do modelo não é diferencial de produto. O ativo é a capacidade de avaliar, rotear, corrigir e manter qualidade de forma independente do provedor.
 
+### 5.7 Facilidade sem perda de profundidade
+
+O produto pode tratar problemas documentais e operacionais complexos, mas deve esconder a complexidade técnica da experiência. O síndico deve conseguir começar rapidamente, perguntar em linguagem natural, continuar a conversa sem reformular prompts e entender resposta, fonte, ressalva e próximo passo sem treinamento especializado.
+
+Facilidade de uso deve ser medida por tempo até o primeiro valor, conclusão do onboarding, abandono, necessidade de suporte e capacidade de usuários reais obterem respostas corretas sem orientação da equipe.
+
+### 5.8 Separação entre orientação e oferta comercial
+
+Qualquer convite para conhecer a Zermatt deve ser visual e semanticamente separado da resposta da IA, ser compatível com a necessidade apresentada e permitir recusa sem insistência ou perda de funcionalidade. Solicitação de contato, simulação ou envio de dados à equipe comercial exige confirmação explícita.
+
+O sistema não deve classificar silenciosamente um condomínio como oportunidade comercial a partir do conteúdo de convenções, atas, contratos ou outros documentos. Sinais comerciais e métricas devem ser minimizados, transparentes e baseados em ações consentidas do usuário.
+
 ## 6. Sequenciamento obrigatório
 
 ### Fase atual — primeira fatia da Spec 001
@@ -148,6 +169,7 @@ Depois de validar o núcleo documental, avançar em fatias pequenas para:
 3. rascunhos de comunicados baseados em fatos confirmados;
 4. extração de datas, obrigações e responsáveis para pendências confirmáveis;
 5. feedback e correções que melhorem a avaliação sem alterar trilhas históricas.
+6. caminho comercial mínimo e separado para o usuário solicitar informações ou uma simulação da Zermatt, somente depois que a utilidade e a confiança do núcleo estiverem demonstradas.
 
 ### Somente após validação
 
@@ -166,6 +188,9 @@ O projeto não deve buscar paridade de funcionalidades com suítes condominiais.
 - ações irreversíveis ou sem confirmação humana;
 - parecer jurídico definitivo;
 - integrações amplas antes de comprovar uso recorrente.
+- contato comercial automático ou sem consentimento explícito;
+- prospecção ou qualificação comercial baseada silenciosamente em documentos confidenciais;
+- alteração de respostas, recomendações ou alertas para favorecer conversão.
 
 WhatsApp, novas integrações e automações não são atalhos para validação da hipótese central. Só devem ser priorizados quando houver evidência de que influenciam recorrência, economia de tempo ou compra sem comprometer os princípios de confiança.
 
@@ -181,6 +206,8 @@ Toda proposta de nova funcionalidade, mudança de prioridade ou expansão de esc
 6. Como preserva isolamento, abstenção, conflitos, rastreabilidade e confirmação humana?
 7. Qual teste, eval ou observação de piloto demonstrará que funcionou?
 8. O benefício compensa custo de implantação, suporte e complexidade permanente?
+9. A proposta preserva a separação entre orientação independente e interesse comercial da Zermatt?
+10. Se houver geração de oportunidade, qual ação explícita do usuário representa consentimento e como a recusa será respeitada?
 
 Se uma resposta essencial estiver ausente, a proposta permanece em descoberta e não deve entrar em implementação.
 
@@ -205,11 +232,17 @@ Dados reais de clientes e dados pessoais não podem entrar em fixtures, testes o
 
 ## 10. Métricas
 
-### Métrica principal
+### Métrica principal de produto
 
 **Decisões fundamentadas aceitas por condomínio ativo por semana.**
 
 Uma decisão fundamentada aceita é uma resposta que o usuário classifica como correta e suficientemente sustentada, ou que origina um próximo passo confirmado.
+
+### Métrica principal de negócio
+
+**Oportunidades comerciais qualificadas e consentidas por usuários ativos.**
+
+Uma oportunidade qualificada exige manifestação explícita do usuário para conhecer, simular ou conversar sobre os serviços da Zermatt. Visualização de oferta, tema de uma pergunta ou conteúdo de documento não são suficientes para classificar alguém como lead.
 
 ### Métricas de confiança
 
@@ -232,6 +265,12 @@ Uma decisão fundamentada aceita é uma resposta que o usuário classifica como 
 - ativação de múltiplos condomínios por profissional;
 - custo médio por resposta aprovada;
 - percentual de tarefas resolvidas por caminhos econômicos.
+- preço pago em relação ao custo variável por usuário ativo;
+- solicitações voluntárias de contato ou simulação;
+- oportunidades qualificadas por usuários e condomínios ativos;
+- custo do aplicativo por oportunidade qualificada;
+- conversão de oportunidade consentida em conversa comercial e, depois, em contrato;
+- percepção de que a oferta é transparente, opcional e não invasiva.
 
 Volume de mensagens, documentos ou tokens não deve ser usado isoladamente como evidência de valor.
 
@@ -246,6 +285,7 @@ O projeto deve acumular, de forma compatível com privacidade e consentimento:
 - evidência de economia de tempo e confiança;
 - controles e testes de isolamento reproduzíveis;
 - histórico de custo por tarefa e por resposta aprovada.
+- aprendizado agregado sobre conversão consentida, momento da oferta e percepção de confiança, sem incorporar conteúdo confidencial de clientes.
 
 O modelo de IA utilizado pode mudar. Esses ativos, a disciplina de avaliação e a confiança conquistada são a base de diferenciação duradoura.
 

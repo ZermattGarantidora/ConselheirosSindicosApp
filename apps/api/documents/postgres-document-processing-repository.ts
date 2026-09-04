@@ -11,6 +11,12 @@ import {
 import type { DocumentProcessingStatus, DocumentVersionState } from "./document-model.js";
 import type { PrivateDocumentReader } from "./private-document-storage.js";
 import type { OcrAdapter } from "./ocr-quality.js";
+import { chunkPage } from "../retrieval/retrieval-contract.js";
+import {
+  createLocalSyntheticEmbeddingAdapter,
+  formatPgVector
+} from "../retrieval/local-embedding.js";
+import type { EmbeddingAdapter } from "../retrieval/retrieval-contract.js";
 
 type PoolLike = Pick<Pool, "connect">;
 
@@ -62,13 +68,10 @@ function sha256(content: Buffer): string {
   return createHash("sha256").update(content).digest("hex");
 }
 
-function tokenCount(content: string): number {
-  return Math.max(1, content.trim().split(/\s+/u).length);
-}
-
 export function createPostgresDocumentProcessingRepository(
   pool: PoolLike,
-  storage: PrivateDocumentReader
+  storage: PrivateDocumentReader,
+  embeddingAdapter: EmbeddingAdapter = createLocalSyntheticEmbeddingAdapter()
 ): DocumentProcessingRepository {
   return {
     async loadForProcessing(input): Promise<StoredDocumentForProcessing | undefined> {
@@ -159,6 +162,17 @@ export function createPostgresDocumentProcessingRepository(
 
         await client.query(
           `
+            DELETE FROM app.document_chunk_embeddings
+            WHERE condominium_id = $1 AND document_chunk_id IN (
+              SELECT id
+              FROM app.document_chunks
+              WHERE condominium_id = $1 AND document_version_id = $2
+            )
+          `,
+          [input.condominiumId, input.documentVersionId]
+        );
+        await client.query(
+          `
             DELETE FROM app.document_chunks
             WHERE condominium_id = $1 AND document_version_id = $2
           `,
@@ -172,7 +186,9 @@ export function createPostgresDocumentProcessingRepository(
           [input.condominiumId, input.documentVersionId]
         );
 
+        let documentChunkIndex = 0;
         for (const page of input.outcome.pages) {
+          const documentPageId = randomUUID();
           await client.query(
             `
               INSERT INTO app.document_pages (
@@ -183,7 +199,7 @@ export function createPostgresDocumentProcessingRepository(
             `,
             [
               input.condominiumId,
-              randomUUID(),
+              documentPageId,
               input.documentVersionId,
               page.pageIndex,
               page.pageNumber,
@@ -194,7 +210,14 @@ export function createPostgresDocumentProcessingRepository(
             ]
           );
 
-          if (page.extractedText.length > 0) {
+          for (const chunk of chunkPage({
+            condominiumId: input.condominiumId,
+            documentVersionId: input.documentVersionId,
+            documentPageId,
+            pageNumber: page.pageNumber,
+            extractedText: page.extractedText
+          })) {
+            const documentChunkId = randomUUID();
             await client.query(
               `
                 INSERT INTO app.document_chunks (
@@ -202,23 +225,57 @@ export function createPostgresDocumentProcessingRepository(
                   chunk_index, start_offset, end_offset, content, content_sha256,
                   token_count, search_vector
                 )
-                SELECT $1, $2, $3, id, $4, 0, $5, $6, $7, $8,
-                  to_tsvector('portuguese', $6)
-                FROM app.document_pages
-                WHERE condominium_id = $1
-                  AND document_version_id = $3
-                  AND page_index = $9
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                  to_tsvector('portuguese', $8))
+              `,
+              [
+                input.condominiumId,
+                documentChunkId,
+                input.documentVersionId,
+                documentPageId,
+                documentChunkIndex,
+                chunk.startOffset,
+                chunk.endOffset,
+                chunk.content,
+                chunk.contentSha256,
+                chunk.tokenCount
+              ]
+            );
+            documentChunkIndex += 1;
+
+            const embedding = await embeddingAdapter.embed({
+              content: chunk.content,
+              contentSha256: chunk.contentSha256
+            });
+            if (
+              embedding.dimensions !== embeddingAdapter.profile.dimensions ||
+              embedding.values.length !== embeddingAdapter.profile.dimensions ||
+              embedding.contentSha256 !== chunk.contentSha256
+            ) {
+              throw new Error("O embedding do chunk não corresponde ao conteúdo indexado.");
+            }
+
+            await client.query(
+              `
+                INSERT INTO app.document_chunk_embeddings (
+                  condominium_id, id, document_chunk_id, embedding_profile,
+                  provider_key, model_key, model_version, pipeline_version,
+                  dimensions, embedding, content_sha256
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::vector, $11)
               `,
               [
                 input.condominiumId,
                 randomUUID(),
-                input.documentVersionId,
-                page.pageIndex,
-                Array.from(page.extractedText).length,
-                page.extractedText,
-                page.contentSha256,
-                tokenCount(page.extractedText),
-                page.pageIndex
+                documentChunkId,
+                embedding.embeddingProfile,
+                embedding.providerKey,
+                embedding.modelKey,
+                embedding.modelVersion,
+                embedding.pipelineVersion,
+                embedding.dimensions,
+                formatPgVector(embedding.values),
+                embedding.contentSha256
               ]
             );
           }

@@ -1,7 +1,7 @@
 # Tarefas — Spec 001
 
-**Status:** scaffold e isolamento local implementados; integração PostgreSQL pendente  
-**Atualizado em:** 2026-09-01
+**Status:** scaffold, isolamento local, B3 e primeira fatia local do B4 implementados; gate Neon do B4 aprovado
+**Atualizado em:** 2026-09-04
 
 As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa como concluída exige atualizar a matriz de rastreabilidade e anexar os comandos/gates executados ao registro da entrega.
 
@@ -40,12 +40,24 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 
 ## Fase 4 — Retrieval
 
-- [ ] **T401** Definir contrato de evidência e estratégia de chunking.
-- [ ] **T402** Implementar indexação textual/semântica com metadados obrigatórios.
-- [ ] **T403** Implementar busca filtrada antes do ranking.
-- [ ] **T404** Implementar reranking e avaliação de suficiência.
-- [ ] **T405** Implementar cache escopado por condomínio, permissão e versão.
-- [ ] **T406** Criar testes de isolamento em todas as interfaces do retrieval.
+- [x] **T401** Definir contrato de evidência e estratégia de chunking. A primeira fatia mantém
+  chunks dentro de uma página, preserva offsets verificáveis e registra metadados de documento,
+  versão, vigência, método e qualidade.
+- [x] **T402** Implementar indexação textual/semântica com metadados obrigatórios. O worker
+  publica `tsvector` e embeddings locais com perfil, modelo, pipeline, dimensões e hash do chunk;
+  nenhum provedor externo é usado.
+- [x] **T403** Implementar busca textual e semântica filtrada antes do ranking. O adaptador PostgreSQL usa
+  contexto autorizado, RLS, estado `ready`, qualidade mínima, vigência aplicável e documento ativo
+  antes de aplicar `tsquery` ou distância vetorial; o ranking de aplicação repete o filtro de tenant.
+- [x] **T404** Implementar reranking e avaliação de suficiência. O score combina sinais textual,
+  semântico e de qualidade, e o resultado distingue evidência suficiente, fraca e ausente.
+- [x] **T405** Implementar cache escopado por condomínio, permissão, versão e pipeline. A chave
+  também usa hash da pergunta e revisão da membership.
+- [x] **T406** Criar testes de isolamento em todas as interfaces do retrieval. A cobertura inclui
+  store/cache sintéticos, ranking, índice PostgreSQL e cenário RLS Neon; a execução Neon depende
+  das variáveis sintéticas obrigatórias do ambiente. Em 2026-09-04, após as migrations 007 e 008,
+  `pnpm.cmd run test:integration` passou com 7/7 testes; os avisos de SSL e de fonte do PDF não
+  alteraram o resultado.
 
 ## Fase 5 — Respostas e citações
 
