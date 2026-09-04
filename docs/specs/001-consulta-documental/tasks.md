@@ -61,13 +61,33 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 
 ## Fase 5 — Respostas e citações
 
-- [ ] **T501** Implementar gateway de IA independente de provedor.
-- [ ] **T502** Versionar prompts e definir schema estruturado.
-- [ ] **T503** Implementar modos `grounded`, `abstained`, `conflict` e `failed`.
-- [ ] **T504** Implementar validação pós-geração das citações.
-- [ ] **T505** Implementar classificação de risco e escalonamento.
-- [ ] **T506** Implementar tela de pergunta, resposta estruturada e abertura da fonte.
-- [ ] **T507** Automatizar AC-010 a AC-018 e AC-021.
+- [x] **T501** Implementar gateway de IA independente de provedor. O contrato
+      `AiGateway` recebe somente a pergunta e as evidências autorizadas, sem
+      escolher provedor ou executar chamadas externas.
+- [x] **T502** Versionar prompts e definir schema estruturado. O contrato
+      `grounded-answer-v1` fixa a versão `answer-evidence-v1`, o modo, as citações,
+      os pontos de atenção, o próximo passo e o escalonamento.
+- [x] **T503** Implementar modos `grounded`, `abstained`, `conflict` e `failed`.
+      Ausência ou fragilidade de evidência abstém antes do gateway; saída inválida,
+      tenant divergente ou falha do gateway retornam `failed`; conflito exige duas
+      citações verificáveis.
+- [x] **T504** Implementar validação pós-geração das citações. Cada citação é
+      verificada contra o ID de evidência permitido e o trecho exato da página;
+      qualquer divergência falha fechada.
+- [x] **T505** Implementar classificação de risco e escalonamento. Questões de
+      disputa, segurança, tributação, fraude, sinistro ou proteção de dados exibem
+      a recomendação determinística do especialista apropriado, sem parecer
+      definitivo.
+- [x] **T506** Implementar tela de pergunta, resposta estruturada e abertura da
+  fonte. A interface chama o endpoint autorizado de respostas e a citação abre
+  a página processada do documento e versão informados, com nova validação de
+  contexto no servidor.
+- [x] **T507** Automatizar AC-010 a AC-018 e AC-021. A cobertura determinística
+  está em `tests/e2e/document-answer.e2e.test.ts`,
+  `tests/unit/answer-service.test.ts` e
+  `tests/unit/local-extractive-gateway.test.ts`; ela valida contrato,
+  grounding/citação, associação de afirmação a fontes, abstenção, conflito, injeção documental, escalonamento e
+  falha segura no caminho HTTP ou de domínio correspondente.
 
 ## Fase 6 — Feedback, auditoria e evals
 
