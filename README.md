@@ -66,7 +66,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 
 O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migrations PostgreSQL/RLS. A seleção de condomínio, a negação de acesso, a revogação, o cache, a recuperação sintética e a ingestão documental já possuem testes. O fluxo B3 registra o original e a versão, enfileira o processamento, extrai PDF por página, encaminha OCR fraco para revisão e preserva versões e vigências.
 
-O próximo marco é iniciar o retrieval isolado do B4. GitHub e CI remoto continuam adiados, mas os gates locais são obrigatórios. Dados reais e piloto exigem uma política de dados específica aprovada.
+O B4 está implementado localmente com retrieval textual e semântico sintético, ranking, suficiência e cache escopados. A validação RLS depende do Neon de integração sintética; GitHub e CI remoto continuam adiados. Dados reais e piloto exigem uma política de dados específica aprovada.
 
 ## Comandos
 

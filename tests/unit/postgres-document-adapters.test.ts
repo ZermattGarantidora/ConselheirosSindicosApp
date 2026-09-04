@@ -289,10 +289,12 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
       expect.stringContaining("set_config('app.condominium_id'"),
       expect.stringContaining("set_config('app.processing_job_id'"),
       expect.stringContaining("FROM app.processing_jobs"),
+      expect.stringContaining("DELETE FROM app.document_chunk_embeddings"),
       expect.stringContaining("DELETE FROM app.document_chunks"),
       expect.stringContaining("DELETE FROM app.document_pages"),
       expect.stringContaining("INSERT INTO app.document_pages"),
       expect.stringContaining("INSERT INTO app.document_chunks"),
+      expect.stringContaining("INSERT INTO app.document_chunk_embeddings"),
       expect.stringContaining("UPDATE app.document_version_states"),
       expect.stringContaining("UPDATE app.processing_jobs"),
       "COMMIT"

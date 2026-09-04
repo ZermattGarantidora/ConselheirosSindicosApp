@@ -1,7 +1,7 @@
 # Matriz de rastreabilidade — Spec 001
 
-**Status:** B3 implementado localmente; isolamento RLS e processamento persistido validados com fixtures sintéticas
-**Atualizado em:** 2026-09-03
+**Status:** primeira fatia local do B4 implementada; testes Neon de isolamento criados, mas o gate de execução permanece pendente
+**Atualizado em:** 2026-09-04
 
 Esta matriz liga promessas a critérios de aceitação e evidàncias de verificação. Os identificadores de testes serão preenchidos quando o scaffold for criado.
 
@@ -31,6 +31,12 @@ Esta matriz liga promessas a critérios de aceitação e evidàncias de verifica
 | RQ-013 Falha segura                      | AC-021                                                                                                                                                          | EVAL-019                     | `answers/dependency-failure`                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | RQ-014 Formato da resposta               | AC-010, AC-014, AC-016, AC-018                                                                                                                                  | EVAL-018                     | `answers/response-schema`                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ADR 0007 — alvo Neon sintético           | marcador persistente, URL PostgreSQL com TLS, papel runtime seguro, identidade externa e fence do worker; migrations 003–006 verificadas; 6/6 testes RLS/API/worker aprovados em 2026-09-03 | —                            | `scripts/neon-integration-guard.ts`; `infrastructure/database/005_worker_claim_fencing.sql`; `infrastructure/database/006_runtime_document_read_grants.sql`; `tests/unit/neon-integration-guard.test.ts`; `tests/integration/rls-tenant-isolation.test.ts` |
+
+Na primeira fatia do B4, a verificação determinística de RQ-004 também está em
+`tests/unit/text-retrieval.test.ts`, `tests/unit/postgres-scoped-retrieval.test.ts` e
+`tests/integration/rls-tenant-isolation.test.ts`. T401–T405 são exercitadas por
+`tests/unit/retrieval-contract.test.ts`, `tests/unit/local-embedding.test.ts`,
+`tests/unit/retrieval-ranking.test.ts` e `tests/unit/scoped-retrieval.test.ts`.
 
 ## Regra de manutenção
 

@@ -65,4 +65,27 @@ describe("retrieval e cache escopados", () => {
     expect(cache.get(alamedaContext, input)).toBeUndefined();
     expect(cache.get(bosqueContext, input)).toBe("CANARIO-BOSQUE-581");
   });
+
+  it("invalida a chave quando permissões, versões ou pipeline mudam", async () => {
+    const at = new Date("2026-09-01T00:00:00.000Z");
+    const cache = new TenantScopedCache<string>();
+    const input = {
+      documentVersion: ["v1", "v2"],
+      query: "qual é a regra?",
+      pipelineVersion: "hybrid-v1"
+    } as const;
+    const managerContext = await resolveAuthorizedCondominiumContext(repository, {
+      userId,
+      condominiumId: alameda,
+      now: at
+    });
+
+    cache.set(managerContext, input, "RESULTADO-ALAMEDA");
+    expect(cache.get(managerContext, { ...input, documentVersion: ["v2", "v1"] })).toBe(
+      "RESULTADO-ALAMEDA"
+    );
+    expect(cache.get(managerContext, { ...input, documentVersion: "v1" })).toBeUndefined();
+    expect(cache.get(managerContext, { ...input, pipelineVersion: "hybrid-v2" })).toBeUndefined();
+    expect(cache.get({ ...managerContext, permissions: ["document:read"] }, input)).toBeUndefined();
+  });
 });

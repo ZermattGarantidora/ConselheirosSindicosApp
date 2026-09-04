@@ -1,5 +1,6 @@
 import type { CondominiumId } from "../core/condominium-scope.js";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
+import { retrievalPipelineVersion, retrievalQueryHash } from "./retrieval-contract.js";
 
 export type SyntheticEvidence = Readonly<{
   id: string;
@@ -20,14 +21,22 @@ export class TenantScopedCache<T> {
 
   public get(
     context: AuthorizedCondominiumContext,
-    input: Readonly<{ documentVersion: string; query: string }>
+    input: Readonly<{
+      documentVersion: string | readonly string[];
+      query: string;
+      pipelineVersion?: string;
+    }>
   ): T | undefined {
     return this.values.get(this.keyFor(context, input));
   }
 
   public set(
     context: AuthorizedCondominiumContext,
-    input: Readonly<{ documentVersion: string; query: string }>,
+    input: Readonly<{
+      documentVersion: string | readonly string[];
+      query: string;
+      pipelineVersion?: string;
+    }>,
     value: T
   ): void {
     this.values.set(this.keyFor(context, input), value);
@@ -35,15 +44,23 @@ export class TenantScopedCache<T> {
 
   private keyFor(
     context: AuthorizedCondominiumContext,
-    input: Readonly<{ documentVersion: string; query: string }>
+    input: Readonly<{
+      documentVersion: string | readonly string[];
+      query: string;
+      pipelineVersion?: string;
+    }>
   ): string {
     return [
       context.condominiumId,
       context.userId,
       context.roleKey,
       context.membershipRevision,
-      input.documentVersion,
-      input.query
+      [...context.permissions].sort().join(","),
+      input.pipelineVersion ?? retrievalPipelineVersion,
+      typeof input.documentVersion === "string"
+        ? input.documentVersion
+        : [...input.documentVersion].sort().join(","),
+      retrievalQueryHash(input.query)
     ].join("|");
   }
 }

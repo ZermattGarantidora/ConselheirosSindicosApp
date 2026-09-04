@@ -88,4 +88,16 @@ describe("migration de identidade e isolamento", () => {
     expect(migration).toContain("GRANT SELECT ON app.storage_objects, app.documents");
     expect(migration).toContain("TO app_runtime");
   });
+
+  it("cria o índice semântico com perfil, hash, dimensões e RLS", async () => {
+    const migration = await readFile("infrastructure/database/007_retrieval_index.sql", "utf8");
+
+    expect(migration).toContain("CREATE TABLE app.document_chunk_embeddings");
+    expect(migration).toContain("UNIQUE (condominium_id, document_chunk_id, embedding_profile)");
+    expect(migration).toContain("CHECK (vector_dims(embedding) = dimensions)");
+    expect(migration).toContain(
+      "ALTER TABLE app.document_chunk_embeddings FORCE ROW LEVEL SECURITY"
+    );
+    expect(migration).toContain("current_user = 'app_worker'");
+  });
 });

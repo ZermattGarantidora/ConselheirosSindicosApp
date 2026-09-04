@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +14,7 @@ import { createPostgresDocumentUploadRepository } from "../../apps/api/documents
 import { unavailableOcrAdapter } from "../../apps/api/documents/ocr-quality.js";
 import { uploadDocument } from "../../apps/api/documents/upload-document.js";
 import { createPostgresDocumentProcessingRepository } from "../../apps/api/documents/postgres-document-processing-repository.js";
+import { createPostgresScopedRetrievalIndex } from "../../apps/api/retrieval/postgres-scoped-retrieval.js";
 import { createPostgresProcessingJobQueue } from "../../apps/api/worker/postgres-processing-job-queue.js";
 import { processOne } from "../../apps/api/worker/processing-worker.js";
 import type { AuthorizedCondominiumContext } from "../../apps/api/identity/authorized-condominium-context.js";
@@ -36,7 +37,7 @@ const userId = randomUUID();
 
 async function resetFixtures(client: PoolClient): Promise<void> {
   await client.query(
-    "TRUNCATE app.document_chunks, app.document_pages, app.processing_jobs, app.document_version_states, app.document_versions, app.documents, app.storage_objects, app.memberships, app.condominiums, app.users"
+    "TRUNCATE app.document_chunk_embeddings, app.document_chunks, app.document_pages, app.processing_jobs, app.document_version_states, app.document_versions, app.documents, app.storage_objects, app.memberships, app.condominiums, app.users"
   );
   await client.query("INSERT INTO app.users (id, auth_subject, status) VALUES ($1, $2, 'active')", [
     userId,
@@ -277,5 +278,111 @@ describe("RLS de isolamento por condomínio", () => {
       await app.close();
       await rm(rootDirectory, { recursive: true, force: true });
     }
+  });
+
+  it("recupera apenas evidências do condomínio selecionado", async () => {
+    await pool.query(
+      "INSERT INTO app.memberships (condominium_id, id, user_id, role_key, status, valid_from, revision) VALUES ($1, $2, $3, 'manager', 'active', now() - interval '1 day', 'v1')",
+      [bosqueId, randomUUID(), userId]
+    );
+
+    async function insertReadyChunk(condominiumId: string, marker: string): Promise<void> {
+      const documentId = randomUUID();
+      const versionId = randomUUID();
+      const storageObjectId = randomUUID();
+      const pageId = randomUUID();
+      const chunkId = randomUUID();
+      const content = `Regra sintética ${marker}`;
+      const contentSha256 = createHash("sha256").update(content).digest("hex");
+      const documentSha256 = "b".repeat(64);
+
+      await pool.query(
+        `
+          INSERT INTO app.storage_objects (
+            condominium_id, id, object_kind, storage_key, content_sha256,
+            size_bytes, media_type, created_by_user_id
+          ) VALUES ($1, $2, 'document_original', $3, $4, 1, 'application/pdf', $5)
+        `,
+        [condominiumId, storageObjectId, `synthetic/${storageObjectId}`, documentSha256, userId]
+      );
+      await pool.query(
+        `
+          INSERT INTO app.documents (
+            condominium_id, id, title, document_type, status, created_by_user_id
+          ) VALUES ($1, $2, $3, 'convention', 'active', $4)
+        `,
+        [condominiumId, documentId, `Convenção ${marker}`, userId]
+      );
+      await pool.query(
+        `
+          INSERT INTO app.document_versions (
+            condominium_id, id, document_id, version_number, storage_object_id,
+            content_sha256, media_type, size_bytes, source_kind, uploaded_by_user_id
+          ) VALUES ($1, $2, $3, 1, $4, $5, 'application/pdf', 1, 'user_upload', $6)
+        `,
+        [condominiumId, versionId, documentId, storageObjectId, documentSha256, userId]
+      );
+      await pool.query(
+        `
+          INSERT INTO app.document_version_states (
+            condominium_id, document_version_id, processing_status, validity_status
+          ) VALUES ($1, $2, 'ready', 'confirmed')
+        `,
+        [condominiumId, versionId]
+      );
+      await pool.query(
+        `
+          INSERT INTO app.document_pages (
+            condominium_id, id, document_version_id, page_index, page_number,
+            extracted_text, extraction_method, quality_score, content_sha256
+          ) VALUES ($1, $2, $3, 0, 1, $4, 'pdf_text', 1, $5)
+        `,
+        [condominiumId, pageId, versionId, content, contentSha256]
+      );
+      await pool.query(
+        `
+          INSERT INTO app.document_chunks (
+            condominium_id, id, document_version_id, document_page_id,
+            chunk_index, start_offset, end_offset, content, content_sha256,
+            token_count, search_vector
+          ) VALUES ($1, $2, $3, $4, 0, 0, $5, $6, $7, 3, to_tsvector('portuguese', $6))
+        `,
+        [
+          condominiumId,
+          chunkId,
+          versionId,
+          pageId,
+          Array.from(content).length,
+          content,
+          contentSha256
+        ]
+      );
+    }
+
+    await insertReadyChunk(alamedaId, "ALAMEDA");
+    await insertReadyChunk(bosqueId, "BOSQUE");
+
+    const index = createPostgresScopedRetrievalIndex(pool);
+    const alamedaContext: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId(alamedaId),
+      userId: userId as AuthorizedCondominiumContext["userId"],
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+    const bosqueContext = { ...alamedaContext, condominiumId: createCondominiumId(bosqueId) };
+    const input = {
+      query: "regra sintética",
+      limit: 8,
+      minimumQualityScore: 0.7,
+      asOf: new Date("2026-09-01T00:00:00.000Z")
+    };
+
+    await expect(index.findAuthorizedCandidates(alamedaContext, input)).resolves.toMatchObject([
+      { condominiumId: alamedaId, content: "Regra sintética ALAMEDA" }
+    ]);
+    await expect(index.findAuthorizedCandidates(bosqueContext, input)).resolves.toMatchObject([
+      { condominiumId: bosqueId, content: "Regra sintética BOSQUE" }
+    ]);
   });
 });
