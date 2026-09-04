@@ -186,6 +186,7 @@ export function createPostgresDocumentProcessingRepository(
           [input.condominiumId, input.documentVersionId]
         );
 
+        let documentChunkIndex = 0;
         for (const page of input.outcome.pages) {
           const documentPageId = randomUUID();
           await client.query(
@@ -232,7 +233,7 @@ export function createPostgresDocumentProcessingRepository(
                 documentChunkId,
                 input.documentVersionId,
                 documentPageId,
-                chunk.chunkIndex,
+                documentChunkIndex,
                 chunk.startOffset,
                 chunk.endOffset,
                 chunk.content,
@@ -240,6 +241,7 @@ export function createPostgresDocumentProcessingRepository(
                 chunk.tokenCount
               ]
             );
+            documentChunkIndex += 1;
 
             const embedding = await embeddingAdapter.embed({
               content: chunk.content,
