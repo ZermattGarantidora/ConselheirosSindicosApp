@@ -47,7 +47,8 @@ Combina filtros determinísticos com busca textual/semântica e reranking. O iso
   determinístico e versionado para o corpus sintético. A interface separa o índice escopado do
   ranking; nenhum provedor externo de embeddings é escolhido nesta etapa;
 - o adaptador PostgreSQL materializa primeiro o conjunto autorizado, filtra `ready`, qualidade,
-  vigência e documento ativo, e só então aplica a consulta textual e a ordenação;
+  vigência e documento ativo, e preserva os candidatos top-k das trilhas textual e semântica
+  antes do reranking final;
 - o ranking determinístico em memória repete as verificações de tenant, estado, qualidade e
   vigência antes de pontuar, como defesa em profundidade.
 

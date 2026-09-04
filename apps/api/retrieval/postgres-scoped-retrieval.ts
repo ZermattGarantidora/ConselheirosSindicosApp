@@ -145,6 +145,7 @@ export function createPostgresScopedRetrievalIndex(
                 dvs.valid_from,
                 dvs.valid_until,
                 dc.search_vector,
+                ts_rank_cd(dc.search_vector, plainto_tsquery('portuguese', $1)) AS lexical_score,
                 CASE
                   WHEN dce.embedding IS NULL THEN NULL
                   ELSE 1 - (dce.embedding <=> $5::vector)
@@ -175,6 +176,36 @@ export function createPostgresScopedRetrievalIndex(
                 AND (dvs.valid_from IS NULL OR dvs.valid_from <= $3::timestamptz)
                 AND (dvs.valid_until IS NULL OR dvs.valid_until > $3::timestamptz)
                 AND d.status = 'active'
+            ), lexical_candidates AS (
+              SELECT *
+              FROM authorized_chunks
+              WHERE search_vector @@ plainto_tsquery('portuguese', $1)
+              ORDER BY lexical_score DESC,
+                semantic_score DESC NULLS LAST,
+                version_number DESC,
+                page_number ASC,
+                chunk_id ASC
+              LIMIT $2
+            ), semantic_candidates AS (
+              SELECT *
+              FROM authorized_chunks
+              WHERE semantic_score > 0
+              ORDER BY semantic_score DESC,
+                lexical_score DESC,
+                version_number DESC,
+                page_number ASC,
+                chunk_id ASC
+              LIMIT $2
+            ), candidate_union AS (
+              SELECT * FROM lexical_candidates
+              UNION ALL
+              SELECT * FROM semantic_candidates
+            ), deduplicated_candidates AS (
+              SELECT DISTINCT ON (chunk_id) *
+              FROM candidate_union
+              ORDER BY chunk_id,
+                lexical_score DESC,
+                semantic_score DESC NULLS LAST
             )
             SELECT
               chunk_id,
@@ -197,15 +228,12 @@ export function createPostgresScopedRetrievalIndex(
               validity_status,
               valid_from,
               valid_until
-            FROM authorized_chunks
-            WHERE search_vector @@ plainto_tsquery('portuguese', $1)
-              OR semantic_score IS NOT NULL
-            ORDER BY ts_rank_cd(search_vector, plainto_tsquery('portuguese', $1)) DESC,
+            FROM deduplicated_candidates
+            ORDER BY lexical_score DESC,
               semantic_score DESC NULLS LAST,
               version_number DESC,
               page_number ASC,
               chunk_id ASC
-            LIMIT $2
           `,
           [
             input.query,

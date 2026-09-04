@@ -94,6 +94,10 @@ describe("índice PostgreSQL de retrieval", () => {
     expect(retrievalQuery).toContain("dvs.processing_status = 'ready'");
     expect(retrievalQuery).toContain("dvs.validity_status IN ('confirmed', 'not_applicable')");
     expect(retrievalQuery).toContain("search_vector @@ plainto_tsquery");
+    expect(retrievalQuery).toContain("lexical_candidates");
+    expect(retrievalQuery).toContain("semantic_candidates");
+    expect(retrievalQuery).toContain("UNION ALL");
+    expect(retrievalQuery).toContain("SELECT DISTINCT ON (chunk_id)");
     expect(retrievalQuery).toContain("document_chunk_embeddings");
     expect(fake.client.release).toHaveBeenCalledOnce();
   });
