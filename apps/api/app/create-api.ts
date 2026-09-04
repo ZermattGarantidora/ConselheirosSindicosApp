@@ -19,6 +19,12 @@ import {
   createLocalPrivateDocumentStorage,
   type PrivateDocumentStorage
 } from "../documents/private-document-storage.js";
+import type { AnswerService } from "../answers/answer-service.js";
+import type { ScopedTextRetriever } from "../retrieval/text-retrieval.js";
+import {
+  createDocumentSourceUrl,
+  type DocumentSourceReader
+} from "../documents/document-source.js";
 
 export type CreateApiOptions = Readonly<{
   membershipRepository: MembershipRepository;
@@ -26,6 +32,9 @@ export type CreateApiOptions = Readonly<{
   version?: string;
   documentStorage?: PrivateDocumentStorage;
   documentUploadRepository?: DocumentUploadRepository;
+  answerService?: AnswerService;
+  retriever?: ScopedTextRetriever;
+  documentSourceReader?: DocumentSourceReader;
 }>;
 
 export function createApi(options: CreateApiOptions): FastifyInstance {
@@ -127,6 +136,85 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         .send({ message: "Não foi possível registrar o documento com segurança." });
     }
   });
+
+  app.post<{
+    Params: { condominiumId: string };
+    Headers: { "x-development-user-id"?: string };
+    Body: { question?: unknown };
+  }>("/v1/condominiums/:condominiumId/answers", async (request, reply) => {
+    const developmentUserId = request.headers["x-development-user-id"];
+    const question = request.body?.question;
+
+    if (developmentUserId === undefined || developmentUserId.trim().length === 0) {
+      return reply.code(401).send({ message: "Identidade de desenvolvimento inválida." });
+    }
+    if (typeof question !== "string" || question.trim().length === 0) {
+      return reply.code(400).send({ message: "A pergunta deve ser preenchida." });
+    }
+    if (options.answerService === undefined || options.retriever === undefined) {
+      return reply.code(503).send({ message: "Consulta documental indisponível." });
+    }
+
+    try {
+      const userId = createUserId(developmentUserId);
+      const condominiumId = createCondominiumId(request.params.condominiumId);
+      const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+        userId,
+        condominiumId,
+        now: now()
+      });
+      const retrieval = await options.retriever.search(context, { query: question });
+      return reply.send(await options.answerService.answer(context, { question, retrieval }));
+    } catch (error: unknown) {
+      if (error instanceof AccessDeniedError) {
+        return reply.code(403).send({ message: "Acesso não autorizado." });
+      }
+
+      return reply
+        .code(503)
+        .send({ message: "Não foi possível consultar os documentos com segurança." });
+    }
+  });
+
+  app.get<{
+    Params: { condominiumId: string; documentId: string; documentVersionId: string; page: string };
+    Headers: { "x-development-user-id"?: string };
+  }>(
+    "/v1/condominiums/:condominiumId/documents/:documentId/versions/:documentVersionId/pages/:page",
+    async (request, reply) => {
+      const developmentUserId = request.headers["x-development-user-id"];
+      const page = Number(request.params.page);
+      if (developmentUserId === undefined || developmentUserId.trim().length === 0) {
+        return reply.code(401).send({ message: "Identidade de desenvolvimento inválida." });
+      }
+      if (options.documentSourceReader === undefined) {
+        return reply.code(503).send({ message: "Visualização da fonte indisponível." });
+      }
+
+      try {
+        const condominiumId = createCondominiumId(request.params.condominiumId);
+        const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+          userId: createUserId(developmentUserId),
+          condominiumId,
+          now: now()
+        });
+        const source = await options.documentSourceReader.getAuthorizedPage(context, {
+          documentId: request.params.documentId,
+          documentVersionId: request.params.documentVersionId,
+          page
+        });
+        if (source === undefined) {
+          return reply.code(404).send({ message: "Fonte não encontrada." });
+        }
+        return reply.send({ ...source, url: createDocumentSourceUrl(condominiumId, source) });
+      } catch (error: unknown) {
+        if (error instanceof AccessDeniedError) {
+          return reply.code(403).send({ message: "Acesso não autorizado." });
+        }
+        return reply.code(404).send({ message: "Fonte não encontrada." });
+      }
+    }
+  );
 
   return app;
 }

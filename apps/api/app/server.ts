@@ -5,6 +5,18 @@ import { createPostgresDocumentUploadRepository } from "../documents/postgres-do
 import { createLocalPrivateDocumentStorage } from "../documents/private-document-storage.js";
 import { createDevelopmentIdentityRepository } from "../identity/development-identity-repository.js";
 import { createPostgresMembershipRepository } from "../identity/postgres-identity-repository.js";
+import { createAnswerService } from "../answers/answer-service.js";
+import { createLocalExtractiveGateway } from "../answers/local-extractive-gateway.js";
+import {
+  createDevelopmentScopedRetrievalIndex,
+  developmentChunks
+} from "../retrieval/development-scoped-retrieval.js";
+import { createPostgresScopedRetrievalIndex } from "../retrieval/postgres-scoped-retrieval.js";
+import { createScopedTextRetriever } from "../retrieval/text-retrieval.js";
+import {
+  createDevelopmentDocumentSourceReader,
+  createPostgresDocumentSourceReader
+} from "../documents/document-source.js";
 
 export async function startServer(
   port = 3000,
@@ -13,7 +25,12 @@ export async function startServer(
   const databaseUrl = environment.DATABASE_URL?.trim();
 
   if (databaseUrl === undefined || databaseUrl.length === 0) {
-    const app = createApi({ membershipRepository: createDevelopmentIdentityRepository() });
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      retriever: createScopedTextRetriever(createDevelopmentScopedRetrievalIndex()),
+      answerService: createAnswerService(createLocalExtractiveGateway()),
+      documentSourceReader: createDevelopmentDocumentSourceReader(developmentChunks)
+    });
     await app.listen({ host: "127.0.0.1", port });
     return app;
   }
@@ -24,7 +41,10 @@ export async function startServer(
     documentStorage: createLocalPrivateDocumentStorage(
       environment.DOCUMENT_STORAGE_ROOT?.trim() || ".local/synthetic-documents"
     ),
-    documentUploadRepository: createPostgresDocumentUploadRepository(pool)
+    documentUploadRepository: createPostgresDocumentUploadRepository(pool),
+    retriever: createScopedTextRetriever(createPostgresScopedRetrievalIndex(pool)),
+    answerService: createAnswerService(createLocalExtractiveGateway()),
+    documentSourceReader: createPostgresDocumentSourceReader(pool)
   });
   app.addHook("onClose", async () => {
     await pool.end();
