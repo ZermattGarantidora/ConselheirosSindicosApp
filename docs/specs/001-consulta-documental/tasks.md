@@ -1,6 +1,6 @@
 # Tarefas — Spec 001
 
-**Status:** scaffold, isolamento local, B3 e primeira fatia local do B4 implementados; gate Neon do B4 pendente
+**Status:** scaffold, isolamento local, B3 e primeira fatia local do B4 implementados; gate Neon do B4 aprovado
 **Atualizado em:** 2026-09-04
 
 As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa como concluída exige atualizar a matriz de rastreabilidade e anexar os comandos/gates executados ao registro da entrega.
@@ -53,11 +53,11 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
   semântico e de qualidade, e o resultado distingue evidência suficiente, fraca e ausente.
 - [x] **T405** Implementar cache escopado por condomínio, permissão, versão e pipeline. A chave
   também usa hash da pergunta e revisão da membership.
-- [ ] **T406** Criar testes de isolamento em todas as interfaces do retrieval. A cobertura inclui
+- [x] **T406** Criar testes de isolamento em todas as interfaces do retrieval. A cobertura inclui
   store/cache sintéticos, ranking, índice PostgreSQL e cenário RLS Neon; a execução Neon depende
-  das variáveis sintéticas obrigatórias do ambiente. Os testes foram criados, mas o gate de
-  execução permanece pendente até corrigir as falhas encontradas no primeiro cenário Neon
-  (`document_chunks` sem leitura para o worker e projeção incompleta de `content_sha256`).
+  das variáveis sintéticas obrigatórias do ambiente. Em 2026-09-04, após as migrations 007 e 008,
+  `pnpm.cmd run test:integration` passou com 7/7 testes; os avisos de SSL e de fonte do PDF não
+  alteraram o resultado.
 
 ## Fase 5 — Respostas e citações
 

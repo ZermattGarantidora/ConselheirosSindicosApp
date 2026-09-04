@@ -1,6 +1,6 @@
 # Matriz de rastreabilidade — Spec 001
 
-**Status:** primeira fatia local do B4 implementada; testes Neon de isolamento criados, mas o gate de execução permanece pendente
+**Status:** primeira fatia local do B4 implementada; isolamento Neon validado com 7/7 testes
 **Atualizado em:** 2026-09-04
 
 Esta matriz liga promessas a critérios de aceitação e evidàncias de verificação. Os identificadores de testes serão preenchidos quando o scaffold for criado.
@@ -37,6 +37,9 @@ Na primeira fatia do B4, a verificação determinística de RQ-004 também está
 `tests/integration/rls-tenant-isolation.test.ts`. T401–T405 são exercitadas por
 `tests/unit/retrieval-contract.test.ts`, `tests/unit/local-embedding.test.ts`,
 `tests/unit/retrieval-ranking.test.ts` e `tests/unit/scoped-retrieval.test.ts`.
+
+Em 2026-09-04, o Neon dedicado aplicou as migrations pendentes 007 e 008 e aprovou
+`pnpm.cmd run test:integration`: 7/7 cenários de RLS e retrieval passaram.
 
 ## Regra de manutenção
 
