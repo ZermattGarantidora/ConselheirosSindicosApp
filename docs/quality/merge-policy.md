@@ -49,7 +49,7 @@ Cobertura é um piso, não substitui testes de cenários críticos: isolamento e
 
 O projeto possui Git e gates locais. Antes de uma integração local, o responsável deve preencher um registro em `docs/reviews/` e executar `pnpm run verify:merge -- -ReviewFile <arquivo>`. O verificador exige aprovação, commit/diff revisado, revisor independente, zero P0/P1 e roda o gate técnico único.
 
-Ainda não há GitHub, repositório remoto ou CI. Portanto, proteção de branch e bloqueio remoto ainda não existem; o plano obrigatório para criá-los está em [GitHub adiado](github-deferred.md). Quando um provedor remoto for escolhido, esta política deve se tornar bloqueio técnico por meio de:
+O repositório remoto e o workflow de CI já existem. A proteção da `main` ainda precisa ser ativada; até lá, o plano de bloqueio está em [CI e proteção remota do GitHub](github-deferred.md). A política deve permanecer bloqueio técnico por meio de:
 
 - comando único de testes e cobertura;
 - relatório de cobertura processável pela CI;
