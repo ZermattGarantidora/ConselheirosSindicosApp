@@ -1,7 +1,7 @@
 # Tarefas — Spec 001
 
 **Status:** scaffold, isolamento local, B3 e primeira fatia local do B4 implementados; gate Neon do B4 aprovado
-**Atualizado em:** 2026-09-04
+**Atualizado em:** 2026-09-08
 
 As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa como concluída exige atualizar a matriz de rastreabilidade e anexar os comandos/gates executados ao registro da entrega.
 
@@ -17,7 +17,7 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 - [x] **T101** Inicializar Git, convenções de branch/commit e arquivos ignorados.
 - [x] **T102** Criar o scaffold do monólito modular e do worker. API Fastify, cliente React/Vite, worker Node, migration SQL e comandos locais foram criados.
 - [x] **T103** Configurar formatação, lint, typecheck, testes e build reproduzível; gerar relatório de cobertura unitária para statements, branches, functions e lines com threshold mínimo de 80% em cada métrica.
-- [ ] **T104** Configurar CI com gates rápidos, proteção contra segredos, execução de testes e publicação de cobertura. Adiado até a adoção de GitHub; ver `docs/quality/github-deferred.md`.
+- [x] **T104** Configurar CI com gates rápidos, proteção contra segredos, execução de testes e publicação de cobertura. O workflow `.github/workflows/ci.yml` executa instalação bloqueada, `pnpm run check`, E2E e build, publica a cobertura como artefato e usa permissões mínimas.
 - [ ] **T105** Configurar proteção de branch para bloquear merge sem code review aprovado, testes aprovados e cobertura unitária mínima de 80% no commit atual. Adiado até a adoção de GitHub; o verificador local é obrigatório enquanto isso.
 - [x] **T106** Criar configuração local por variáveis de ambiente sem valores sensíveis versionados.
 

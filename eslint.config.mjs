@@ -6,6 +6,9 @@ export default tseslint.config(
     ignores: [
       "coverage/**",
       "node_modules/**",
+      ".worktrees/**",
+      "output/**",
+      "tmp/**",
       "docs/**",
       "evals/**",
       "contracts/**",
