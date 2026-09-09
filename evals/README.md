@@ -1,6 +1,6 @@
 # Evals do conselheiro documental
 
-Esta pasta contém a especificação inicial das avaliações probabilísticas e de comportamento da aplicação. Os casos ainda não são executáveis porque a stack e o endpoint do produto não foram definidos.
+Esta pasta contém as avaliações sintéticas de comportamento da aplicação. Os 20 casos executam o endpoint real de perguntas e feedback usando o gateway determinístico local e o corpus versionado.
 
 ## Objetivo inicial
 
@@ -12,6 +12,8 @@ Avaliar uma promessa visível ao usuário:
 
 - `fixtures/synthetic-corpus.yaml`: documentos e trechos fictícios, sem dados de clientes.
 - `datasets/consulta-documental.yaml`: 20 casos iniciais de comportamento e regressão.
+- `fixtures/synthetic-corpus.ts` e `datasets/consulta-documental.ts`: representação tipada usada pelo adapter.
+- `baseline.json`: thresholds aprovados para a primeira execução local.
 
 ## Regras
 
@@ -46,19 +48,17 @@ Avaliar uma promessa visível ao usuário:
 
 Asserções probabilísticas devem combinar rubricas claras com revisão humana periódica. Um avaliador por modelo nunca substitui os bloqueios determinísticos.
 
-## Adapter futuro
+## Adapter executável
 
-Depois da escolha de stack, criar um adapter que:
+O adapter atual:
 
-1. restaure o corpus sintético em ambiente isolado;
-2. configure usuários e memberships do caso;
-3. chame o mesmo caso de uso ou endpoint da interface;
-4. capture resposta, evidências, traces normalizados, custo e latência;
-5. aplique asserções determinísticas;
-6. aplique rubricas probabilísticas;
-7. produza relatório comparável com a baseline.
+1. configura usuários, memberships e documentos sintéticos em memória;
+2. chama o mesmo endpoint HTTP da interface;
+3. captura resposta, evidências, traces normalizados, custo e latência;
+4. aplica asserções determinísticas, inclusive isolamento e feedback;
+5. produz relatório comparável com a baseline.
 
-O comando canônico futuro deve ser simples, por exemplo `npm run evals` ou equivalente da stack escolhida, e entrar no `README.md` e no CI/checklist de release.
+O comando canônico é `pnpm run evals`; ele deve ser executado no checklist local de release e será adicionado ao CI quando GitHub for adotado.
 
 ## Crescimento do dataset
 

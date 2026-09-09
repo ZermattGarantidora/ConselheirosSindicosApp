@@ -1,10 +1,15 @@
 import { Pool } from "pg";
 
+import { createLocalSyntheticAnswerGateway } from "../answers/answer-gateway.js";
+import { createAnswerUseCase } from "../answers/answer-use-case.js";
+import { createPostgresAnswerPersistence } from "../answers/postgres-answer-persistence.js";
 import { createApi } from "./create-api.js";
 import { createPostgresDocumentUploadRepository } from "../documents/postgres-document-upload-repository.js";
 import { createLocalPrivateDocumentStorage } from "../documents/private-document-storage.js";
 import { createDevelopmentIdentityRepository } from "../identity/development-identity-repository.js";
 import { createPostgresMembershipRepository } from "../identity/postgres-identity-repository.js";
+import { createPostgresScopedRetrievalIndex } from "../retrieval/postgres-scoped-retrieval.js";
+import { createScopedTextRetriever } from "../retrieval/text-retrieval.js";
 
 export async function startServer(
   port = 3000,
@@ -24,7 +29,12 @@ export async function startServer(
     documentStorage: createLocalPrivateDocumentStorage(
       environment.DOCUMENT_STORAGE_ROOT?.trim() || ".local/synthetic-documents"
     ),
-    documentUploadRepository: createPostgresDocumentUploadRepository(pool)
+    documentUploadRepository: createPostgresDocumentUploadRepository(pool),
+    answerUseCase: createAnswerUseCase({
+      retriever: createScopedTextRetriever(createPostgresScopedRetrievalIndex(pool)),
+      gateway: createLocalSyntheticAnswerGateway(),
+      persistence: createPostgresAnswerPersistence(pool)
+    })
   });
   app.addHook("onClose", async () => {
     await pool.end();

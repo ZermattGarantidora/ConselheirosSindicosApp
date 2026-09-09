@@ -1,13 +1,13 @@
 # Cronograma e visão de futuro por blocos
 
 **Status:** referência operacional do projeto  
-**Atualizado em:** 2026-09-03
+**Atualizado em:** 2026-09-09
 
 Este documento explica o caminho do produto em blocos. Cada bloco representa uma etapa compreensível do trabalho. A previsão abaixo é indicativa: um bloco só é dado como concluído quando o código, os testes, a segurança e a documentação estiverem coerentes.
 
 ## Em que ponto estamos
 
-Os blocos **B1**, **B2** e **B3** já foram concluídos. A separação entre condomínios foi validada com dados sintéticos, e o fluxo documental foi automatizado com upload privado, processamento persistido, OCR, versões e vigência.
+Os blocos **B1** a **B6** foram concluídos na fatia local com dados sintéticos. A separação entre condomínios, o fluxo documental, a recuperação, as respostas fundamentadas, o feedback, a auditoria e os 20 evals estão validados; GitHub/CI remoto, piloto e dados reais continuam fora deste escopo.
 
 ## Cronograma
 
@@ -16,9 +16,9 @@ Os blocos **B1**, **B2** e **B3** já foram concluídos. A separação entre con
 | **B1 — Separar os condomínios** ✅ | Concluído em 02/09/2026 | Garantir que cada condomínio tenha seus próprios dados e que ninguém veja informações sem autorização. | Uma pessoa pode trabalhar com mais de um condomínio sem misturar as informações. |
 | **B2 — Fechar a base atual** ✅ | Concluído em 02/09/2026 | Rodar os testes, revisar as alterações e deixar a fundação pronta para receber as próximas partes. | Uma base de desenvolvimento confiável para continuar construindo. |
 | **B3 — Colocar os documentos para dentro** ✅ | Concluído em 03/09/2026 | Receber arquivos, guardar o original, ler PDFs, reconhecer documentos escaneados e controlar versões e datas de validade. | O síndico consegue enviar documentos e saber se estão prontos para consulta ou precisam de revisão. |
-| **B4 — Encontrar os trechos certos** 🔴 | Semanas 3 e 4 | Criar a busca que procura somente dentro do condomínio escolhido e encontra as páginas mais relevantes. | O sistema localiza a regra ou decisão relacionada à pergunta. |
-| **B5 — Criar o chat confiável** 🔴 | Semanas 5 e 6 | Permitir perguntas e continuações em linguagem natural, montar respostas com fontes, reconhecer falta de informação, mostrar conflitos e recomendar especialista quando necessário. | O síndico conversa sem aprender comandos, recebe uma resposta direta, confere a fonte e entende quando não há segurança para responder. |
-| **B6 — Aprender com o uso** 🔴 | Semana 7 | Registrar avaliações, erros, facilidade de uso, tempo de resposta e custo; executar os casos de teste e corrigir problemas. | Sabemos se as respostas estão corretas, se a conversa é fácil, se as fontes ajudam e quanto custa cada resposta aprovada. |
+| **B4 — Encontrar os trechos certos** ✅ | Concluído em 04/09/2026 | Criar a busca que procura somente dentro do condomínio escolhido e encontra as páginas mais relevantes. | O sistema localiza a regra ou decisão relacionada à pergunta. |
+| **B5 — Criar o chat confiável** ✅ | Concluído em 09/09/2026 | Permitir perguntas e continuações em linguagem natural, montar respostas com fontes, reconhecer falta de informação, mostrar conflitos e recomendar especialista quando necessário. | O síndico conversa sem aprender comandos, recebe uma resposta direta, confere a fonte e entende quando não há segurança para responder. |
+| **B6 — Aprender com o uso** ✅ | Concluído em 09/09/2026 | Registrar avaliações, erros, facilidade de uso, tempo de resposta e custo; executar os casos de teste e corrigir problemas. | Sabemos se as respostas estão corretas, se a conversa é fácil, se as fontes ajudam e quanto custa cada resposta aprovada. |
 | **B7 — Preparar e conduzir o piloto** 🔴 | Semanas 8 e 9 | Fazer os últimos testes de segurança, definir uma cobrança acessível, organizar documentos autorizados ou anonimizados e começar um piloto pequeno. Depois que o núcleo demonstrar confiança, testar um convite separado e opcional para conhecer a Zermatt. | Síndicos testam a primeira versão com acompanhamento humano; medimos utilidade, confiança, custo e interesse comercial consentido. |
 | **B8 — Evoluir depois da validação** ⏸️ | Após os gates e o piloto | Avaliar provedor real de IA, GitHub e CI remoto, uso de dados reais, integrações, automações e evolução do fluxo comercial somente quando houver autorização, política de dados e evidência de valor. | O produto evolui sem colocar confiança, segurança ou custo em risco. |
 

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "suite": "spec-001-consulta-documental",
+  "corpusVersion": "synthetic-corpus-v1",
+  "recordedAt": "2026-09-08",
+  "caseCount": 20,
+  "p0CaseCount": 14,
+  "p1CaseCount": 6,
+  "thresholds": {
+    "maxP0Failures": 0,
+    "minimumP1PassRate": 0.9,
+    "maxCaseCountDelta": 0
+  },
+  "observed": {
+    "p0PassRate": 1,
+    "p1PassRate": 1,
+    "averageEstimatedCostMicrounits": 0
+  }
+}

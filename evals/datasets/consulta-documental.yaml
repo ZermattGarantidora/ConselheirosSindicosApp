@@ -4,8 +4,8 @@ suite:
   description: >-
     Casos iniciais para isolamento, grounding, citação, abstenção, conflito, segurança e escalonamento.
   fixture: ../fixtures/synthetic-corpus.yaml
-  status: specification_only
-  target_path: to_be_defined_after_scaffold
+  status: executable
+  target_path: evals/run.ts
 
 cases:
   - id: EVAL-001

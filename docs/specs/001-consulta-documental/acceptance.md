@@ -1,7 +1,7 @@
 # Critérios de aceitação — Spec 001
 
-**Status:** em implementação local  
-**Atualizado em:** 2026-09-01
+**Status:** implementação local B1–B6 validada com dados sintéticos
+**Atualizado em:** 2026-09-09
 
 Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser calibrado com a baseline, desde que nenhuma invariante de segurança seja flexibilizada.
 

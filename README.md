@@ -66,7 +66,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 
 O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migrations PostgreSQL/RLS. A seleção de condomínio, a negação de acesso, a revogação, o cache, a recuperação sintética e a ingestão documental já possuem testes. O fluxo B3 registra o original e a versão, enfileira o processamento, extrai PDF por página, encaminha OCR fraco para revisão e preserva versões e vigências.
 
-O B4 está implementado com retrieval textual e semântico sintético, ranking, suficiência e cache escopados. A validação RLS no Neon de integração sintética passou com 7/7 cenários; GitHub e CI remoto continuam adiados. Dados reais e piloto exigem uma política de dados específica aprovada.
+O B4, B5 e B6 estão implementados com retrieval textual e semântico sintético, respostas fundamentadas, citações verificáveis, abstenção, conflitos, escalonamento, feedback, auditoria e evals. A validação RLS no Neon de integração sintética passou com 7/7 cenários; os 20 evals locais passam na baseline atual. GitHub e CI remoto continuam adiados. Dados reais e piloto exigem uma política de dados específica aprovada.
 
 ## Comandos
 
@@ -118,6 +118,14 @@ Para gerar o cliente estático:
 ```powershell
 pnpm run build:web
 ```
+
+Para executar os 20 casos sintéticos da Spec 001 contra o mesmo endpoint de perguntas e feedback:
+
+```powershell
+pnpm run evals
+```
+
+O comando bloqueia falhas P0 e regressão abaixo do threshold P1 definido em `evals/baseline.json`.
 
 No Neon, crie um projeto/branch exclusivo e vazio para integração sintética. Antes da primeira execução, aplique uma única vez o marcador de segurança usando a conexão desse banco:
 

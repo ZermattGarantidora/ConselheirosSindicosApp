@@ -1,7 +1,7 @@
 # Estrutura de banco de dados — consulta documental
 
-**Status:** proposta para a Spec 001  
-**Atualizado em:** 2026-08-31  
+**Status:** implementada localmente na migration 009 para a Spec 001
+**Atualizado em:** 2026-09-09
 **Decisão relacionada:** `docs/adr/0005-postgresql-pgvector.md`
 
 ## 1. Escopo e alinhamento
@@ -231,6 +231,11 @@ Constraint única por tenant, chunk e perfil técnico. O hash precisa ser igual 
 
 ## 7. Tabelas de consulta, evidência e resposta
 
+A primeira implementação está em `infrastructure/database/009_answers_feedback_audit.sql`.
+Ela cria as tabelas de perguntas, runs de retrieval, evidências selecionadas, respostas,
+claims, citações e feedback com FKs compostas por condomínio, RLS `FORCE` e privilégios
+append-only para `app_runtime`.
+
 ### `questions`
 
 Campos: chave composta, `asked_by_user_id`, `content`, `language`, `idempotency_key`, `request_id`, `created_at` e `retention_until`.
@@ -273,7 +278,8 @@ Vínculo entre afirmação e evidência exibida.
 
 Campos: chave composta, `answer_claim_id`, `retrieval_evidence_id`, `ordinal`, `document_title_snapshot`, `page_number_snapshot`, `page_start_offset`, `page_end_offset`, `excerpt_snapshot`, `excerpt_sha256` e `created_at`.
 
-Antes do insert, a aplicação e uma constraint/função de banco validam que:
+Antes do insert, a aplicação valida que a citação pertence à allowlist recuperada; as
+foreign keys compostas e os checks do banco preservam os vínculos e limites estruturais:
 
 - a evidência estava selecionada para a mesma resposta e tenant;
 - o chunk, a página, a versão e o documento existem;
@@ -291,6 +297,10 @@ Campos: chave composta, `answer_id`, `submitted_by_user_id`, `classification`, `
 Classificações: `correct`, `incorrect`, `incomplete` ou `outdated`. Um novo feedback cria outra linha; nunca altera resposta, citação ou avaliação anterior.
 
 ## 8. Tabelas de IA, custo e auditoria
+
+A migration 009 também cria `model_invocations`, `model_invocation_evidence` e
+`audit_events`. O runtime persiste hashes, versões, contagens, custo estimado e decisão
+de roteamento, sem prompt renderizado ou resposta bruta na telemetria.
 
 ### `model_invocations`
 

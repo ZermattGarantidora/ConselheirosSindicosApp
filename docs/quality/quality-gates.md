@@ -89,6 +89,13 @@ pwsh -NoProfile -File scripts/verify-merge.ps1 -ReviewFile docs/reviews/<identif
 
 O arquivo de review deve seguir [o template](../reviews/TEMPLATE.md). O processo não substitui a proteção remota de branch, que será configurada ao adotar GitHub.
 
+Para mudanças em retrieval, respostas, prompts, parsing ou evals, o checklist local de
+release também exige:
+
+```powershell
+pnpm run evals
+```
+
 ## Segurança de dependências
 
 ```powershell
