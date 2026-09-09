@@ -77,6 +77,7 @@ describe("índice PostgreSQL de retrieval", () => {
         sourceKind: "user_upload",
         documentVersionNumber: 2,
         pageNumber: 4,
+        semanticScore: 0.8,
         validityStatus: "confirmed"
       }
     ]);
@@ -98,6 +99,10 @@ describe("índice PostgreSQL de retrieval", () => {
     expect(retrievalQuery).toContain("semantic_candidates");
     expect(retrievalQuery).toContain("UNION ALL");
     expect(retrievalQuery).toContain("SELECT DISTINCT ON (chunk_id)");
+    if (retrievalQuery === undefined) {
+      throw new Error("Consulta de retrieval não foi executada.");
+    }
+    expect(retrievalQuery.slice(retrievalQuery.lastIndexOf("SELECT"))).toContain("semantic_score");
     expect(retrievalQuery).toContain("document_chunk_embeddings");
     expect(fake.client.release).toHaveBeenCalledOnce();
   });

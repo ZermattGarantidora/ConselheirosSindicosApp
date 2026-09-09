@@ -82,7 +82,10 @@ function mapRow(row: RetrievalRow): RetrievableChunk {
     endOffset: Number(row.end_offset),
     content: row.content,
     contentSha256: row.content_sha256,
-    semanticScore: row.semantic_score === null ? null : Number(row.semantic_score),
+    semanticScore:
+      row.semantic_score === null || row.semantic_score === undefined
+        ? null
+        : Number(row.semantic_score),
     extractionMethod: row.extraction_method,
     qualityScore: Number(row.quality_score),
     processingStatus: row.processing_status,
@@ -222,6 +225,7 @@ export function createPostgresScopedRetrievalIndex(
               end_offset,
               content,
               content_sha256,
+              semantic_score,
               extraction_method,
               quality_score,
               processing_status,

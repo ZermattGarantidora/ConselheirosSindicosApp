@@ -1,7 +1,7 @@
 # Tarefas — Spec 001
 
-**Status:** scaffold, isolamento local, B3 e primeira fatia local do B4 implementados; gate Neon do B4 aprovado
-**Atualizado em:** 2026-09-08
+**Status:** scaffold, B3, B4, B5 e B6 implementados localmente com dados sintéticos; integrações Neon sintéticas aprovadas
+**Atualizado em:** 2026-09-09
 
 As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa como concluída exige atualizar a matriz de rastreabilidade e anexar os comandos/gates executados ao registro da entrega.
 
@@ -18,7 +18,7 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 - [x] **T102** Criar o scaffold do monólito modular e do worker. API Fastify, cliente React/Vite, worker Node, migration SQL e comandos locais foram criados.
 - [x] **T103** Configurar formatação, lint, typecheck, testes e build reproduzível; gerar relatório de cobertura unitária para statements, branches, functions e lines com threshold mínimo de 80% em cada métrica.
 - [x] **T104** Configurar CI com gates rápidos, proteção contra segredos, execução de testes e publicação de cobertura. O workflow `.github/workflows/ci.yml` executa instalação bloqueada, `pnpm run check`, E2E e build, publica a cobertura como artefato e usa permissões mínimas.
-- [ ] **T105** Configurar proteção de branch para bloquear merge sem code review aprovado, testes aprovados e cobertura unitária mínima de 80% no commit atual. Adiado até a adoção de GitHub; o verificador local é obrigatório enquanto isso.
+- [ ] **T105** Configurar proteção de branch para bloquear merge sem code review aprovado, testes aprovados e cobertura unitária mínima de 80% no commit atual. A proteção da `main` permanece pendente; o verificador local continua obrigatório enquanto isso.
 - [x] **T106** Criar configuração local por variáveis de ambiente sem valores sensíveis versionados.
 
 ## Fase 2 — Identidade e isolamento
@@ -57,47 +57,28 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
   store/cache sintéticos, ranking, índice PostgreSQL e cenário RLS Neon; a execução Neon depende
   das variáveis sintéticas obrigatórias do ambiente. Em 2026-09-04, após as migrations 007 e 008,
   `pnpm.cmd run test:integration` passou com 7/7 testes; os avisos de SSL e de fonte do PDF não
-  alteraram o resultado.
+  alteraram o resultado. Em 2026-09-09, após a migration 009 do B6 e a correção do reset das
+  fixtures para incluir as tabelas de respostas, o mesmo conjunto passou novamente com 7/7 testes.
 
 ## Fase 5 — Respostas e citações
 
-- [x] **T501** Implementar gateway de IA independente de provedor. O contrato
-      `AiGateway` recebe somente a pergunta e as evidências autorizadas, sem
-      escolher provedor ou executar chamadas externas.
-- [x] **T502** Versionar prompts e definir schema estruturado. O contrato
-      `grounded-answer-v1` fixa a versão `answer-evidence-v1`, o modo, as citações,
-      os pontos de atenção, o próximo passo e o escalonamento.
-- [x] **T503** Implementar modos `grounded`, `abstained`, `conflict` e `failed`.
-      Ausência ou fragilidade de evidência abstém antes do gateway; saída inválida,
-      tenant divergente ou falha do gateway retornam `failed`; conflito exige duas
-      citações verificáveis.
-- [x] **T504** Implementar validação pós-geração das citações. Cada citação é
-      verificada contra o ID de evidência permitido e o trecho exato da página;
-      qualquer divergência falha fechada.
-- [x] **T505** Implementar classificação de risco e escalonamento. Questões de
-      disputa, segurança, tributação, fraude, sinistro ou proteção de dados exibem
-      a recomendação determinística do especialista apropriado, sem parecer
-      definitivo.
-- [x] **T506** Implementar tela de pergunta, resposta estruturada e abertura da
-  fonte. A interface chama o endpoint autorizado de respostas e a citação abre
-  a página processada do documento e versão informados, com nova validação de
-  contexto no servidor.
-- [x] **T507** Automatizar AC-010 a AC-018 e AC-021. A cobertura determinística
-  está em `tests/e2e/document-answer.e2e.test.ts`,
-  `tests/unit/answer-service.test.ts` e
-  `tests/unit/local-extractive-gateway.test.ts`; ela valida contrato,
-  grounding/citação, associação de afirmação a fontes, abstenção, conflito, injeção documental, escalonamento e
-  falha segura no caminho HTTP ou de domínio correspondente.
+- [x] **T501** Implementar gateway de IA independente de provedor. O contrato permite trocar o provedor e a primeira execução usa o gateway determinístico local, sem enviar dados reais a SaaS.
+- [x] **T502** Versionar prompts e definir schema estruturado. O contrato `answer-v1` valida modos, citações, claims, pontos de atenção e encaminhamento.
+- [x] **T503** Implementar modos `grounded`, `abstained`, `conflict` e `failed`, com falha fechada quando não há base autorizada ou a validação pós-geração falha.
+- [x] **T504** Implementar validação pós-geração das citações, incluindo documento, versão, página, trecho e offsets verificáveis na evidência autorizada.
+- [x] **T505** Implementar classificação de risco e escalonamento para advogado, contador, engenheiro, seguradora e especialista em proteção de dados.
+- [x] **T506** Implementar tela de pergunta, resposta estruturada, citações e abertura segura do trecho exibido.
+- [x] **T507** Automatizar AC-010 a AC-018 e AC-021 com testes determinísticos e os 20 casos sintéticos de eval.
 
 ## Fase 6 — Feedback, auditoria e evals
 
-- [ ] **T601** Implementar feedback imutavelmente vinculado à resposta.
-- [ ] **T602** Implementar trilha auditável e telemetria minimizada.
-- [ ] **T603** Criar adapter de eval para o caminho real da aplicação.
-- [ ] **T604** Tornar executáveis o corpus sintético e os 20 casos iniciais.
-- [ ] **T605** Registrar a baseline e calibrar os thresholds P1 sem flexibilizar P0.
-- [ ] **T606** Adicionar evals ao CI ou checklist de release.
-- [ ] **T607** Automatizar AC-019 e AC-020.
+- [x] **T601** Implementar feedback imutavelmente vinculado à resposta, sem mutar resposta, claims ou citações anteriores.
+- [x] **T602** Implementar trilha auditável e telemetria minimizada com versões, decisão de roteamento, latência, custo, hashes e status, sem prompt ou resposta bruta.
+- [x] **T603** Criar adapter de eval para o caminho real da aplicação, chamando os endpoints HTTP locais.
+- [x] **T604** Tornar executáveis o corpus sintético e os 20 casos iniciais.
+- [x] **T605** Registrar a baseline e calibrar os thresholds P1 sem flexibilizar P0; os 20 casos passam na execução atual.
+- [x] **T606** Adicionar `pnpm run evals` ao checklist local de release e à validação de mudanças de comportamento de IA.
+- [x] **T607** Automatizar AC-019 e AC-020 com testes de feedback, auditoria, custo e imutabilidade.
 
 ## Fase 7 — Preparação do piloto
 

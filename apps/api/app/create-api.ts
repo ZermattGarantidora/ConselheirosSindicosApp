@@ -1,5 +1,14 @@
 import Fastify, { type FastifyInstance } from "fastify";
 
+import { createAnswerUseCase, type AnswerUseCase } from "../answers/answer-use-case.js";
+import type { AnswerService } from "../answers/answer-service.js";
+import { createLocalSyntheticAnswerGateway } from "../answers/answer-gateway.js";
+import {
+  isFeedbackClassification,
+  type SubmitFeedbackInput
+} from "../answers/answer-persistence.js";
+import { createInMemoryAnswerPersistence } from "../answers/in-memory-answer-persistence.js";
+import { toPublicAnswer } from "../answers/answer-contract.js";
 import { createCondominiumId } from "../core/condominium-scope.js";
 import {
   AccessDeniedError,
@@ -19,12 +28,15 @@ import {
   createLocalPrivateDocumentStorage,
   type PrivateDocumentStorage
 } from "../documents/private-document-storage.js";
-import type { AnswerService } from "../answers/answer-service.js";
-import type { ScopedTextRetriever } from "../retrieval/text-retrieval.js";
 import {
   createDocumentSourceUrl,
   type DocumentSourceReader
 } from "../documents/document-source.js";
+import { createInMemoryScopedRetrievalIndex } from "../retrieval/in-memory-scoped-retrieval.js";
+import {
+  createScopedTextRetriever,
+  type ScopedTextRetriever
+} from "../retrieval/text-retrieval.js";
 
 export type CreateApiOptions = Readonly<{
   membershipRepository: MembershipRepository;
@@ -32,10 +44,36 @@ export type CreateApiOptions = Readonly<{
   version?: string;
   documentStorage?: PrivateDocumentStorage;
   documentUploadRepository?: DocumentUploadRepository;
+  answerUseCase?: AnswerUseCase;
   answerService?: AnswerService;
   retriever?: ScopedTextRetriever;
   documentSourceReader?: DocumentSourceReader;
 }>;
+
+type AskBody = Readonly<{ question: string }>;
+type FeedbackBody = Readonly<{
+  classification: SubmitFeedbackInput["classification"];
+  comment?: string;
+}>;
+
+function isAskBody(value: unknown): value is AskBody {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "question" in value &&
+    typeof value.question === "string"
+  );
+}
+
+function isFeedbackBody(value: unknown): value is FeedbackBody {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "classification" in value &&
+    isFeedbackClassification(value.classification) &&
+    (!("comment" in value) || value.comment === undefined || typeof value.comment === "string")
+  );
+}
 
 export function createApi(options: CreateApiOptions): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: maximumPdfUploadBytes });
@@ -45,6 +83,13 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     options.documentStorage ?? createLocalPrivateDocumentStorage(".local/synthetic-documents");
   const documentUploadRepository =
     options.documentUploadRepository ?? createDevelopmentDocumentUploadRepository();
+  const answerUseCase =
+    options.answerUseCase ??
+    createAnswerUseCase({
+      retriever: createScopedTextRetriever(createInMemoryScopedRetrievalIndex([])),
+      gateway: createLocalSyntheticAnswerGateway(),
+      persistence: createInMemoryAnswerPersistence()
+    });
 
   app.addContentTypeParser("application/pdf", { parseAs: "buffer" }, (_request, body, done) => {
     done(null, body);
@@ -139,20 +184,18 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
 
   app.post<{
     Params: { condominiumId: string };
-    Headers: { "x-development-user-id"?: string };
-    Body: { question?: unknown };
-  }>("/v1/condominiums/:condominiumId/answers", async (request, reply) => {
+    Headers: { "x-development-user-id"?: string; "idempotency-key"?: string };
+    Body: unknown;
+  }>("/v1/condominiums/:condominiumId/questions", async (request, reply) => {
+    if (!isAskBody(request.body)) {
+      return reply.code(400).send({ message: "A pergunta é obrigatória." });
+    }
+    if (request.body.question.trim().length === 0 || request.body.question.length > 4_000) {
+      return reply.code(400).send({ message: "A pergunta deve ter entre 1 e 4.000 caracteres." });
+    }
     const developmentUserId = request.headers["x-development-user-id"];
-    const question = request.body?.question;
-
     if (developmentUserId === undefined || developmentUserId.trim().length === 0) {
       return reply.code(401).send({ message: "Identidade de desenvolvimento inválida." });
-    }
-    if (typeof question !== "string" || question.trim().length === 0) {
-      return reply.code(400).send({ message: "A pergunta deve ser preenchida." });
-    }
-    if (options.answerService === undefined || options.retriever === undefined) {
-      return reply.code(503).send({ message: "Consulta documental indisponível." });
     }
 
     try {
@@ -163,13 +206,120 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         condominiumId,
         now: now()
       });
+      const answer = await answerUseCase.ask(context, {
+        question: request.body.question,
+        requestId: request.id,
+        ...(request.headers["idempotency-key"] === undefined
+          ? {}
+          : { idempotencyKey: request.headers["idempotency-key"] })
+      });
+
+      return reply.code(200).send(toPublicAnswer(answer));
+    } catch (error: unknown) {
+      if (error instanceof AccessDeniedError) {
+        return reply.code(403).send({ message: "Acesso não autorizado." });
+      }
+      if (
+        error instanceof Error &&
+        (error.message.startsWith("A pergunta") ||
+          error.message.startsWith("A chave de idempotência"))
+      ) {
+        return reply.code(400).send({ message: error.message });
+      }
+      return reply
+        .code(500)
+        .send({ message: "Não foi possível processar a consulta com segurança." });
+    }
+  });
+
+  app.post<{
+    Params: { condominiumId: string; answerId: string };
+    Headers: { "x-development-user-id"?: string };
+    Body: unknown;
+  }>("/v1/condominiums/:condominiumId/answers/:answerId/feedback", async (request, reply) => {
+    if (!isFeedbackBody(request.body)) {
+      return reply.code(400).send({ message: "A classificação do feedback é obrigatória." });
+    }
+    if (request.body.comment !== undefined && request.body.comment.trim().length === 0) {
+      return reply.code(400).send({ message: "O comentário do feedback não pode ser vazio." });
+    }
+    const developmentUserId = request.headers["x-development-user-id"];
+    if (developmentUserId === undefined || developmentUserId.trim().length === 0) {
+      return reply.code(401).send({ message: "Identidade de desenvolvimento inválida." });
+    }
+
+    try {
+      const userId = createUserId(developmentUserId);
+      const condominiumId = createCondominiumId(request.params.condominiumId);
+      const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+        userId,
+        condominiumId,
+        now: now()
+      });
+      const feedback = await answerUseCase.submitFeedback(context, {
+        answerId: request.params.answerId,
+        classification: request.body.classification,
+        comment: request.body.comment ?? null,
+        requestId: request.id
+      });
+
+      return reply.code(201).send({
+        feedbackId: feedback.id,
+        answerId: feedback.answerId,
+        condominiumId: feedback.condominiumId,
+        classification: feedback.classification,
+        createdAt: feedback.createdAt.toISOString()
+      });
+    } catch (error: unknown) {
+      if (error instanceof AccessDeniedError) {
+        return reply.code(403).send({ message: "Acesso não autorizado." });
+      }
+      if (
+        error instanceof Error &&
+        (error.message === "A classificação do feedback é inválida." ||
+          error.message.startsWith("O identificador da resposta") ||
+          error.message.startsWith("O identificador da requisição do feedback") ||
+          error.message.startsWith("O comentário do feedback"))
+      ) {
+        return reply.code(400).send({ message: error.message });
+      }
+      if (error instanceof Error && error.message.includes("não foi encontrada")) {
+        return reply.code(404).send({ message: "Resposta não encontrada." });
+      }
+      return reply
+        .code(500)
+        .send({ message: "Não foi possível registrar o feedback com segurança." });
+    }
+  });
+
+  app.post<{
+    Params: { condominiumId: string };
+    Headers: { "x-development-user-id"?: string };
+    Body: { question?: unknown };
+  }>("/v1/condominiums/:condominiumId/answers", async (request, reply) => {
+    const developmentUserId = request.headers["x-development-user-id"];
+    const question = request.body?.question;
+    if (developmentUserId === undefined || developmentUserId.trim().length === 0) {
+      return reply.code(401).send({ message: "Identidade de desenvolvimento inválida." });
+    }
+    if (typeof question !== "string" || question.trim().length === 0) {
+      return reply.code(400).send({ message: "A pergunta deve ser preenchida." });
+    }
+    if (options.answerService === undefined || options.retriever === undefined) {
+      return reply.code(503).send({ message: "Consulta documental indisponível." });
+    }
+    try {
+      const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+        userId: createUserId(developmentUserId),
+        condominiumId: createCondominiumId(request.params.condominiumId),
+        now: now()
+      });
       const retrieval = await options.retriever.search(context, { query: question });
       return reply.send(await options.answerService.answer(context, { question, retrieval }));
     } catch (error: unknown) {
       if (error instanceof AccessDeniedError) {
         return reply.code(403).send({ message: "Acesso não autorizado." });
       }
-
       return reply
         .code(503)
         .send({ message: "Não foi possível consultar os documentos com segurança." });
@@ -190,7 +340,6 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       if (options.documentSourceReader === undefined) {
         return reply.code(503).send({ message: "Visualização da fonte indisponível." });
       }
-
       try {
         const condominiumId = createCondominiumId(request.params.condominiumId);
         const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
