@@ -37,7 +37,7 @@ const userId = randomUUID();
 
 async function resetFixtures(client: PoolClient): Promise<void> {
   await client.query(
-    "TRUNCATE app.audit_events, app.model_invocation_evidence, app.model_invocations, app.feedback, app.citations, app.answer_claims, app.answers, app.retrieval_evidence, app.retrieval_runs, app.questions, app.document_chunk_embeddings, app.document_chunks, app.document_pages, app.processing_jobs, app.document_version_states, app.document_versions, app.documents, app.storage_objects, app.memberships, app.condominiums, app.users"
+    "TRUNCATE app.audit_events, app.model_invocation_evidence, app.model_invocations, app.feedback, app.citations, app.answer_claims, app.answers, app.retrieval_evidence, app.retrieval_runs, app.questions, app.document_chunk_embeddings, app.document_chunks, app.document_pages, app.processing_jobs, app.document_version_states, app.document_versions, app.documents, app.storage_objects, app.memberships, app.condominiums, app.users CASCADE"
   );
   await client.query("INSERT INTO app.users (id, auth_subject, status) VALUES ($1, $2, 'active')", [
     userId,
