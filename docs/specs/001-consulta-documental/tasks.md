@@ -17,8 +17,8 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 - [x] **T101** Inicializar Git, convenções de branch/commit e arquivos ignorados.
 - [x] **T102** Criar o scaffold do monólito modular e do worker. API Fastify, cliente React/Vite, worker Node, migration SQL e comandos locais foram criados.
 - [x] **T103** Configurar formatação, lint, typecheck, testes e build reproduzível; gerar relatório de cobertura unitária para statements, branches, functions e lines com threshold mínimo de 80% em cada métrica.
-- [ ] **T104** Configurar CI com gates rápidos, proteção contra segredos, execução de testes e publicação de cobertura. Adiado até a adoção de GitHub; ver `docs/quality/github-deferred.md`.
-- [ ] **T105** Configurar proteção de branch para bloquear merge sem code review aprovado, testes aprovados e cobertura unitária mínima de 80% no commit atual. Adiado até a adoção de GitHub; o verificador local é obrigatório enquanto isso.
+- [x] **T104** Configurar CI com gates rápidos, proteção contra segredos, execução de testes e publicação de cobertura. O workflow `.github/workflows/ci.yml` executa instalação bloqueada, `pnpm run check`, E2E e build, publica a cobertura como artefato e usa permissões mínimas.
+- [ ] **T105** Configurar proteção de branch para bloquear merge sem code review aprovado, testes aprovados e cobertura unitária mínima de 80% no commit atual. A proteção da `main` permanece pendente; o verificador local continua obrigatório enquanto isso.
 - [x] **T106** Criar configuração local por variáveis de ambiente sem valores sensíveis versionados.
 
 ## Fase 2 — Identidade e isolamento
@@ -77,7 +77,7 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 - [x] **T603** Criar adapter de eval para o caminho real da aplicação, chamando os endpoints HTTP locais.
 - [x] **T604** Tornar executáveis o corpus sintético e os 20 casos iniciais.
 - [x] **T605** Registrar a baseline e calibrar os thresholds P1 sem flexibilizar P0; os 20 casos passam na execução atual.
-- [x] **T606** Adicionar `pnpm run evals` ao checklist local de release, mantendo CI remoto adiado conforme T104/T105.
+- [x] **T606** Adicionar `pnpm run evals` ao checklist local de release e à validação de mudanças de comportamento de IA.
 - [x] **T607** Automatizar AC-019 e AC-020 com testes de feedback, auditoria, custo e imutabilidade.
 
 ## Fase 7 — Preparação do piloto

@@ -3,7 +3,17 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["coverage/**", "node_modules/**", "docs/**", "contracts/**", "apps/web/dist/**"]
+    ignores: [
+      "coverage/**",
+      "node_modules/**",
+      ".worktrees/**",
+      "output/**",
+      "tmp/**",
+      "docs/**",
+      "evals/**",
+      "contracts/**",
+      "apps/web/dist/**"
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

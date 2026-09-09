@@ -1,6 +1,6 @@
 # Matriz de rastreabilidade — Spec 001
 
-**Status:** B1–B6 implementados; 20/20 evals, cobertura unitária acima dos pisos e integração Neon sintética 7/7 aprovada
+**Status:** B1–B6 implementados; CI remoto configurado, 20/20 evals, cobertura unitária acima dos pisos e integração Neon sintética 7/7 aprovada
 **Atualizado em:** 2026-09-09
 
 Esta matriz liga promessas a critérios de aceitação e evidências de verificação. Os casos usam somente dados sintéticos.

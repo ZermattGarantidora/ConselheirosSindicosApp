@@ -7,4 +7,4 @@
 - [x] **T205** Versionar contrato HTTP inicial e configuração de ambiente sem segredos.
 - [x] **T206** Implementar scanner local de segredos e registro/verificador de review.
 - [x] **T207** Documentar observabilidade, flags, releases e a futura adoção de GitHub.
-- [ ] **T208** Após escolher provedor remoto, implementar CI, proteção de branch e checks obrigatórios.
+- [ ] **T208** Após escolher provedor remoto, concluir a proteção da `main` e tornar os checks obrigatórios. O CI remoto já está implementado em `.github/workflows/ci.yml`; falta ativar as regras no GitHub.

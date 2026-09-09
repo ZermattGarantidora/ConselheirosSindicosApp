@@ -185,6 +185,12 @@ Se uma seção não for aplicável, o contrato pode representá-la vazia sem inv
       "excerpt": "string"
     }
   ],
+  "claims": [
+    {
+      "statement": "string",
+      "citationIndexes": [0]
+    }
+  ],
   "attentionPoints": ["string"],
   "suggestedNextStep": "string | null",
   "specialist": {

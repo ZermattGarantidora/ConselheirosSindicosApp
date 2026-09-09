@@ -167,12 +167,14 @@ function compareEvidence(left: RetrievalEvidence, right: RetrievalEvidence): num
   );
 }
 
-export function createScopedTextRetriever(index: ScopedRetrievalIndex): Readonly<{
+export type ScopedTextRetriever = Readonly<{
   search(
     context: AuthorizedCondominiumContext,
     input: RetrievalSearchInput
   ): Promise<ScopedRetrievalResult>;
-}> {
+}>;
+
+export function createScopedTextRetriever(index: ScopedRetrievalIndex): ScopedTextRetriever {
   return Object.freeze({
     async search(context, input) {
       validateInput(input);

@@ -1,18 +1,21 @@
-# GitHub adiado — plano obrigatório antes do primeiro merge remoto
+# GitHub — CI e proteção remota
 
-**Decisão atual:** o projeto começa com Git local, sem repositório ou automações no GitHub.
+**Status:** CI configurado; proteção da `main` pendente de ativação
+**Atualizado em:** 2026-09-08
 
-Isto não reduz a política de merge: até haver colaboração remota, a integração local exige o registro de review e `scripts/verify-merge.ps1`. O bloqueio remoto ainda não existe e não deve ser declarado como configurado.
+O repositório remoto já existe e o workflow `.github/workflows/ci.yml` executa os gates técnicos no GitHub Actions. Enquanto a proteção da `main` não estiver ativa, o registro local de review continua obrigatório.
 
-## Itens para executar quando GitHub for adotado
+## Configurado
 
-1. Criar repositório privado e definir as pessoas responsáveis por produto e segurança.
-2. Adicionar CI que execute `pnpm install --frozen-lockfile` e `pnpm run check` em cada pull request.
-3. Publicar e exigir os checks de lint, typecheck, testes, cobertura (quatro métricas), specs, segredos e dependências.
-4. Proteger a branch principal: pull request obrigatório, ao menos um review aprovado para o commit atual, conversa resolvida, branches atualizadas e nenhum bypass rotineiro.
-5. Configurar secrets no repositório/ambiente, nunca no código; separar ambientes de desenvolvimento, homologação e produção.
-6. Ativar Dependabot ou equivalente, scanner de segredos, CodeQL/SAST, geração de SBOM e política de atualizações.
-7. Adicionar `CODEOWNERS` para módulos de segurança, tenancy, migrações, IA e infraestrutura.
-8. Exigir artefatos de cobertura, resultados de eval e evidência do review em toda mudança de comportamento de IA.
+- Repositório remoto do projeto.
+- Workflow de CI em pushes da `main` e branches `codex/**`, e em pull requests para `main`.
+- Instalação com lockfile, lint, typecheck, cobertura, specs, scanner de segredos, E2E e build.
+- Artefato de cobertura por execução.
+- Permissão mínima de leitura do conteúdo do repositório.
 
-O item 2 é o marco que transforma os gates locais em bloqueios remotos reais.
+## Pendências para o bloqueio remoto
+
+1. Proteger a `main` exigindo pull request, ao menos uma aprovação, conversa resolvida e o check `quality` verde.
+2. Impedir bypass rotineiro, force push e exclusão da `main`.
+3. Adicionar secrets de integração somente quando houver necessidade, com o Neon sintético dedicado e confirmação `synthetic-only`.
+4. Ativar Dependabot ou equivalente, CodeQL/SAST, SBOM e `CODEOWNERS` conforme a adoção operacional do GitHub.

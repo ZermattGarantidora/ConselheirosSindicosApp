@@ -45,7 +45,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 - [Política inicial de dados e riscos aceitos](docs/security/data-handling-inicial.md)
 - [Gates de qualidade](docs/quality/quality-gates.md)
 - [Política de merge](docs/quality/merge-policy.md)
-- [Adoção futura de GitHub](docs/quality/github-deferred.md)
+- [CI e proteção remota do GitHub](docs/quality/github-deferred.md)
 - [Rastreabilidade](docs/quality/traceability.md)
 - [Estratégia de evals](evals/README.md)
 - [Roadmap diário por blocos B1–B8](docs/product/roadmap-blocos.md)
@@ -66,7 +66,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 
 O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migrations PostgreSQL/RLS. A seleção de condomínio, a negação de acesso, a revogação, o cache, a recuperação sintética e a ingestão documental já possuem testes. O fluxo B3 registra o original e a versão, enfileira o processamento, extrai PDF por página, encaminha OCR fraco para revisão e preserva versões e vigências.
 
-O B4, B5 e B6 estão implementados com retrieval textual e semântico sintético, respostas fundamentadas, citações verificáveis, abstenção, conflitos, escalonamento, feedback, auditoria e evals. A validação RLS no Neon de integração sintética passou com 7/7 cenários; os 20 evals locais passam na baseline atual. GitHub e CI remoto continuam adiados. Dados reais e piloto exigem uma política de dados específica aprovada.
+O B4, B5 e B6 estão implementados com retrieval textual e semântico sintético, respostas fundamentadas, citações verificáveis, abstenção, conflitos, escalonamento, feedback, auditoria e evals. A validação RLS no Neon de integração sintética passou com 7/7 cenários; os 20 evals locais passam na baseline atual. O GitHub Actions executa os gates de qualidade, E2E e build; a proteção obrigatória da `main` permanece pendente de ativação. Dados reais e piloto exigem uma política de dados específica aprovada.
 
 ## Comandos
 
