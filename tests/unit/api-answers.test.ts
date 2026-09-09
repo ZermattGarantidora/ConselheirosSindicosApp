@@ -70,6 +70,29 @@ describe("API de perguntas e feedback", () => {
     });
   });
 
+  it("reutiliza a resposta quando o cliente reenvia a mesma chave idempotente", async () => {
+    const { app, persistence } = configuredApp();
+
+    return closeAfter(app, async () => {
+      const request = {
+        method: "POST" as const,
+        url: "/v1/condominiums/alameda/questions",
+        headers: {
+          "x-development-user-id": "sindico-demo",
+          "idempotency-key": "consulta-area-comum"
+        },
+        payload: { question: "Qual é a regra da área comum?" }
+      };
+      const first = await app.inject(request);
+      const repeated = await app.inject(request);
+
+      expect(first.statusCode).toBe(200);
+      expect(repeated.statusCode).toBe(200);
+      expect(repeated.json().answerId).toBe(first.json().answerId);
+      expect(persistence.listInteractions()).toHaveLength(1);
+    });
+  });
+
   it("abstém com o adaptador padrão quando não há documentos carregados", async () => {
     const app = createApi({
       membershipRepository: createDevelopmentIdentityRepository(),

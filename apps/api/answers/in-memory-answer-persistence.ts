@@ -79,6 +79,14 @@ export function createInMemoryAnswerPersistence(
       return interactions.get(interactionKey(context.condominiumId, answerId))?.answer;
     },
 
+    async findAnswerByIdempotencyKey(context, idempotencyKey): Promise<AnswerRecord | undefined> {
+      return [...interactions.values()].find(
+        (interaction) =>
+          interaction.question.condominiumId === context.condominiumId &&
+          interaction.question.idempotencyKey === idempotencyKey
+      )?.answer;
+    },
+
     async createFeedback(
       context: AuthorizedCondominiumContext,
       input: SubmitFeedbackInput

@@ -194,6 +194,15 @@ describe("persistência PostgreSQL de respostas", () => {
     });
     expect(answer?.createdAt).toEqual(new Date("2026-09-08T12:00:00.000Z"));
     expect(fake.queries.at(-1)?.sql).toBe("COMMIT");
+
+    const idempotentAnswer = await persistence.findAnswerByIdempotencyKey(
+      managerContext,
+      "idempotency-hash"
+    );
+
+    expect(idempotentAnswer?.answerId).toBe("answer-1");
+    const idempotencyQuery = fake.queries.find(({ sql }) => sql.includes("q.idempotency_key = $1"));
+    expect(idempotencyQuery?.values).toEqual(["idempotency-hash"]);
   });
 
   it("retorna vazio quando a resposta não pertence ao condomínio", async () => {

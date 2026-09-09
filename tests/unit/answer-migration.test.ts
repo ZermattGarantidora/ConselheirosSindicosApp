@@ -5,6 +5,10 @@ const migration = readFileSync(
   new URL("../../infrastructure/database/009_answers_feedback_audit.sql", import.meta.url),
   "utf8"
 );
+const groundingMigration = readFileSync(
+  new URL("../../infrastructure/database/010_answer_claim_grounding.sql", import.meta.url),
+  "utf8"
+);
 
 describe("migration de respostas, feedback e auditoria", () => {
   it("cria o modelo completo da interação documental", () => {
@@ -77,5 +81,12 @@ describe("migration de respostas, feedback e auditoria", () => {
     expect(migration).toContain("output_hash text");
     expect(migration).toContain("metadata jsonb NOT NULL DEFAULT '{}'::jsonb");
     expect(migration).toContain("CHECK (jsonb_typeof(metadata) = 'object')");
+  });
+
+  it("impede persistir fatos e interpretações sem exigência de evidência", () => {
+    expect(groundingMigration).toContain(
+      "ADD CONSTRAINT answer_claims_documentary_evidence_required"
+    );
+    expect(groundingMigration).toContain("claim_type = 'recommendation' OR evidence_required");
   });
 });

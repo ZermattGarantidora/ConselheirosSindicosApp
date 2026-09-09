@@ -111,6 +111,30 @@ describe("caso de uso de consulta documental", () => {
     ]);
   });
 
+  it("reutiliza a resposta quando a mesma chave idempotente é reenviada", async () => {
+    const evidence = createEvidence({ content: "A regra sintética permite o uso da área comum." });
+    const retrieval = retrieverFor(createRetrievalResult([evidence]));
+    const persistence = createInMemoryAnswerPersistence(fixedIdFactory("idempotency"), fixedNow);
+    const useCase = createAnswerUseCase({
+      retriever: retrieval,
+      gateway: createLocalSyntheticAnswerGateway(() => 1),
+      persistence,
+      now: fixedNow,
+      idFactory: fixedIdFactory("idempotency-interaction")
+    });
+    const input = {
+      question: "Qual é a regra da área comum?",
+      idempotencyKey: "consulta-area-comum"
+    };
+
+    const first = await useCase.ask(managerContext, { ...input, requestId: "request-1" });
+    const repeated = await useCase.ask(managerContext, { ...input, requestId: "request-2" });
+
+    expect(repeated.answerId).toBe(first.answerId);
+    expect(retrieval.search).toHaveBeenCalledTimes(1);
+    expect(persistence.listInteractions()).toHaveLength(1);
+  });
+
   it("roteia conflito e preserva as duas fontes no registro", async () => {
     const convention = createEvidence({
       id: "convention-chunk",
@@ -342,6 +366,13 @@ describe("caso de uso de consulta documental", () => {
     await expect(
       useCase.ask(managerContext, { question: "válida", requestId: "  " })
     ).rejects.toThrow("identificador da requisição");
+    await expect(
+      useCase.ask(managerContext, {
+        question: "válida",
+        requestId: "request",
+        idempotencyKey: "  "
+      })
+    ).rejects.toThrow("chave de idempotência");
     expect(retriever.search).not.toHaveBeenCalled();
   });
 

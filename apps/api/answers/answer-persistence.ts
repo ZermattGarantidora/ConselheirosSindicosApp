@@ -120,6 +120,10 @@ export type SubmitFeedbackInput = Readonly<{
 
 export interface AnswerPersistence {
   saveInteraction(input: PersistedInteraction): Promise<void>;
+  findAnswerByIdempotencyKey(
+    context: AuthorizedCondominiumContext,
+    idempotencyKey: string
+  ): Promise<AnswerRecord | undefined>;
   findAnswer(
     context: AuthorizedCondominiumContext,
     answerId: string

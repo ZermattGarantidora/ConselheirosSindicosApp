@@ -142,7 +142,18 @@ function validateClaims(
     if (!["condominium_fact", "interpretation", "recommendation"].includes(claim.claimType)) {
       throw new InvalidAnswerValidationError("O tipo da afirmação é inválido.");
     }
+    if (typeof claim.evidenceRequired !== "boolean") {
+      throw new InvalidAnswerValidationError("O indicador de evidência da afirmação é inválido.");
+    }
     assertArray(claim.citationEvidenceIds, `claims[${index}].citationEvidenceIds`);
+    if (
+      (claim.claimType === "condominium_fact" || claim.claimType === "interpretation") &&
+      !claim.evidenceRequired
+    ) {
+      throw new InvalidAnswerValidationError(
+        "Fatos e interpretações documentais precisam exigir evidência."
+      );
+    }
     if (claim.evidenceRequired && claim.citationEvidenceIds.length === 0) {
       throw new InvalidAnswerValidationError("Afirmação factual sem citação é proibida.");
     }

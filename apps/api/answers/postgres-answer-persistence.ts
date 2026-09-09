@@ -154,6 +154,43 @@ function mapAnswer(
   });
 }
 
+async function loadAnswerDetails(
+  client: PoolClient,
+  condominiumId: string,
+  answerId: string
+): Promise<Readonly<{ citations: readonly CitationRow[]; claims: readonly ClaimRow[] }>> {
+  const [citationResult, claimResult] = await Promise.all([
+    client.query<CitationRow>(
+      `
+        SELECT
+          id AS citation_id,
+          retrieval_evidence_id,
+          document_id,
+          document_version_id,
+          document_title_snapshot,
+          page_number_snapshot,
+          page_start_offset,
+          page_end_offset,
+          excerpt_snapshot
+        FROM app.citations
+        WHERE condominium_id = $1 AND answer_id = $2
+        ORDER BY ordinal
+      `,
+      [condominiumId, answerId]
+    ),
+    client.query<ClaimRow>(
+      `
+        SELECT id AS claim_id, statement, claim_type, evidence_required, citation_evidence_ids
+        FROM app.answer_claims
+        WHERE condominium_id = $1 AND answer_id = $2
+        ORDER BY ordinal
+      `,
+      [condominiumId, answerId]
+    )
+  ]);
+  return Object.freeze({ citations: citationResult.rows, claims: claimResult.rows });
+}
+
 export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersistence {
   return {
     async saveInteraction(input: PersistedInteraction): Promise<void> {
@@ -466,37 +503,63 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
           await client.query("COMMIT");
           return undefined;
         }
-        const [citationResult, claimResult] = await Promise.all([
-          client.query<CitationRow>(
-            `
-              SELECT
-                id AS citation_id,
-                retrieval_evidence_id,
-                document_id,
-                document_version_id,
-                document_title_snapshot,
-                page_number_snapshot,
-                page_start_offset,
-                page_end_offset,
-                excerpt_snapshot
-              FROM app.citations
-              WHERE condominium_id = $1 AND answer_id = $2
-              ORDER BY ordinal
-            `,
-            [context.condominiumId, answerId]
-          ),
-          client.query<ClaimRow>(
-            `
-              SELECT id AS claim_id, statement, claim_type, evidence_required, citation_evidence_ids
-              FROM app.answer_claims
-              WHERE condominium_id = $1 AND answer_id = $2
-              ORDER BY ordinal
-            `,
-            [context.condominiumId, answerId]
-          )
-        ]);
+        const details = await loadAnswerDetails(client, context.condominiumId, answerId);
         await client.query("COMMIT");
-        return mapAnswer(row, citationResult.rows, claimResult.rows);
+        return mapAnswer(row, details.citations, details.claims);
+      } catch (error: unknown) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async findAnswerByIdempotencyKey(
+      context: AuthorizedCondominiumContext,
+      idempotencyKey: string
+    ): Promise<AnswerRecord | undefined> {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await setRuntimeContext(client, context);
+        const answerResult = await client.query<AnswerRow>(
+          `
+            SELECT
+              a.id AS answer_id,
+              a.question_id,
+              a.condominium_id,
+              q.asked_by_user_id,
+              a.direct_answer AS answer,
+              a.answer_mode,
+              a.attention_points,
+              a.suggested_next_step,
+              a.specialist_required,
+              a.specialist_type,
+              a.specialist_reason,
+              a.risk_class,
+              a.schema_version,
+              a.prompt_version,
+              a.pipeline_version,
+              a.validation_status,
+              a.created_at
+            FROM app.answers AS a
+            JOIN app.questions AS q
+              ON q.condominium_id = a.condominium_id
+              AND q.id = a.question_id
+            WHERE a.condominium_id = app.current_condominium_id()
+              AND q.idempotency_key = $1
+            LIMIT 1
+          `,
+          [idempotencyKey]
+        );
+        const row = answerResult.rows[0];
+        if (row === undefined) {
+          await client.query("COMMIT");
+          return undefined;
+        }
+        const details = await loadAnswerDetails(client, context.condominiumId, row.answer_id);
+        await client.query("COMMIT");
+        return mapAnswer(row, details.citations, details.claims);
       } catch (error: unknown) {
         await rollback(client);
         throw error;

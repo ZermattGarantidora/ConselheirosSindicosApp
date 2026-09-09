@@ -146,6 +146,38 @@ describe("validador de citações e respostas", () => {
         [source]
       )
     ).toThrow("evidência não exibida");
+
+    expect(() =>
+      validateGeneratedAnswer(
+        generated({
+          claims: [
+            {
+              statement: "Fato não pode dispensar fonte.",
+              claimType: "condominium_fact",
+              evidenceRequired: false,
+              citationEvidenceIds: []
+            }
+          ]
+        }),
+        [source]
+      )
+    ).toThrow("precisam exigir evidência");
+
+    expect(() =>
+      validateGeneratedAnswer(
+        generated({
+          claims: [
+            {
+              statement: "Interpretação não pode dispensar fonte.",
+              claimType: "interpretation",
+              evidenceRequired: false,
+              citationEvidenceIds: []
+            }
+          ]
+        }),
+        [source]
+      )
+    ).toThrow("precisam exigir evidência");
   });
 
   it("valida o encaminhamento de especialista", () => {

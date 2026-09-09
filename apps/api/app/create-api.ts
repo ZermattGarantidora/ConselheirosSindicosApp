@@ -173,7 +173,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
 
   app.post<{
     Params: { condominiumId: string };
-    Headers: { "x-development-user-id"?: string };
+    Headers: { "x-development-user-id"?: string; "idempotency-key"?: string };
     Body: unknown;
   }>("/v1/condominiums/:condominiumId/questions", async (request, reply) => {
     if (!isAskBody(request.body)) {
@@ -197,7 +197,10 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       });
       const answer = await answerUseCase.ask(context, {
         question: request.body.question,
-        requestId: request.id
+        requestId: request.id,
+        ...(request.headers["idempotency-key"] === undefined
+          ? {}
+          : { idempotencyKey: request.headers["idempotency-key"] })
       });
 
       return reply.code(200).send(toPublicAnswer(answer));
@@ -205,7 +208,11 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       if (error instanceof AccessDeniedError) {
         return reply.code(403).send({ message: "Acesso não autorizado." });
       }
-      if (error instanceof Error && error.message.startsWith("A pergunta")) {
+      if (
+        error instanceof Error &&
+        (error.message.startsWith("A pergunta") ||
+          error.message.startsWith("A chave de idempotência"))
+      ) {
         return reply.code(400).send({ message: error.message });
       }
       return reply

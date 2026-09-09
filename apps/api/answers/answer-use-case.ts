@@ -45,6 +45,7 @@ export type AnswerRetriever = Readonly<{
 export type AskQuestionInput = Readonly<{
   question: string;
   requestId: string;
+  idempotencyKey?: string;
 }>;
 
 export type AnswerUseCase = Readonly<{
@@ -72,15 +73,25 @@ function hash(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function validateQuestion(input: AskQuestionInput): string {
+function validateQuestion(input: AskQuestionInput): Readonly<{
+  question: string;
+  requestId: string;
+  idempotencyKey: string;
+}> {
   const question = input.question.trim();
   if (question.length === 0 || question.length > 4_000) {
     throw new Error("A pergunta deve ter entre 1 e 4.000 caracteres.");
   }
-  if (input.requestId.trim().length === 0 || input.requestId.length > 200) {
+  const requestId = input.requestId.trim();
+  if (requestId.length === 0 || requestId.length > 200) {
     throw new Error("O identificador da requisição é inválido.");
   }
-  return question;
+  const idempotencyKey =
+    input.idempotencyKey === undefined ? requestId : input.idempotencyKey.trim();
+  if (idempotencyKey.length === 0 || idempotencyKey.length > 200) {
+    throw new Error("A chave de idempotência é inválida.");
+  }
+  return Object.freeze({ question, requestId, idempotencyKey });
 }
 
 function historicalReferenceDate(question: string, fallback: Date): Date {
@@ -328,6 +339,7 @@ function createQuestion(
   context: AuthorizedCondominiumContext,
   question: string,
   requestId: string,
+  idempotencyKey: string,
   createdAt: Date
 ): QuestionRecord {
   return Object.freeze({
@@ -336,7 +348,7 @@ function createQuestion(
     userId: context.userId,
     content: question,
     language: "pt-BR",
-    idempotencyKey: hash(`${context.condominiumId}|${context.userId}|${requestId}|${question}`),
+    idempotencyKey,
     requestId,
     createdAt
   });
@@ -404,7 +416,17 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
 
   return Object.freeze({
     async ask(context, input): Promise<AnswerRecord> {
-      const question = validateQuestion(input);
+      const { question, requestId, idempotencyKey } = validateQuestion(input);
+      const persistedIdempotencyKey = hash(
+        `${context.condominiumId}|${context.userId}|${idempotencyKey}|${question}`
+      );
+      const existingAnswer = await options.persistence.findAnswerByIdempotencyKey(
+        context,
+        persistedIdempotencyKey
+      );
+      if (existingAnswer !== undefined) {
+        return existingAnswer;
+      }
       const startedAt = now();
       const questionId = idFactory();
       const retrievalRunId = idFactory();
@@ -413,7 +435,8 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         questionId,
         context,
         question,
-        input.requestId,
+        requestId,
+        persistedIdempotencyKey,
         startedAt
       );
       const assessment = classifyQuestionRisk(question);
@@ -503,7 +526,7 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         context,
         answerId,
         questionId,
-        input.requestId,
+        requestId,
         assessment,
         payload,
         claims,
@@ -542,7 +565,7 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
           "question_created",
           "question",
           questionId,
-          input.requestId,
+          requestId,
           answerId,
           Object.freeze({ language: "pt-BR" }),
           startedAt
@@ -553,7 +576,7 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
           answerEventType,
           "answer",
           answerId,
-          input.requestId,
+          requestId,
           questionId,
           Object.freeze({
             answerMode: answer.answerMode,
@@ -577,8 +600,19 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         auditEvents
       });
 
-      await options.persistence.saveInteraction(interaction);
-      return answer;
+      try {
+        await options.persistence.saveInteraction(interaction);
+        return answer;
+      } catch (error: unknown) {
+        const concurrentAnswer = await options.persistence.findAnswerByIdempotencyKey(
+          context,
+          persistedIdempotencyKey
+        );
+        if (concurrentAnswer !== undefined) {
+          return concurrentAnswer;
+        }
+        throw error;
+      }
     },
 
     async submitFeedback(context, input): Promise<FeedbackRecord> {
