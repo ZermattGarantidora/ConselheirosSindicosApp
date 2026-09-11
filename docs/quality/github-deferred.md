@@ -1,9 +1,9 @@
 # GitHub — CI e proteção remota
 
-**Status:** CI configurado; proteção da `main` pendente de ativação
-**Atualizado em:** 2026-09-08
+**Status:** CI e proteção da `main` configurados
+**Atualizado em:** 2026-09-11
 
-O repositório remoto já existe e o workflow `.github/workflows/ci.yml` executa os gates técnicos no GitHub Actions. Enquanto a proteção da `main` não estiver ativa, o registro local de review continua obrigatório.
+O repositório remoto já existe, o workflow `.github/workflows/ci.yml` executa os gates técnicos no GitHub Actions e a proteção da `main` foi ativada em 2026-09-11. O registro local de review continua obrigatório como evidência do processo.
 
 ## Configurado
 
@@ -13,9 +13,12 @@ O repositório remoto já existe e o workflow `.github/workflows/ci.yml` executa
 - Artefato de cobertura por execução.
 - Permissão mínima de leitura do conteúdo do repositório.
 
-## Pendências para o bloqueio remoto
+## Configuração de proteção remota
 
-1. Proteger a `main` exigindo pull request, ao menos uma aprovação, conversa resolvida e o check `quality` verde.
-2. Impedir bypass rotineiro, force push e exclusão da `main`.
-3. Adicionar secrets de integração somente quando houver necessidade, com o Neon sintético dedicado e confirmação `synthetic-only`.
-4. Ativar Dependabot ou equivalente, CodeQL/SAST, SBOM e `CODEOWNERS` conforme a adoção operacional do GitHub.
+- Proteção da `main` ativa, exigindo pull request, ao menos uma aprovação, branch atualizada, conversas resolvidas e o check `quality` verde.
+- Bypass, force push e exclusão da `main` estão bloqueados.
+
+## Pendências operacionais
+
+1. Adicionar secrets de integração somente quando houver necessidade, com o Neon sintético dedicado e confirmação `synthetic-only`.
+2. Ativar Dependabot ou equivalente, CodeQL/SAST, SBOM e `CODEOWNERS` conforme a adoção operacional do GitHub.

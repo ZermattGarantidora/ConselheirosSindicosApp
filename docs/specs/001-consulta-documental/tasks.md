@@ -1,7 +1,7 @@
 # Tarefas — Spec 001
 
-**Status:** scaffold, B3, B4, B5 e B6 implementados localmente com dados sintéticos; integrações Neon sintéticas aprovadas
-**Atualizado em:** 2026-09-09
+**Status:** scaffold, B3–B6 e preparação B7 sintética implementados; proteção remota T105 concluída; rollout real permanece pendente
+**Atualizado em:** 2026-09-11
 
 As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa como concluída exige atualizar a matriz de rastreabilidade e anexar os comandos/gates executados ao registro da entrega.
 
@@ -18,7 +18,7 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 - [x] **T102** Criar o scaffold do monólito modular e do worker. API Fastify, cliente React/Vite, worker Node, migration SQL e comandos locais foram criados.
 - [x] **T103** Configurar formatação, lint, typecheck, testes e build reproduzível; gerar relatório de cobertura unitária para statements, branches, functions e lines com threshold mínimo de 80% em cada métrica.
 - [x] **T104** Configurar CI com gates rápidos, proteção contra segredos, execução de testes e publicação de cobertura. O workflow `.github/workflows/ci.yml` executa instalação bloqueada, `pnpm run check`, E2E e build, publica a cobertura como artefato e usa permissões mínimas.
-- [ ] **T105** Configurar proteção de branch para bloquear merge sem code review aprovado, testes aprovados e cobertura unitária mínima de 80% no commit atual. A proteção da `main` permanece pendente; o verificador local continua obrigatório enquanto isso.
+- [x] **T105** Configurar proteção de branch para bloquear merge sem code review aprovado, testes aprovados e cobertura unitária mínima de 80% no commit atual. Regra criada no GitHub para `main` em 2026-09-11, exigindo Pull Request, 1 aprovação, check `quality` verde, branch atualizada, conversas resolvidas e sem bypass, exclusão ou force-push.
 - [x] **T106** Criar configuração local por variáveis de ambiente sem valores sensíveis versionados.
 
 ## Fase 2 — Identidade e isolamento
@@ -72,21 +72,37 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
 
 ## Fase 6 — Feedback, auditoria e evals
 
-- [x] **T601** Implementar feedback imutavelmente vinculado à resposta, sem mutar resposta, claims ou citações anteriores.
-- [x] **T602** Implementar trilha auditável e telemetria minimizada com versões, decisão de roteamento, latência, custo, hashes e status, sem prompt ou resposta bruta.
-- [x] **T603** Criar adapter de eval para o caminho real da aplicação, chamando os endpoints HTTP locais.
-- [x] **T604** Tornar executáveis o corpus sintético e os 20 casos iniciais.
-- [x] **T605** Registrar a baseline e calibrar os thresholds P1 sem flexibilizar P0; os 20 casos passam na execução atual.
-- [x] **T606** Adicionar `pnpm run evals` ao checklist local de release e à validação de mudanças de comportamento de IA.
-- [x] **T607** Automatizar AC-019 e AC-020 com testes de feedback, auditoria, custo e imutabilidade.
+- [x] **T601** Implementar feedback imutavelmente vinculado à resposta. O endpoint autorizado
+  registra uma classificação e comentário opcional associados ao `answerId`; o contrato e o
+  teste E2E cobrem confirmação, tenant e rejeição de entrada inválida.
+- [x] **T602** Implementar trilha auditável e telemetria minimizada. O trace registra hashes,
+  referências de fonte, modo, rota, uso, custo, latência e resultado de segurança, sem
+  conteúdo bruto; o store em memória e o adapter PostgreSQL preservam imutabilidade e RLS.
+- [x] **T603** Criar adapter de eval para o caminho real da aplicação. `evals/synthetic-adapter.ts`
+  executa o endpoint Fastify com gateway e retrieval locais sintéticos.
+- [x] **T604** Tornar executáveis o corpus sintético e os 20 casos iniciais. A suíte
+  `spec-001-synthetic-v1` cobre 19 casos P0 e 1 caso P1, sem documentos reais.
+- [x] **T605** Registrar a baseline e calibrar os thresholds P1 sem flexibilizar P0. A baseline
+  está em `docs/quality/b6-synthetic-baseline-2026-09-10.md`; P0 exige 100% e o agregado exige
+  95%, com limite de p95 documentado.
+- [x] **T606** Adicionar evals ao CI ou checklist de release. O workflow executa
+  `pnpm run evals:synthetic` e o comando também está documentado no README e nos gates locais.
+- [x] **T607** Automatizar AC-019 e AC-020. Os testes E2E validam feedback, trilha de resposta,
+  imutabilidade, tenant autorizado e registro de falha segura.
 
 ## Fase 7 — Preparação do piloto
 
-- [ ] **T701** Executar threat-model review e testes de upload malicioso/prompt injection.
-- [ ] **T702** Verificar exportação, exclusão, retenção e revogação de acesso.
-- [ ] **T703** Preparar procedimento de incidente e rollback/forward-fix.
-- [ ] **T704** Selecionar documentos anonimizados e ampliar o dataset com revisão humana.
-- [ ] **T705** Executar revisão completa do diff e checklist de release.
+- [x] **T701** Executar threat-model review e testes de upload malicioso/prompt injection. Concluída para o piloto sintético em `docs/security/b7-threat-model-review.md`, com testes de endurecimento e sem liberar dados reais.
+- [x] **T702** Verificar exportação, exclusão, retenção e revogação de acesso. Exercitada somente com artefatos sintéticos em `docs/security/b7-data-lifecycle-exercise.md`.
+- [x] **T703** Preparar procedimento de incidente e rollback/forward-fix. Runbook e exercício sintético registrados em `docs/security/b7-incident-runbook.md` e `docs/security/b7-incident-exercise-2026-09-10.md`.
+- [x] **T704** Selecionar corpus sintético representativo e ampliar o dataset com revisão humana. Os 100 casos sintéticos foram executados e revisados manualmente: 100 aprovados, 0 para revisar e 0 reprovados. A tela está disponível em `http://localhost:5173/?mode=synthetic-review` e o resultado está registrado em `docs/reviews/b7-corpus-human-review-2026-09-10.md`. A conclusão é limitada ao escopo sintético/local; dados reais, inclusive anonimizados, ficam fora de testes, evals e benchmarks.
+- [x] **T705** Executar revisão completa do diff e checklist de release. Revisão e comandos estão registrados em `docs/reviews/b7-sintetico-2026-09-10.md`; a aprovação é limitada ao piloto sintético e não é aprovação de merge ou produção.
+
+T601–T603 e T607 foram implementadas com stores locais e adapter PostgreSQL coberto por
+testes; T604–T606 foram validadas pelo corpus sintético e pelo CI. T701–T705
+continuam concluídas somente no escopo do exercício automatizado e humano sintético
+explicitamente autorizado. Isso não substitui os gates para qualquer dado de
+cliente, usuário externo, armazenamento remoto ou produção.
 
 ## Dependência principal
 

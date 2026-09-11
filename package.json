@@ -12,6 +12,7 @@
   "scripts": {
     "dev:api": "tsx -e \"import('./apps/api/app/server.ts').then(({ startServer }) => startServer())\"",
     "dev:web": "vite --config vite.config.ts",
+    "review:synthetic": "vite --config vite.config.ts",
     "build:web": "vite build --config vite.config.ts",
     "worker": "tsx -e \"import('./apps/api/worker/worker.ts').then(({ startPersistentWorkerFromEnvironment }) => startPersistentWorkerFromEnvironment())\"",
     "db:up": "docker compose up -d database",
@@ -24,6 +25,8 @@
     "test": "vitest run",
     "test:e2e": "vitest run tests/e2e",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "evals:synthetic": "vitest run tests/e2e/synthetic-evals.e2e.test.ts",
+    "pilot:synthetic": "vitest run tests/e2e/synthetic-pilot.e2e.test.ts",
     "test:coverage": "vitest run --coverage",
     "evals": "node scripts/run-tsx.mjs evals/run.ts",
     "test:specs": "pwsh -NoProfile -File scripts/validate-spec-vision.ps1",

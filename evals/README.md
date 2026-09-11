@@ -1,6 +1,6 @@
 # Evals do conselheiro documental
 
-Esta pasta contém as avaliações sintéticas de comportamento da aplicação. Os 20 casos executam o endpoint real de perguntas e feedback usando o gateway determinístico local e o corpus versionado.
+Esta pasta contém as avaliações sintéticas de comportamento da aplicação. Os 20 casos executam o endpoint real de perguntas e feedback usando o gateway determinístico local e o corpus versionado. O adapter do piloto também executa casos determinísticos pelo endpoint real local; avaliações probabilísticas e uso externo continuam bloqueados.
 
 ## Objetivo inicial
 
@@ -14,6 +14,8 @@ Avaliar uma promessa visível ao usuário:
 - `datasets/consulta-documental.yaml`: 20 casos iniciais de comportamento e regressão.
 - `fixtures/synthetic-corpus.ts` e `datasets/consulta-documental.ts`: representação tipada usada pelo adapter.
 - `baseline.json`: thresholds aprovados para a primeira execução local.
+- `pnpm run evals:synthetic`: executa os 20 casos pelo endpoint real da aplicação e produz baseline agregada.
+- `pnpm run pilot:synthetic`: piloto fechado com 100 casos sintéticos contra o endpoint real da aplicação.
 
 ## Regras
 
@@ -48,7 +50,7 @@ Avaliar uma promessa visível ao usuário:
 
 Asserções probabilísticas devem combinar rubricas claras com revisão humana periódica. Um avaliador por modelo nunca substitui os bloqueios determinísticos.
 
-## Adapter executável
+## Adapters executáveis
 
 O adapter atual:
 
@@ -58,14 +60,36 @@ O adapter atual:
 4. aplica asserções determinísticas, inclusive isolamento e feedback;
 5. produz relatório comparável com a baseline.
 
-O comando canônico é `pnpm run evals`; ele deve ser executado no checklist local de release e será adicionado ao CI quando GitHub for adotado.
+O adapter do piloto sintético:
+
+1. configura usuários, memberships e documentos fictícios gerados por IA;
+2. chama o mesmo endpoint usado pela interface;
+3. captura somente status, modo da resposta, duração e resultado agregado;
+4. aplica asserções determinísticas de isolamento, grounding, abstenção e falha;
+5. produz relatório sem conteúdo documental.
+
+Uma evolução futura do adapter poderá:
+
+1. restaurar o corpus sintético em ambiente isolado;
+2. configurar usuários e memberships do caso;
+3. chamar o mesmo caso de uso ou endpoint da interface;
+4. capturar resposta, evidências, traces normalizados, custo e latência;
+5. aplicar asserções determinísticas;
+6. aplicar rubricas probabilísticas;
+7. produzir relatório comparável com a baseline.
+
+O comando canônico da suíte inicial é `pnpm run evals`; a projeção sintética
+executável pelo endpoint real é `pnpm run evals:synthetic` e está no `README.md`,
+no CI e no checklist de gates. O piloto de 100 casos usa `pnpm run pilot:synthetic`.
+Qualquer evolução deve manter o corpus sintético e não introduzir dados reais.
 
 ## Crescimento do dataset
 
-O corpus inicial possui 20 casos sintéticos. Antes do piloto:
+O corpus inicial possui 20 casos sintéticos. Nesta etapa, o piloto amplia a
+execução para 100 casos sintéticos representativos:
 
-- coletar pelo menos 100 perguntas reais anonimizadas;
-- obter expectativa revisada por síndicos e especialistas;
+- gerar casos fictícios representativos e revisá-los humanamente;
+- registrar a limitação de não haver perguntas reais;
 - cobrir documentos longos, escaneados e conflitantes;
 - incluir erros reais encontrados durante testes;
 - estratificar resultados por tarefa, risco, tipo de documento e qualidade do OCR.

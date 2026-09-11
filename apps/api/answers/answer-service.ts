@@ -166,8 +166,12 @@ function failedAnswer(): GroundedAnswer {
   });
 }
 
-function taskClassFor(evidence: readonly RetrievalEvidence[]): AiTaskClass {
+export function taskClassForEvidence(evidence: readonly RetrievalEvidence[]): AiTaskClass {
   return evidence.length > 1 ? "intermediate" : "economical";
+}
+
+export function createFailedAnswer(): GroundedAnswer {
+  return failedAnswer();
 }
 
 function toCitation(
@@ -300,7 +304,7 @@ export function createAnswerService(gateway: AiGateway): AnswerService {
 
       try {
         const generated = await gateway.generate({
-          taskClass: taskClassFor(retrieval.evidence),
+          taskClass: taskClassForEvidence(retrieval.evidence),
           promptVersion: answerPromptVersion,
           schemaVersion: "grounded-answer-v1",
           question: input.question,

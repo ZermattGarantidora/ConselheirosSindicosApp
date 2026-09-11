@@ -127,6 +127,35 @@ pnpm run evals
 
 O comando bloqueia falhas P0 e regressão abaixo do threshold P1 definido em `evals/baseline.json`.
 
+Para executar o piloto fechado da B7 com 100 cenários e documentos fictícios
+gerados por IA:
+
+```powershell
+pnpm run pilot:synthetic
+```
+
+O comando usa somente o gateway local, não chama provedor externo, não executa
+ações externas e imprime apenas métricas agregadas. O piloto não valida dados
+reais nem autoriza uso de documentos de clientes.
+
+Para fazer a revisão humana de forma guiada, sem editar uma planilha, abra um
+segundo terminal e execute:
+
+```powershell
+pnpm.cmd run review:synthetic
+```
+
+Depois acesse `http://localhost:5173/?mode=synthetic-review`. A tela mostra um
+caso por vez, o documento fictício, a resposta observada e o motivo para
+aprovar, deixar para revisar ou reprovar. As decisões ficam somente no
+navegador e podem ser baixadas ao final; nenhum dado é enviado para fora.
+
+Para executar os 20 evals sintéticos iniciais pelo endpoint real:
+
+```powershell
+pnpm run evals:synthetic
+```
+
 No Neon, crie um projeto/branch exclusivo e vazio para integração sintética. Antes da primeira execução, aplique uma única vez o marcador de segurança usando a conexão desse banco:
 
 ```powershell

@@ -15,6 +15,7 @@
 ## Retenção inicial
 
 - Desenvolvimento e testes usam apenas dados sintéticos versionados; não há retenção autorizada de dados reais de clientes neste ambiente.
+- Por decisão operacional da B7, documentos, perguntas e identificadores reais, inclusive anonimizados, também ficam fora de testes, evals, benchmarks e exercícios de piloto.
 - Arquivos locais temporários criados por testes ou processamento sintético devem ser removidos ao fim da execução; artefatos de cobertura e logs não podem conter conteúdo do corpus além do necessário para o teste.
 - Prazos para documentos, perguntas, respostas, backups, trilhas e comprovantes de exclusão permanecem pendentes e bloqueiam piloto, produção ou importação de dados reais.
 

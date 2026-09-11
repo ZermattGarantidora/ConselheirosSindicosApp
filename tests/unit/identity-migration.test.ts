@@ -111,4 +111,26 @@ describe("migration de identidade e isolamento", () => {
     expect(migration).toContain("FOR SELECT TO app_worker");
     expect(migration).toContain("condominium_id = app.current_condominium_id()");
   });
+
+  it("cria trilha, fontes e feedback imutáveis com RLS por tenant", async () => {
+    const migration = await readFile(
+      "infrastructure/database/009_answers_feedback_and_audit.sql",
+      "utf8"
+    );
+
+    expect(migration).toContain("CREATE TABLE app.answer_traces");
+    expect(migration).toContain("CREATE TABLE app.answer_trace_sources");
+    expect(migration).toContain("CREATE TABLE app.answer_feedback");
+    expect(migration).toContain("question_sha256");
+    expect(migration).toContain("estimated_cost_micros");
+    expect(migration).toContain("CHECK (evidence_tenant_checked)");
+    expect(migration).toContain("ALTER TABLE app.answer_traces FORCE ROW LEVEL SECURITY");
+    expect(migration).toContain("GRANT SELECT, INSERT ON app.answer_traces");
+    expect(migration).toContain(
+      "classification IN ('correct', 'incorrect', 'incomplete', 'outdated')"
+    );
+    expect(migration).toContain("condominium_id = app.current_condominium_id()");
+    expect(migration).not.toContain("GRANT UPDATE ON app.answer_feedback");
+    expect(migration).not.toContain("GRANT DELETE ON app.answer_feedback");
+  });
 });

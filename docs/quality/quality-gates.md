@@ -1,7 +1,7 @@
 # Gates de qualidade
 
 **Status:** inicial, deve ser calibrado com a baseline  
-**Atualizado em:** 2026-08-31
+**Atualizado em:** 2026-09-10
 
 ## Princípio
 
@@ -70,7 +70,7 @@ Uma tarefa está pronta quando:
 
 ## Evolução
 
-Cada incidente, bug de produção, correção do usuário ou falha de especialista deve originar um teste ou eval sanitizado. O conjunto de 20 casos sintéticos deve crescer para pelo menos 100 perguntas reais anonimizadas antes da seleção definitiva de modelos e do piloto pago.
+Cada incidente, bug de produção, correção do usuário ou falha de especialista deve originar um teste ou eval sintético. Nesta etapa, o conjunto de 20 casos deve crescer para pelo menos 100 casos sintéticos representativos e revisados antes da seleção definitiva de modelos ou de qualquer piloto com usuários externos. Um exercício técnico automatizado pode rodar antes dessa revisão, mas não conta como baseline de produto nem como autorização de rollout. A ausência de dados reais deve ser registrada como limitação de validação; nenhum caso real, mesmo anonimizado, entra em testes, evals ou benchmarks.
 # Gates executáveis locais
 
 ## Comando canônico
@@ -80,6 +80,17 @@ pnpm run check
 ```
 
 Ele executa formatação, lint, typecheck, cobertura unitária, validação de alinhamento de specs e scanner de segredos. Qualquer falha bloqueia a continuação.
+
+## Evals sintéticos
+
+```powershell
+pnpm run evals:synthetic
+```
+
+Executa os 20 casos sintéticos da Spec 001 pelo caminho real da API, incluindo grounding,
+abstenção, isolamento, conteúdo não confiável, falha segura e feedback. O comando não usa
+provedor externo, não envia documentos para fora do processo e registra custo zero. Os
+thresholds P0 são rígidos: qualquer falha P0 bloqueia a entrega.
 
 ## Integração local
 

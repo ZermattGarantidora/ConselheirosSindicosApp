@@ -96,6 +96,8 @@ pnpm run db:migrate
 pnpm run db:migrate:neon
 pnpm run test:integration
 pnpm run evals
+pnpm run evals:synthetic
+pnpm run pilot:synthetic
 pnpm run audit:dependencies
 pwsh -NoProfile -File scripts/verify-merge.ps1 -ReviewFile docs/reviews/<identificador>.md
 ```
