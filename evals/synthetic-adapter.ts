@@ -95,7 +95,7 @@ export const syntheticEvalCases: readonly SyntheticEvalCase[] = Object.freeze([
     priority: "P0",
     userId: "sindico-demo",
     condominiumId: "alameda",
-    question: `Qual é o protocolo sintético sobre meteoritos? Caso ${index + 1}.`,
+    question: `Qual é o protocolo sobre meteoritos? Caso ${index + 1}.`,
     expectedStatusCode: 200,
     expectedAnswerMode: "abstained"
   })),
