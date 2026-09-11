@@ -1,7 +1,9 @@
+import { performance } from "node:perf_hooks";
+
 import Fastify, { type FastifyInstance } from "fastify";
 
 import { createAnswerUseCase, type AnswerUseCase } from "../answers/answer-use-case.js";
-import type { AnswerService } from "../answers/answer-service.js";
+import { createFailedAnswer, type AnswerService } from "../answers/answer-service.js";
 import { createLocalSyntheticAnswerGateway } from "../answers/answer-gateway.js";
 import {
   isFeedbackClassification,
@@ -29,6 +31,19 @@ import {
   type PrivateDocumentStorage
 } from "../documents/private-document-storage.js";
 import {
+  AnswerTraceNotFoundError,
+  createInMemoryAnswerTraceStore,
+  InvalidAnswerFeedbackError,
+  type AnswerTraceStore
+} from "../answers/answer-trace.js";
+import { evaluateEvidenceSufficiency } from "../retrieval/retrieval-ranking.js";
+import {
+  retrievalPipelineVersion,
+  retrievalQueryHash,
+  type ScopedRetrievalResult
+} from "../retrieval/retrieval-contract.js";
+import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
+import {
   createDocumentSourceUrl,
   type DocumentSourceReader
 } from "../documents/document-source.js";
@@ -46,6 +61,7 @@ export type CreateApiOptions = Readonly<{
   documentUploadRepository?: DocumentUploadRepository;
   answerUseCase?: AnswerUseCase;
   answerService?: AnswerService;
+  answerTraceStore?: AnswerTraceStore;
   retriever?: ScopedTextRetriever;
   documentSourceReader?: DocumentSourceReader;
 }>;
@@ -89,6 +105,17 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       retriever: createScopedTextRetriever(createInMemoryScopedRetrievalIndex([])),
       gateway: createLocalSyntheticAnswerGateway(),
       persistence: createInMemoryAnswerPersistence()
+    });
+  const answerTraceStore = options.answerTraceStore ?? createInMemoryAnswerTraceStore();
+
+  const emptyRetrieval = (question: string): ScopedRetrievalResult =>
+    Object.freeze({
+      pipelineVersion: retrievalPipelineVersion,
+      queryHash: retrievalQueryHash(question),
+      candidateCount: 0,
+      selectedCount: 0,
+      evidence: Object.freeze([]),
+      sufficiency: evaluateEvidenceSufficiency([])
     });
 
   app.addContentTypeParser("application/pdf", { parseAs: "buffer" }, (_request, body, done) => {
@@ -256,6 +283,25 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         condominiumId,
         now: now()
       });
+      try {
+        const traceFeedback = await answerTraceStore.recordFeedback(context, {
+          answerId: request.params.answerId,
+          classification: request.body.classification,
+          ...(request.body.comment === undefined ? {} : { comment: request.body.comment })
+        });
+
+        return reply.code(201).send({
+          feedbackId: traceFeedback.id,
+          answerId: traceFeedback.answerId,
+          condominiumId: traceFeedback.condominiumId,
+          classification: traceFeedback.classification,
+          createdAt: traceFeedback.createdAt
+        });
+      } catch (error: unknown) {
+        if (!(error instanceof AnswerTraceNotFoundError)) {
+          throw error;
+        }
+      }
       const feedback = await answerUseCase.submitFeedback(context, {
         answerId: request.params.answerId,
         classification: request.body.classification,
@@ -273,6 +319,9 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     } catch (error: unknown) {
       if (error instanceof AccessDeniedError) {
         return reply.code(403).send({ message: "Acesso não autorizado." });
+      }
+      if (error instanceof InvalidAnswerFeedbackError) {
+        return reply.code(400).send({ message: error.message });
       }
       if (
         error instanceof Error &&
@@ -308,17 +357,49 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     if (options.answerService === undefined || options.retriever === undefined) {
       return reply.code(503).send({ message: "Consulta documental indisponível." });
     }
+    const startedAt = performance.now();
+    let context: AuthorizedCondominiumContext | undefined;
+    let retrieval = emptyRetrieval(question);
     try {
-      const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+      context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
         userId: createUserId(developmentUserId),
         condominiumId: createCondominiumId(request.params.condominiumId),
         now: now()
       });
-      const retrieval = await options.retriever.search(context, { query: question });
-      return reply.send(await options.answerService.answer(context, { question, retrieval }));
+      retrieval = await options.retriever.search(context, { query: question });
+      const response = await options.answerService.answer(context, { question, retrieval });
+      const trace = await answerTraceStore.record({
+        context,
+        question,
+        retrieval,
+        response,
+        latencyMs: performance.now() - startedAt,
+        createdAt: now()
+      });
+      return reply.send({ answerId: trace.id, ...response });
     } catch (error: unknown) {
       if (error instanceof AccessDeniedError) {
         return reply.code(403).send({ message: "Acesso não autorizado." });
+      }
+      if (context !== undefined) {
+        try {
+          const failed = createFailedAnswer();
+          const trace = await answerTraceStore.record({
+            context,
+            question,
+            retrieval,
+            response: failed,
+            latencyMs: performance.now() - startedAt,
+            createdAt: now()
+          });
+          return reply.code(503).send({
+            answerId: trace.id,
+            message: "Não foi possível consultar os documentos com segurança."
+          });
+        } catch {
+          // Uma falha no registro não deve expor detalhes internos nem uma
+          // resposta que não tenha uma trilha correspondente.
+        }
       }
       return reply
         .code(503)

@@ -14,6 +14,7 @@ import {
 } from "../documents/document-source.js";
 import { createDevelopmentIdentityRepository } from "../identity/development-identity-repository.js";
 import { createPostgresMembershipRepository } from "../identity/postgres-identity-repository.js";
+import { createPostgresAnswerTraceStore } from "../answers/postgres-answer-trace-store.js";
 import {
   createDevelopmentScopedRetrievalIndex,
   developmentChunks
@@ -52,6 +53,7 @@ export async function startServer(
     }),
     retriever: createScopedTextRetriever(createPostgresScopedRetrievalIndex(pool)),
     answerService: createAnswerService(createLocalExtractiveGateway()),
+    answerTraceStore: createPostgresAnswerTraceStore(pool),
     documentSourceReader: createPostgresDocumentSourceReader(pool)
   });
   app.addHook("onClose", async () => {
