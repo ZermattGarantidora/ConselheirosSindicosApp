@@ -8,7 +8,7 @@ O produto pode ser sofisticado em suas capacidades, mas não deve transferir ess
 
 O produto não deve ser apenas um “ChatGPT com documentos”. Seu valor precisa estar em transformar documentos dispersos em respostas fundamentadas, tarefas acompanháveis e alertas úteis, reduzindo tempo, esquecimento e risco operacional.
 
-Para a Zermatt Garantidora, o aplicativo será um canal de aquisição, relacionamento e construção de confiança com síndicos. Seu objetivo econômico principal não é maximizar a margem da assinatura, mas viabilizar uso recorrente e gerar oportunidades comerciais qualificadas para os serviços da Zermatt, sempre de forma transparente, opcional e consentida.
+Para a Zermatt Garantidora, o aplicativo será um canal de aquisição, relacionamento e construção de confiança com síndicos. Seu principal indicador de sucesso econômico é o número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial da Zermatt. A assinatura deve viabilizar o uso recorrente e ajudar a cobrir os custos do aplicativo; maximizar a margem do software não é o objetivo principal.
 
 As respostas, recomendações e alertas da IA devem permanecer independentes do interesse comercial da Zermatt. A utilidade vem antes da oferta: uma oportunidade comercial só pode ser apresentada separadamente quando houver relação legítima com a necessidade do usuário, e nenhum contato pode ocorrer sem uma ação ou confirmação clara do síndico.
 
@@ -339,7 +339,13 @@ Não escolher o provedor apenas pelo preço dos tokens. O preço é fundamental,
 8. Observar uso durante quatro a oito semanas, não apenas intenção declarada.
 9. Medir se usuários satisfeitos solicitam voluntariamente conhecer a Zermatt e se a presença da oferta comercial afeta sua percepção de confiança.
 
-### Métricas de sucesso
+### Métrica principal de negócio
+
+> Número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial da Zermatt.
+
+Uma oportunidade só deve ser contabilizada quando o usuário solicitar contato, informações ou uma simulação e o condomínio atender aos critérios mínimos de qualificação definidos com o time comercial. Impressões de oferta, cliques isolados, assuntos de perguntas e conteúdo de documentos não contam como oportunidade.
+
+### Métricas de produto, confiança e eficiência
 
 - percentual de respostas consideradas corretas e fundamentadas;
 - percentual de citações que realmente sustentam a resposta;
@@ -356,8 +362,9 @@ Não escolher o provedor apenas pelo preço dos tokens. O preço é fundamental,
 - percentual de tarefas resolvidas por modelos econômicos;
 - percentual de perguntas escaladas para modelos mais caros;
 - tempo até o usuário obter valor na primeira sessão;
-- oportunidades comerciais qualificadas com consentimento explícito;
 - percentual de usuários ativos que solicitam conhecer ou simular os serviços da Zermatt;
+- percentual de solicitações aceitas como oportunidades qualificadas pelo time comercial;
+- conversão de oportunidades em conversas, propostas e contratos;
 - custo do aplicativo por usuário ativo e por oportunidade qualificada;
 - percepção do usuário de que a abordagem comercial é transparente e não invasiva;
 

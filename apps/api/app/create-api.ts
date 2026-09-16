@@ -18,6 +18,8 @@ import {
   resolveAuthorizedCondominiumContext,
   type MembershipRepository
 } from "../identity/authorized-condominium-context.js";
+import type { DevelopmentMembershipRegistry } from "../identity/development-identity-repository.js";
+import type { DevelopmentDocumentMemory } from "../documents/development-document-memory.js";
 import { createDevelopmentDocumentUploadRepository } from "../documents/development-document-upload-repository.js";
 import {
   DocumentUploadForbiddenError,
@@ -55,6 +57,7 @@ import {
 
 export type CreateApiOptions = Readonly<{
   membershipRepository: MembershipRepository;
+  aiProvider?: "gemini" | "local";
   now?: () => Date;
   version?: string;
   documentStorage?: PrivateDocumentStorage;
@@ -64,13 +67,33 @@ export type CreateApiOptions = Readonly<{
   answerTraceStore?: AnswerTraceStore;
   retriever?: ScopedTextRetriever;
   documentSourceReader?: DocumentSourceReader;
+  developmentMembershipRegistry?: DevelopmentMembershipRegistry;
+  developmentDocumentMemory?: DevelopmentDocumentMemory;
 }>;
 
 type AskBody = Readonly<{ question: string }>;
+type CreateTestCondominiumBody = Readonly<{
+  condominiumId: string;
+  name: string;
+  cnpj: string;
+  administrationCompany?: string;
+  unitCount?: number | null;
+  address: Readonly<{
+    postalCode?: string;
+    street?: string;
+    number?: string;
+    complement?: string;
+    neighborhood?: string;
+    city: string;
+    state: string;
+  }>;
+  contact?: Readonly<{ managerName?: string; email?: string; phone?: string }>;
+}>;
 type FeedbackBody = Readonly<{
   classification: SubmitFeedbackInput["classification"];
   comment?: string;
 }>;
+type HistoryQuery = Readonly<{ limit?: string }>;
 
 function isAskBody(value: unknown): value is AskBody {
   return (
@@ -79,6 +102,34 @@ function isAskBody(value: unknown): value is AskBody {
     "question" in value &&
     typeof value.question === "string"
   );
+}
+
+function isCreateTestCondominiumBody(value: unknown): value is CreateTestCondominiumBody {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "condominiumId" in value &&
+    typeof value.condominiumId === "string" &&
+    "name" in value &&
+    typeof value.name === "string" &&
+    "cnpj" in value &&
+    typeof value.cnpj === "string" &&
+    "address" in value &&
+    typeof value.address === "object" &&
+    value.address !== null &&
+    "city" in value.address &&
+    typeof value.address.city === "string" &&
+    "state" in value.address &&
+    typeof value.address.state === "string"
+  );
+}
+
+function decodeDocumentTitle(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function isFeedbackBody(value: unknown): value is FeedbackBody {
@@ -91,10 +142,17 @@ function isFeedbackBody(value: unknown): value is FeedbackBody {
   );
 }
 
+function parseHistoryLimit(value: string | undefined): number | undefined {
+  if (value === undefined) return 50;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 100 ? parsed : undefined;
+}
+
 export function createApi(options: CreateApiOptions): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: maximumPdfUploadBytes });
   const now = options.now ?? (() => new Date());
   const version = options.version ?? "0.1.0";
+  const aiProvider = options.aiProvider ?? "local";
   const documentStorage =
     options.documentStorage ?? createLocalPrivateDocumentStorage(".local/synthetic-documents");
   const documentUploadRepository =
@@ -122,7 +180,63 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     done(null, body);
   });
 
-  app.get("/health", async () => ({ status: "ok", version }));
+  app.get("/health", async () => ({ status: "ok", version, aiProvider }));
+
+  if (options.developmentMembershipRegistry !== undefined) {
+    const developmentMembershipRegistry = options.developmentMembershipRegistry;
+
+    app.get<{ Headers: { "x-development-user-id"?: string } }>(
+      "/v1/development/test-condominiums",
+      async (request, reply) => {
+        try {
+          const userId = createUserId(request.headers["x-development-user-id"] ?? "");
+          return reply.send({
+            condominiums: developmentMembershipRegistry.listTestCondominiums(userId)
+          });
+        } catch {
+          return reply.code(401).send({ message: "Identidade de desenvolvimento inválida." });
+        }
+      }
+    );
+
+    app.post<{
+      Headers: { "x-development-user-id"?: string };
+      Body: unknown;
+    }>("/v1/development/test-condominiums", async (request, reply) => {
+      if (!isCreateTestCondominiumBody(request.body)) {
+        return reply.code(400).send({ message: "O identificador do condomínio é obrigatório." });
+      }
+
+      try {
+        const userId = createUserId(request.headers["x-development-user-id"] ?? "");
+        const created = developmentMembershipRegistry.createTestCondominium({
+          ...request.body,
+          userId
+        });
+
+        return reply.code(201).send({
+          condominiumId: created.membership.condominiumId,
+          role: created.membership.roleKey,
+          permissions: ["document:read", "document:upload"],
+          condominium: created.condominium
+        });
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          error.message === "Já existe um condomínio de teste com esse identificador."
+        ) {
+          return reply.code(409).send({ message: error.message });
+        }
+
+        return reply.code(400).send({
+          message:
+            error instanceof Error
+              ? error.message
+              : "Informe dados válidos para o condomínio de teste."
+        });
+      }
+    });
+  }
 
   app.get<{ Params: { condominiumId: string }; Headers: { "x-development-user-id"?: string } }>(
     "/v1/condominiums/:condominiumId/context",
@@ -158,6 +272,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       "x-document-title"?: string;
       "x-document-type"?: string;
       "x-document-id"?: string;
+      "x-document-validity-confirmed"?: string;
     };
     Body: Buffer;
   }>("/v1/condominiums/:condominiumId/documents", async (request, reply) => {
@@ -176,19 +291,25 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         now: now()
       });
       const uploaded = await uploadDocument(documentStorage, documentUploadRepository, context, {
-        title: request.headers["x-document-title"] ?? "",
+        title: decodeDocumentTitle(request.headers["x-document-title"] ?? ""),
         documentType: request.headers["x-document-type"] ?? "",
         ...(request.headers["x-document-id"] === undefined
           ? {}
           : { documentId: request.headers["x-document-id"] }),
         content: request.body
       });
+      const memoryStatus = await options.developmentDocumentMemory?.indexUploaded({
+        record: uploaded,
+        content: request.body,
+        validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
+      });
 
       return reply.code(202).send({
         documentId: uploaded.documentId,
         documentVersionId: uploaded.documentVersionId,
         processingStatus: uploaded.processingStatus,
-        validityStatus: uploaded.validityStatus
+        validityStatus: uploaded.validityStatus,
+        ...(memoryStatus === undefined ? {} : { memoryStatus })
       });
     } catch (error: unknown) {
       if (error instanceof AccessDeniedError) {
@@ -206,6 +327,48 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       return reply
         .code(500)
         .send({ message: "Não foi possível registrar o documento com segurança." });
+    }
+  });
+
+  app.get<{
+    Params: { condominiumId: string };
+    Headers: { "x-development-user-id"?: string };
+    Querystring: HistoryQuery;
+  }>("/v1/condominiums/:condominiumId/history", async (request, reply) => {
+    const limit = parseHistoryLimit(request.query.limit);
+    if (limit === undefined) {
+      return reply.code(400).send({ message: "O limite do histórico deve estar entre 1 e 100." });
+    }
+    const developmentUserId = request.headers["x-development-user-id"];
+    if (developmentUserId === undefined || developmentUserId.trim().length === 0) {
+      return reply.code(401).send({ message: "Identidade de desenvolvimento inválida." });
+    }
+
+    try {
+      const userId = createUserId(developmentUserId);
+      const condominiumId = createCondominiumId(request.params.condominiumId);
+      const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+        userId,
+        condominiumId,
+        now: now()
+      });
+      const entries = await answerUseCase.listConversationHistory(context, limit);
+
+      return reply.send({
+        entries: entries.map((entry) => ({
+          questionId: entry.questionId,
+          question: entry.question,
+          answer: toPublicAnswer(entry.answer),
+          createdAt: entry.createdAt.toISOString()
+        }))
+      });
+    } catch (error: unknown) {
+      if (error instanceof AccessDeniedError) {
+        return reply.code(403).send({ message: "Acesso não autorizado." });
+      }
+      return reply
+        .code(500)
+        .send({ message: "Não foi possível carregar o histórico com segurança." });
     }
   });
 

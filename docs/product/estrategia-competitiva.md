@@ -2,7 +2,7 @@
 
 **Status:** ativa  
 **Responsáveis:** produto e engenharia  
-**Atualizado em:** 2026-09-03
+**Atualizado em:** 2026-09-04
 **Revisão prevista:** trimestral ou quando surgir evidência relevante de mercado ou de piloto
 
 ## 1. Autoridade e relação com a visão
@@ -240,9 +240,9 @@ Uma decisão fundamentada aceita é uma resposta que o usuário classifica como 
 
 ### Métrica principal de negócio
 
-**Oportunidades comerciais qualificadas e consentidas por usuários ativos.**
+**Número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial da Zermatt.**
 
-Uma oportunidade qualificada exige manifestação explícita do usuário para conhecer, simular ou conversar sobre os serviços da Zermatt. Visualização de oferta, tema de uma pergunta ou conteúdo de documento não são suficientes para classificar alguém como lead.
+Uma oportunidade qualificada exige manifestação explícita do usuário para conhecer, simular ou conversar sobre os serviços da Zermatt e validação de que o condomínio atende aos critérios mínimos definidos com o time comercial. Visualização de oferta, clique isolado, tema de uma pergunta ou conteúdo de documento não são suficientes para classificar alguém como lead.
 
 ### Métricas de confiança
 
@@ -267,6 +267,7 @@ Uma oportunidade qualificada exige manifestação explícita do usuário para co
 - percentual de tarefas resolvidas por caminhos econômicos.
 - preço pago em relação ao custo variável por usuário ativo;
 - solicitações voluntárias de contato ou simulação;
+- solicitações aceitas como oportunidades qualificadas pelo time comercial;
 - oportunidades qualificadas por usuários e condomínios ativos;
 - custo do aplicativo por oportunidade qualificada;
 - conversão de oportunidade consentida em conversa comercial e, depois, em contrato;

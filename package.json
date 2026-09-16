@@ -10,7 +10,7 @@
     "pnpm": ">=11 <12"
   },
   "scripts": {
-    "dev:api": "tsx -e \"import('./apps/api/app/server.ts').then(({ startServer }) => startServer())\"",
+    "dev:api": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs --eval \"import('./apps/api/app/server.ts').then(({ startServer }) => startServer())\"",
     "dev:web": "vite --config vite.config.ts",
     "review:synthetic": "vite --config vite.config.ts",
     "build:web": "vite build --config vite.config.ts",

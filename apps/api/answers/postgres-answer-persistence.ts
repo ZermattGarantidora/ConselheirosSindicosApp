@@ -12,6 +12,7 @@ import type {
 } from "./answer-contract.js";
 import {
   type AnswerPersistence,
+  type ConversationHistoryEntry,
   type FeedbackRecord,
   type PersistedInteraction,
   type SubmitFeedbackInput,
@@ -59,6 +60,12 @@ type ClaimRow = Readonly<{
   evidence_required: boolean;
   citation_evidence_ids: readonly string[];
 }>;
+
+type ConversationHistoryRow = AnswerRow &
+  Readonly<{
+    question_content: string;
+    question_created_at: Date;
+  }>;
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
@@ -506,6 +513,70 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
         const details = await loadAnswerDetails(client, context.condominiumId, answerId);
         await client.query("COMMIT");
         return mapAnswer(row, details.citations, details.claims);
+      } catch (error: unknown) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async listConversationHistory(
+      context: AuthorizedCondominiumContext,
+      limit = 50
+    ): Promise<readonly ConversationHistoryEntry[]> {
+      const client = await pool.connect();
+      const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100));
+      try {
+        await client.query("BEGIN");
+        const databaseUserId = await setRuntimeContext(client, context);
+        const historyResult = await client.query<ConversationHistoryRow>(
+          `
+            SELECT
+              a.id AS answer_id,
+              a.question_id,
+              a.condominium_id,
+              q.asked_by_user_id,
+              q.content AS question_content,
+              q.created_at AS question_created_at,
+              a.direct_answer AS answer,
+              a.answer_mode,
+              a.attention_points,
+              a.suggested_next_step,
+              a.specialist_required,
+              a.specialist_type,
+              a.specialist_reason,
+              a.risk_class,
+              a.schema_version,
+              a.prompt_version,
+              a.pipeline_version,
+              a.validation_status,
+              a.created_at
+            FROM app.answers AS a
+            JOIN app.questions AS q
+              ON q.condominium_id = a.condominium_id
+              AND q.id = a.question_id
+            WHERE a.condominium_id = app.current_condominium_id()
+              AND q.asked_by_user_id = $1
+            ORDER BY q.created_at DESC, a.id DESC
+            LIMIT $2
+          `,
+          [databaseUserId, safeLimit]
+        );
+        const history: ConversationHistoryEntry[] = [];
+        for (const row of [...historyResult.rows].reverse()) {
+          const details = await loadAnswerDetails(client, context.condominiumId, row.answer_id);
+          history.push(
+            Object.freeze({
+              questionId: row.question_id,
+              question: row.question_content,
+              answer: mapAnswer(row, details.citations, details.claims),
+              createdAt: new Date(row.question_created_at)
+            })
+          );
+        }
+        await client.query("COMMIT");
+        return Object.freeze(history);
       } catch (error: unknown) {
         await rollback(client);
         throw error;

@@ -4,6 +4,7 @@ import type { AuthorizedCondominiumContext } from "../identity/authorized-condom
 import type {
   AnswerPersistence,
   AuditEventRecord,
+  ConversationHistoryEntry,
   FeedbackRecord,
   PersistedInteraction,
   SubmitFeedbackInput
@@ -85,6 +86,32 @@ export function createInMemoryAnswerPersistence(
           interaction.question.condominiumId === context.condominiumId &&
           interaction.question.idempotencyKey === idempotencyKey
       )?.answer;
+    },
+
+    async listConversationHistory(
+      context,
+      limit = 50
+    ): Promise<readonly ConversationHistoryEntry[]> {
+      return Object.freeze(
+        [...interactions.values()]
+          .filter(
+            (interaction) =>
+              interaction.question.condominiumId === context.condominiumId &&
+              interaction.question.userId === context.userId
+          )
+          .sort(
+            (left, right) => left.question.createdAt.getTime() - right.question.createdAt.getTime()
+          )
+          .slice(-limit)
+          .map((interaction) =>
+            Object.freeze({
+              questionId: interaction.question.id,
+              question: interaction.question.content,
+              answer: interaction.answer,
+              createdAt: interaction.question.createdAt
+            })
+          )
+      );
     },
 
     async createFeedback(

@@ -99,6 +99,13 @@ export type PersistedInteraction = Readonly<{
   auditEvents: readonly AuditEventRecord[];
 }>;
 
+export type ConversationHistoryEntry = Readonly<{
+  questionId: string;
+  question: string;
+  answer: AnswerRecord;
+  createdAt: Date;
+}>;
+
 export type FeedbackClassification = "correct" | "incorrect" | "incomplete" | "outdated";
 
 export type FeedbackRecord = Readonly<{
@@ -128,6 +135,10 @@ export interface AnswerPersistence {
     context: AuthorizedCondominiumContext,
     answerId: string
   ): Promise<AnswerRecord | undefined>;
+  listConversationHistory(
+    context: AuthorizedCondominiumContext,
+    limit?: number
+  ): Promise<readonly ConversationHistoryEntry[]>;
   createFeedback(
     context: AuthorizedCondominiumContext,
     input: SubmitFeedbackInput

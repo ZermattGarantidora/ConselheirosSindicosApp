@@ -1,7 +1,7 @@
 # Definição do MVP
 
 **Status:** proposta inicial derivada do briefing  
-**Atualizado em:** 2026-09-03
+**Atualizado em:** 2026-09-04
 
 ## Relação com a visão
 
@@ -27,7 +27,7 @@ Encontrar, cruzar e explicar informações específicas de convenções, regimen
 
 ## Papel do MVP para a Zermatt
 
-O aplicativo é um canal de aquisição, relacionamento e construção de confiança para a Zermatt Garantidora. A assinatura deve ser acessível e ajudar a cobrir os custos de IA, infraestrutura e operação; a margem direta do software não é o objetivo econômico principal.
+O aplicativo é um canal de aquisição, relacionamento e construção de confiança para a Zermatt Garantidora. Seu principal indicador de sucesso econômico é o número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial. A assinatura deve ser acessível e ajudar a cobrir os custos de IA, infraestrutura e operação; a margem direta do software não é o objetivo econômico principal.
 
 Depois que o núcleo documental estiver validado, o MVP deve oferecer um caminho comercial mínimo, separado da orientação da IA, pelo qual o usuário possa solicitar voluntariamente conhecer ou simular os serviços da Zermatt. Respostas, recomendações e alertas não podem ser influenciados por interesse comercial, e nenhum contato pode ocorrer sem confirmação explícita.
 
@@ -99,6 +99,12 @@ Fatos encontrados, interpretação e recomendação devem permanecer claramente 
 
 ## Indicadores de validação
 
+### Principal de negócio
+
+- número de oportunidades comerciais qualificadas e consentidas aceitas pelo time comercial da Zermatt.
+
+### Produto, confiança e eficiência
+
 - respostas corretas e fundamentadas;
 - citações que realmente sustentam a resposta;
 - abstenções corretas;
@@ -108,8 +114,9 @@ Fatos encontrados, interpretação e recomendação devem permanecer claramente 
 - conversão de piloto para pago;
 - custo médio por resposta aprovada.
 - tempo até o primeiro valor percebido;
-- oportunidades comerciais qualificadas com consentimento explícito;
 - conversão de usuários ativos em solicitações voluntárias de contato ou simulação;
+- percentual de solicitações aceitas como oportunidades qualificadas pelo time comercial;
+- conversão de oportunidades em conversas, propostas e contratos;
 - custo do aplicativo por usuário ativo e por oportunidade qualificada;
 - percepção de independência e ausência de pressão comercial.
 

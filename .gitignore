@@ -1,4 +1,5 @@
 node_modules/
+.worktrees/
 .pnpm-store/
 coverage/
 dist/
@@ -13,3 +14,4 @@ tmp/
 *.tsbuildinfo
 playwright-report/
 test-results/
+.local/

@@ -213,6 +213,52 @@ describe("persistência PostgreSQL de respostas", () => {
     expect(fake.queries.at(-1)?.sql).toBe("COMMIT");
   });
 
+  it("lista o histórico do usuário no condomínio atual e aplica o limite", async () => {
+    const historyRow = {
+      answer_id: "answer-history-1",
+      question_id: "question-history-1",
+      condominium_id: "alameda",
+      asked_by_user_id: "11111111-1111-4111-8111-111111111111",
+      question_content: "Como registrar uma assembleia?",
+      question_created_at: new Date("2026-09-08T11:00:00.000Z"),
+      answer: "Registre a ata e mantenha a versão autorizada.",
+      answer_mode: "abstained",
+      attention_points: [],
+      suggested_next_step: null,
+      specialist_required: false,
+      specialist_type: null,
+      specialist_reason: null,
+      risk_class: "low",
+      schema_version: "answer-v1",
+      prompt_version: "answer-prompt-v1",
+      pipeline_version: "answer-pipeline-v1",
+      validation_status: "passed",
+      created_at: new Date("2026-09-08T11:00:01.000Z")
+    };
+    const fake = createFakePool((sql) => {
+      if (sql.includes("resolve_user_id")) {
+        return { rows: [{ user_id: "11111111-1111-4111-8111-111111111111" }] };
+      }
+      if (sql.includes("q.asked_by_user_id = $1")) {
+        return { rows: [historyRow] };
+      }
+      return { rows: [] };
+    });
+    const persistence = createPostgresAnswerPersistence(fake.pool);
+
+    const history = await persistence.listConversationHistory(managerContext, 25);
+
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      questionId: "question-history-1",
+      question: "Como registrar uma assembleia?",
+      answer: { answerId: "answer-history-1", condominiumId: "alameda" }
+    });
+    const historyQuery = fake.queries.find(({ sql }) => sql.includes("q.asked_by_user_id = $1"));
+    expect(historyQuery?.values).toEqual(["11111111-1111-4111-8111-111111111111", 25]);
+    expect(fake.queries.at(-1)?.sql).toBe("COMMIT");
+  });
+
   it("faz rollback na leitura quando a consulta falha", async () => {
     const fake = createFakePool((sql) => {
       if (sql.includes("FROM app.answers AS a")) {

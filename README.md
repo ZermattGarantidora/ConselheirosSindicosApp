@@ -31,6 +31,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 - [Briefing — visão canônica](BRIEFING_PRODUTO_CONSELHEIRO_SINDICO.md)
 - [Definição do MVP](docs/product/mvp.md)
 - [Diretriz de estratégia competitiva](docs/product/estrategia-competitiva.md)
+- [Método de atuação da Cora](docs/product/metodo-atuacao-cora.md)
 - [Glossário](docs/product/glossary.md)
 - [Template obrigatório de spec](docs/specs/TEMPLATE.md)
 - [Spec 001 — consulta documental](docs/specs/001-consulta-documental/spec.md)
@@ -97,6 +98,32 @@ Em terminais separados, execute:
 pnpm run dev:api
 pnpm run dev:web
 ```
+
+Ao abrir o cliente local, o fluxo começa em um acesso demonstrativo. É possível escolher os
+condomínios sintéticos existentes ou criar um condomínio de teste temporário; esta criação só é
+habilitada quando a API é iniciada sem `DATABASE_URL`, permanece em memória e não recebe
+documentos automaticamente.
+
+Para testar a redação com Gemini, crie uma chave no Google AI Studio e salve-a uma vez em
+`.env.local`, que é ignorado pelo Git. A chave não é enviada ao cliente nem gravada no repositório.
+Na faixa gratuita, use exclusivamente os documentos sintéticos do projeto.
+
+```powershell
+Copy-Item .env.example .env.local
+# Edite .env.local e preencha apenas estas duas linhas:
+# GEMINI_API_KEY=sua-chave
+# GEMINI_MODEL=gemini-flash-lite-latest
+pnpm run dev:api
+```
+
+Sem `GEMINI_API_KEY`, o ambiente usa o gateway sintético local. A Gemini recebe somente a pergunta
+e os trechos já recuperados para o condomínio autorizado; a saída ainda passa pela validação local
+de citações antes de ser mostrada.
+
+As perguntas e respostas são registradas pela persistência de respostas e reaparecem ao reabrir o
+condomínio pela rota `GET /v1/condominiums/:condominiumId/history`. Sem `DATABASE_URL`, esse histórico
+fica em memória enquanto a API estiver ligada; com PostgreSQL, ele usa as tabelas e políticas RLS do
+condomínio autorizado.
 
 Com PostgreSQL disponível e `DATABASE_URL` definido, a API usa identidade, upload e fila persistidos; execute o worker persistido para processar um job:
 

@@ -31,6 +31,9 @@ Esta matriz liga promessas a critérios de aceitação e evidências de verifica
 | RQ-013 Falha segura                      | AC-021 | EVAL-019 | `apps/api/answers/answer-use-case.ts`; `tests/unit/answer-use-case.test.ts`; `tests/unit/api-answers.test.ts` |
 | RQ-014 Formato da resposta               | AC-010, AC-014, AC-016, AC-018 | EVAL-018 | `apps/api/answers/answer-contract.ts`; `apps/api/answers/citation-validator.ts`; `apps/web/App.tsx`; `tests/unit/citation-validator.test.ts` |
 | ADR 0007 — alvo Neon sintético           | marcador persistente, URL PostgreSQL com TLS, papel runtime seguro, identidade externa e fence do worker; migrations 003–006 verificadas; 6/6 testes RLS/API/worker aprovados em 2026-09-03 | —                            | `scripts/neon-integration-guard.ts`; `infrastructure/database/005_worker_claim_fencing.sql`; `infrastructure/database/006_runtime_document_read_grants.sql`; `tests/unit/neon-integration-guard.test.ts`; `tests/integration/rls-tenant-isolation.test.ts`                                                                                                                                                                                      |
+| Spec 003 — entrada e criação local       | AC-301–AC-314                                                                                                                                  | —                            | `apps/web/App.tsx`; `apps/api/identity/development-identity-repository.ts`; `apps/api/documents/development-document-memory.ts`; `apps/api/app/create-api.ts`; `tests/unit/development-test-condominium.test.ts`; `tests/unit/development-document-memory.test.ts` |
+| Spec 004 — gateway Gemini local          | AC-401–AC-406                                                                                                                                  | —                            | `apps/api/answers/gemini-answer-gateway.ts`; `apps/api/answers/answer-gateway.ts`; `tests/unit/gemini-answer-gateway.test.ts` |
+| Spec 005 — método de atuação da Cora     | AC-501–AC-506                                                                                                                                  | —                            | `apps/api/answers/prompt-catalog.ts`; `apps/api/answers/answer-use-case.ts`; `apps/web/message-format.ts`; `tests/unit/answer-gateway.test.ts`; `tests/unit/web-message-format.test.ts` |
 
 Na primeira fatia do B4, a verificação determinística de RQ-004 também está em
 `tests/unit/text-retrieval.test.ts`, `tests/unit/postgres-scoped-retrieval.test.ts` e
@@ -95,6 +98,11 @@ A T507 concluiu a cobertura determinística de AC-010 a AC-018 e AC-021 nos test
 de respostas e gateway local. A Fase 6 adiciona feedback, trilha auditável e evals
 sintéticos, mantendo o bloqueio para dados reais, rollout externo e seleção definitiva
 de modelo até as revisões e gates correspondentes.
+
+Em 2026-09-16, `pnpm.cmd run check` aprovou 40 arquivos e 220 testes após a
+integração do Gemini, do cadastro completo e da memória documental local. A cobertura
+ficou em 92,02% de statements, 84,22% de branches, 97,62% de functions e 92,56% de
+lines.
 
 ## Regra de manutenção
 

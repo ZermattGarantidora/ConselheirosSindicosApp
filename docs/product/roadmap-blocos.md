@@ -69,6 +69,8 @@ Depois do B7, só ampliaremos o produto se o piloto mostrar que os síndicos:
 - geram um custo sustentável por condomínio;
 - e, sem pressão, parte deles solicita conhecer ou simular os serviços da Zermatt.
 
+O principal resultado econômico do piloto será o número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial. Recorrência, confiança, precisão e facilidade de uso permanecem condições obrigatórias, porque são elas que sustentam a geração dessas oportunidades ao longo do tempo.
+
 Enquanto esses sinais não aparecerem, continuaremos melhorando o núcleo documental em vez de adicionar funções apenas por volume.
 
 O fluxo comercial não muda os blocos B4, B5 e B6. Primeiro o produto precisa encontrar a evidência certa, conversar bem, errar o mínimo possível e demonstrar confiança. A aproximação com a Zermatt entra no piloto apenas como uma opção separada, acionada pelo próprio usuário e sem uso oculto dos documentos para prospecção.
