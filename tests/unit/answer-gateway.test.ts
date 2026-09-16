@@ -89,7 +89,7 @@ describe("gateway de respostas", () => {
     expect(result.output.citations[0]?.startOffset).toBeGreaterThan(0);
   });
 
-  it("falha fechado quando todos os trechos são instruções", async () => {
+  it("falha fechado quando todos os trechos são instruções e acolhe somente cumprimento sem fonte", async () => {
     const gateway = createLocalSyntheticAnswerGateway();
 
     await expect(
@@ -99,9 +99,8 @@ describe("gateway de respostas", () => {
         ])
       )
     ).rejects.toBeInstanceOf(AnswerGatewayUnavailableError);
-    await expect(
-      gateway.generate(input("Qual regra vale?", "grounded_answer", []))
-    ).rejects.toThrow("Não há evidência autorizada");
+    const greeting = await gateway.generate(input("Olá", "grounded_answer", []));
+    expect(greeting.output).toMatchObject({ answerMode: "abstained", citations: [] });
   });
 
   it("expõe os dois lados de um conflito documental", async () => {

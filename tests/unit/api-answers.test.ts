@@ -93,6 +93,52 @@ describe("API de perguntas e feedback", () => {
     });
   });
 
+  it("retorna o histórico do usuário somente no condomínio autorizado", async () => {
+    const { app } = configuredApp();
+
+    return closeAfter(app, async () => {
+      const headers = { "x-development-user-id": "sindico-demo" };
+      await app.inject({
+        method: "POST",
+        url: "/v1/condominiums/alameda/questions",
+        headers,
+        payload: { question: "Qual é a regra da área comum?" }
+      });
+      await app.inject({
+        method: "POST",
+        url: "/v1/condominiums/alameda/questions",
+        headers,
+        payload: { question: "Quais documentos estão disponíveis?" }
+      });
+
+      const history = await app.inject({
+        method: "GET",
+        url: "/v1/condominiums/alameda/history",
+        headers
+      });
+      const invalidLimit = await app.inject({
+        method: "GET",
+        url: "/v1/condominiums/alameda/history?limit=101",
+        headers
+      });
+      const unauthorized = await app.inject({
+        method: "GET",
+        url: "/v1/condominiums/bosque/history",
+        headers: { "x-development-user-id": "morador-alameda-demo" }
+      });
+
+      expect(history.statusCode).toBe(200);
+      expect(history.json().entries).toHaveLength(2);
+      expect(history.json().entries[0]).toMatchObject({
+        question: "Qual é a regra da área comum?",
+        answer: { condominiumId: "alameda" }
+      });
+      expect(history.body).not.toContain('"userId"');
+      expect(invalidLimit.statusCode).toBe(400);
+      expect(unauthorized.statusCode).toBe(403);
+    });
+  });
+
   it("abstém com o adaptador padrão quando não há documentos carregados", async () => {
     const app = createApi({
       membershipRepository: createDevelopmentIdentityRepository(),
@@ -220,6 +266,9 @@ describe("API de perguntas e feedback", () => {
     const answerUseCase: AnswerUseCase = {
       async ask() {
         throw new Error("internal synthetic failure");
+      },
+      async listConversationHistory() {
+        throw new Error("internal synthetic history failure");
       },
       async submitFeedback() {
         throw new Error("internal synthetic feedback failure");

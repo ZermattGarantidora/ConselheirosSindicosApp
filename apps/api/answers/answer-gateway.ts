@@ -264,9 +264,41 @@ export function createLocalSyntheticAnswerGateway(
   return Object.freeze({
     async generate(input: AnswerGatewayInput): Promise<AnswerGatewayResult> {
       if (input.evidence.length === 0) {
-        throw new AnswerGatewayUnavailableError(
-          "Não há evidência autorizada para gerar a resposta."
-        );
+        const answer = Object.freeze({
+          answer:
+            "Olá! Sou a Cora, sua conselheira documental. Posso ajudar a consultar regras, atas e contratos quando você escolher um assunto.",
+          answerMode: "abstained" as const,
+          citations: Object.freeze([]),
+          attentionPoints: Object.freeze([]),
+          suggestedNextStep: "Pergunte sobre uma regra, ata ou contrato do condomínio.",
+          specialist: Object.freeze({ required: false, type: null, reason: null }),
+          claims: Object.freeze([])
+        });
+        const prompt = buildAnswerPrompt(input);
+        const serializedOutput = JSON.stringify(answer);
+        return Object.freeze({
+          output: answer,
+          telemetry: Object.freeze({
+            providerKey: "local",
+            modelKey,
+            modelVersion,
+            promptVersion: answerPromptVersion,
+            pipelineVersion: answerPipelineVersion,
+            taskType: input.task,
+            riskClass: input.riskClass,
+            routingReason: "cumprimento sem alegação documental",
+            status: "completed" as const,
+            inputTokens: tokenEstimate(prompt),
+            outputTokens: tokenEstimate(serializedOutput),
+            cachedInputTokens: 0,
+            latencyMs: 0,
+            estimatedCostMicrounits: 0,
+            costCurrency: "BRL" as const,
+            inputHash: hash(prompt),
+            outputHash: hash(serializedOutput),
+            errorCode: null
+          })
+        });
       }
 
       const prompt = buildAnswerPrompt({

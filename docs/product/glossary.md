@@ -78,7 +78,7 @@ Avaliação repetível do comportamento probabilístico da aplicação, executad
 
 ## Lead ou oportunidade comercial qualificada
 
-Usuário que manifesta explicitamente interesse em conhecer, simular ou conversar sobre os serviços da Zermatt. Visualizar uma oferta, fazer uma pergunta relacionada a finanças ou possuir determinado conteúdo em um documento não é suficiente para classificar alguém como lead.
+Usuário que manifesta explicitamente interesse em conhecer, simular ou conversar sobre os serviços da Zermatt e cujo condomínio atende aos critérios mínimos de qualificação definidos com o time comercial. Visualizar uma oferta, clicar sem concluir a solicitação, fazer uma pergunta relacionada a finanças ou possuir determinado conteúdo em um documento não é suficiente para classificar alguém como lead.
 
 ## Consentimento comercial
 

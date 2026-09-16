@@ -21,6 +21,11 @@ function normalize(value: string): string {
 
 const highRiskRules: readonly RiskRule[] = Object.freeze([
   {
+    pattern: /vidro.{0,40}quebrou|vidro quebrad|vidraca quebrad|janela quebrad|queda de vidro/u,
+    specialistType: "responsável técnico",
+    reason: "O caso pode envolver risco imediato na área comum e exige avaliação técnica."
+  },
+  {
     pattern: /parede|estrutura|fachada|obra estrutural|intervencao.*seguranca/u,
     specialistType: "engenheiro",
     reason: "A decisão pode afetar estrutura, segurança ou responsabilidade técnica."

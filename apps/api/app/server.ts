@@ -4,9 +4,12 @@ import { createLocalSyntheticAnswerGateway } from "../answers/answer-gateway.js"
 import { createAnswerService } from "../answers/answer-service.js";
 import { createAnswerUseCase } from "../answers/answer-use-case.js";
 import { createLocalExtractiveGateway } from "../answers/local-extractive-gateway.js";
+import { createGeminiAnswerGatewayFromEnvironment } from "../answers/gemini-answer-gateway.js";
+import { createInMemoryAnswerPersistence } from "../answers/in-memory-answer-persistence.js";
 import { createPostgresAnswerPersistence } from "../answers/postgres-answer-persistence.js";
 import { createApi } from "./create-api.js";
 import { createPostgresDocumentUploadRepository } from "../documents/postgres-document-upload-repository.js";
+import { createDevelopmentDocumentMemory } from "../documents/development-document-memory.js";
 import { createLocalPrivateDocumentStorage } from "../documents/private-document-storage.js";
 import {
   createDevelopmentDocumentSourceReader,
@@ -20,6 +23,7 @@ import {
   developmentChunks
 } from "../retrieval/development-scoped-retrieval.js";
 import { createPostgresScopedRetrievalIndex } from "../retrieval/postgres-scoped-retrieval.js";
+import { developmentRetrievalFixtures } from "../retrieval/development-retrieval-fixtures.js";
 import { createScopedTextRetriever } from "../retrieval/text-retrieval.js";
 
 export async function startServer(
@@ -27,10 +31,23 @@ export async function startServer(
   environment: NodeJS.ProcessEnv = process.env
 ): Promise<ReturnType<typeof createApi>> {
   const databaseUrl = environment.DATABASE_URL?.trim();
+  const geminiGateway = createGeminiAnswerGatewayFromEnvironment(environment);
+  const answerGateway = geminiGateway ?? createLocalSyntheticAnswerGateway();
+  const aiProvider = geminiGateway === undefined ? "local" : "gemini";
 
   if (databaseUrl === undefined || databaseUrl.length === 0) {
+    const developmentMembershipRegistry = createDevelopmentIdentityRepository();
+    const developmentDocumentMemory = createDevelopmentDocumentMemory(developmentRetrievalFixtures);
     const app = createApi({
-      membershipRepository: createDevelopmentIdentityRepository(),
+      membershipRepository: developmentMembershipRegistry,
+      developmentMembershipRegistry,
+      developmentDocumentMemory,
+      aiProvider,
+      answerUseCase: createAnswerUseCase({
+        retriever: createScopedTextRetriever(developmentDocumentMemory.index),
+        gateway: answerGateway,
+        persistence: createInMemoryAnswerPersistence()
+      }),
       retriever: createScopedTextRetriever(createDevelopmentScopedRetrievalIndex()),
       answerService: createAnswerService(createLocalExtractiveGateway()),
       documentSourceReader: createDevelopmentDocumentSourceReader(developmentChunks)
@@ -42,13 +59,14 @@ export async function startServer(
   const pool = new Pool({ connectionString: databaseUrl });
   const app = createApi({
     membershipRepository: createPostgresMembershipRepository(pool),
+    aiProvider,
     documentStorage: createLocalPrivateDocumentStorage(
       environment.DOCUMENT_STORAGE_ROOT?.trim() || ".local/synthetic-documents"
     ),
     documentUploadRepository: createPostgresDocumentUploadRepository(pool),
     answerUseCase: createAnswerUseCase({
       retriever: createScopedTextRetriever(createPostgresScopedRetrievalIndex(pool)),
-      gateway: createLocalSyntheticAnswerGateway(),
+      gateway: answerGateway,
       persistence: createPostgresAnswerPersistence(pool)
     }),
     retriever: createScopedTextRetriever(createPostgresScopedRetrievalIndex(pool)),

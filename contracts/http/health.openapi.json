@@ -15,10 +15,11 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["status", "version"],
+                  "required": ["status", "version", "aiProvider"],
                   "properties": {
                     "status": { "type": "string", "const": "ok" },
-                    "version": { "type": "string" }
+                    "version": { "type": "string" },
+                    "aiProvider": { "type": "string", "enum": ["gemini", "local"] }
                   }
                 }
               }

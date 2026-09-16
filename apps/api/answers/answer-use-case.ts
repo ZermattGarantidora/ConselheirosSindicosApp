@@ -23,6 +23,7 @@ import { validateGeneratedAnswer } from "./citation-validator.js";
 import {
   type AnswerPersistence,
   type AuditEventRecord,
+  type ConversationHistoryEntry,
   type ModelInvocationRecord,
   type PersistedInteraction,
   type QuestionRecord,
@@ -50,6 +51,10 @@ export type AskQuestionInput = Readonly<{
 
 export type AnswerUseCase = Readonly<{
   ask(context: AuthorizedCondominiumContext, input: AskQuestionInput): Promise<AnswerRecord>;
+  listConversationHistory(
+    context: AuthorizedCondominiumContext,
+    limit?: number
+  ): Promise<readonly ConversationHistoryEntry[]>;
   submitFeedback(
     context: AuthorizedCondominiumContext,
     input: SubmitFeedbackInput
@@ -166,6 +171,22 @@ function isProtectedContextRequest(question: string): boolean {
   );
 }
 
+function isDocumentaryQuestion(question: string): boolean {
+  return /convenção|convencao|regimento|ata\b|assembleia|contrato|cláusula|clausula|documento|regra|norma|página|pagina|quórum|quorum|vigência|vigencia|prazo|vencimento/iu.test(
+    question
+  );
+}
+
+function isConversationalMessage(question: string): boolean {
+  const normalized = question.trim();
+  return (
+    normalized.length > 0 &&
+    normalized.length <= 1_200 &&
+    !isDocumentaryQuestion(normalized) &&
+    !isProtectedContextRequest(normalized)
+  );
+}
+
 function emptyRetrievalResult(question: string): ScopedRetrievalResult {
   return Object.freeze({
     pipelineVersion: "hybrid-v1" as const,
@@ -202,7 +223,10 @@ function expectedTask(conflict: boolean, assessment: RiskAssessment): AnswerProm
   return assessment.riskClass === "high" ? "specialist_review" : "grounded_answer";
 }
 
-function expectedMode(task: AnswerPromptTask): AnswerMode {
+function expectedMode(task: AnswerPromptTask, conversationOnly = false): AnswerMode {
+  if (conversationOnly) {
+    return "abstained";
+  }
   return task === "document_conflict" ? "conflict" : "grounded";
 }
 
@@ -475,15 +499,56 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         );
         claims = Object.freeze([]);
       } else if (retrievalResult.sufficiency.status !== "sufficient") {
-        payload = abstainedPayload(retrievalResult, assessment, question);
-        telemetry = policyTelemetry(
-          question,
-          assessment,
-          "skipped",
-          "evidência insuficiente; geração não executada",
-          null
-        );
-        claims = Object.freeze([]);
+        if (!isConversationalMessage(question)) {
+          payload = abstainedPayload(retrievalResult, assessment, question);
+          telemetry = policyTelemetry(
+            question,
+            assessment,
+            "skipped",
+            "evidência insuficiente; geração não executada",
+            null
+          );
+          claims = Object.freeze([]);
+        } else {
+          const gatewayInput = {
+            question,
+            task: "grounded_answer" as const,
+            riskClass: assessment.riskClass,
+            evidence: Object.freeze([]),
+            budget: Object.freeze({ maximumOutputTokens, maximumCostMicrounits })
+          };
+          try {
+            const generated = await options.gateway.generate(gatewayInput);
+            const enforced = enforceHighRiskSpecialist(generated.output, assessment);
+            if (enforced.answerMode !== expectedMode(gatewayInput.task, true)) {
+              throw new Error("O gateway retornou um modo incompatível para conversa sem fonte.");
+            }
+            const validated = validateGeneratedAnswer(enforced, gatewayInput.evidence);
+            payload = freezeAnswerPayload(validated);
+            claims = makeClaims(idFactory, validated.claims, validated);
+            telemetry = generated.telemetry;
+          } catch (error: unknown) {
+            const reason =
+              error instanceof Error ? error.message : "A Gemini não respondeu à solicitação.";
+            payload = freezeAnswerPayload({
+              answer: "Não consegui obter a orientação da Gemini nesta tentativa.",
+              answerMode: "abstained",
+              citations: Object.freeze([]),
+              attentionPoints: Object.freeze([reason]),
+              suggestedNextStep:
+                "Confira a conexão da Gemini e tente novamente em alguns instantes.",
+              specialist: specialistFromAssessment(assessment)
+            });
+            telemetry = policyTelemetry(
+              question,
+              assessment,
+              "failed",
+              "conversa inicial indisponível; resposta documental preservada",
+              "conversation_unavailable"
+            );
+            claims = Object.freeze([]);
+          }
+        }
       } else {
         const conflict = detectDocumentConflict(question, retrievalResult.evidence);
         const task = expectedTask(conflict !== null, assessment);
@@ -622,6 +687,10 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         throw new Error("A resposta não foi encontrada no condomínio autorizado.");
       }
       return record;
+    },
+
+    async listConversationHistory(context, limit = 50) {
+      return options.persistence.listConversationHistory(context, limit);
     }
   });
 }
