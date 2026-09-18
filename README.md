@@ -35,11 +35,16 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 - [Glossário](docs/product/glossary.md)
 - [Template obrigatório de spec](docs/specs/TEMPLATE.md)
 - [Spec 001 — consulta documental](docs/specs/001-consulta-documental/spec.md)
+- [Spec 006 — autenticação real](docs/specs/006-autenticacao-real/spec.md)
+- [Spec 007 — criação real de condomínio](docs/specs/007-condominio-real/spec.md)
+- [Spec 008 — login com Google](docs/specs/008-login-google/spec.md)
+- [Spec 009 — configurações do chat e exclusão do condomínio](docs/specs/009-configuracoes-chat/spec.md)
 - [Spec 002 — fundação local de engenharia](docs/specs/002-fundacao-engenharia/spec.md)
 - [Critérios de aceitação](docs/specs/001-consulta-documental/acceptance.md)
 - [Plano técnico](docs/specs/001-consulta-documental/plan.md)
 - [Tarefas](docs/specs/001-consulta-documental/tasks.md)
 - [Decisões arquiteturais](docs/adr/)
+- [ADR 0012 — PostgreSQL gerenciado remoto](docs/adr/0012-postgresql-gerenciado-remoto.md)
 - [Estrutura de banco de dados](docs/architecture/database-schema.md)
 - [Protótipo PWA — onboarding e chat](apps/prototype/README.md)
 - [Modelo de ameaças](docs/security/threat-model.md)
@@ -65,7 +70,11 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 
 ## Estado da implementação
 
-O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migrations PostgreSQL/RLS. A seleção de condomínio, a negação de acesso, a revogação, o cache, a recuperação sintética e a ingestão documental já possuem testes. O fluxo B3 registra o original e a versão, enfileira o processamento, extrai PDF por página, encaminha OCR fraco para revisão e preserva versões e vigências.
+O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migrations PostgreSQL/RLS. A seleção de condomínio, a negação de acesso, a revogação, o cache, a recuperação sintética e a ingestão documental já possuem testes. O fluxo B3 registra o original e a versão, enfileira o processamento, extrai PDF por página, encaminha OCR fraco para revisão e preserva versões e vigências. A Spec 006 adiciona contas reais por e-mail e senha no ambiente persistente, com sessões revogáveis e isolamento mantido por condomínio.
+
+A Spec 009 adiciona configurações gerais da conversa e a saída segura da gestão: o síndico pode
+confirmar a exclusão permanente do condomínio selecionado, enquanto a conta e os demais condomínios
+permanecem intactos.
 
 O B4, B5 e B6 estão implementados com retrieval textual e semântico sintético, respostas fundamentadas, citações verificáveis, abstenção, conflitos, escalonamento, feedback, auditoria e evals. A validação RLS no Neon de integração sintética passou com 7/7 cenários; os 20 evals locais passam na baseline atual. O GitHub Actions executa os gates de qualidade, E2E e build; a proteção obrigatória da `main` permanece pendente de ativação. Dados reais e piloto exigem uma política de dados específica aprovada.
 
@@ -103,6 +112,66 @@ Ao abrir o cliente local, o fluxo começa em um acesso demonstrativo. É possív
 condomínios sintéticos existentes ou criar um condomínio de teste temporário; esta criação só é
 habilitada quando a API é iniciada sem `DATABASE_URL`, permanece em memória e não recebe
 documentos automaticamente.
+
+Quando `DATABASE_URL` está definido, o cliente deixa o modo demonstrativo e mostra a entrada de
+conta real. O cadastro usa nome, e-mail e senha de no mínimo 12 caracteres; o servidor guarda
+somente o hash da senha e uma sessão opaca em cookie HttpOnly. Depois do login, nenhuma associação
+é criada automaticamente: a pessoa cria explicitamente seu condomínio e recebe o papel de síndico
+somente nesse novo contexto. Verificação de e-mail, recuperação de senha e MFA ainda são etapas
+obrigatórias antes de um piloto público, conforme a [Spec 006](docs/specs/006-autenticacao-real/spec.md),
+a [Spec 007](docs/specs/007-condominio-real/spec.md), a [Spec 008](docs/specs/008-login-google/spec.md)
+e o [ADR 0011](docs/adr/0011-autenticacao-real-email-senha.md).
+
+Para ativar esse modo localmente, suba o PostgreSQL, aplique as migrations e só então inicie a
+API com a URL do banco:
+
+```powershell
+pnpm run db:up
+pnpm run db:migrate
+$env:DATABASE_URL = "postgresql://postgres:local-development-only@127.0.0.1:5432/conselheiro"
+pnpm run dev:api
+```
+
+Se o Docker não estiver disponível, use um PostgreSQL gerenciado remoto no staging. Crie o banco
+vazio no provedor, mantenha a URL somente no ambiente do servidor e exija TLS. Para desenvolvimento
+local, você pode salvar a URL em `.env.local` (arquivo ignorado pelo Git); os comandos de API e
+migração carregam esse arquivo automaticamente:
+
+```powershell
+Copy-Item .env.example .env.local
+# Edite .env.local e preencha DATABASE_URL com a string copiada em Connect no Neon.
+pnpm.cmd run db:migrate:remote
+pnpm.cmd run dev:api
+```
+
+O comando remoto registra migrations aplicadas em `app.schema_migrations` e interrompe sem alterar
+um banco que já tenha tabelas, mas não tenha esse histórico. O navegador não recebe a credencial do
+banco. A primeira execução precisa usar a credencial administrativa do banco para criar o papel
+restrito `app_runtime`; depois, a API continua usando a mesma URL e troca para esse papel nas
+consultas protegidas. A migration 012 habilita a criação transacional do condomínio e da membership
+do síndico e a listagem dos grupos autorizados. O comando `db:migrate:neon` continua reservado ao banco de integração
+sintética do ADR 0007.
+
+A migration 014 mantém o endpoint técnico de revogação de membership por compatibilidade. A ação
+“Sair da gestão e apagar condomínio” da interface usa a migration 015: somente o síndico responsável
+pode confirmar a exclusão permanente do condomínio selecionado, incluindo cadastro, documentos,
+conversas, histórico, auditoria e associações. A conta e outros condomínios permanecem intactos.
+
+O login com Google foi preparado no servidor, mas a opção está temporariamente ocultada na
+interface. Não é necessário configurar o Google Cloud enquanto esse recurso estiver pausado.
+Quando for reativá-lo, crie um cliente OAuth para aplicação web no Google Cloud e cadastre a URI
+exata de callback. Em desenvolvimento com o proxy Vite, use
+`http://127.0.0.1:5173/v1/auth/google/callback` como URI autorizada e adicione ao `.env.local`:
+
+```env
+GOOGLE_CLIENT_ID=seu-client-id
+GOOGLE_CLIENT_SECRET=seu-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:5173/v1/auth/google/callback
+GOOGLE_OAUTH_SUCCESS_REDIRECT_URI=http://127.0.0.1:5173/
+```
+
+Aplique a migration 013 e reinicie a API. O servidor troca o código OAuth, valida o e-mail
+verificado pelo Google e cria a sessão local; tokens Google nunca são enviados ao cliente.
 
 Para testar a redação com Gemini, crie uma chave no Google AI Studio e salve-a uma vez em
 `.env.local`, que é ignorado pelo Git. A chave não é enviada ao cliente nem gravada no repositório.

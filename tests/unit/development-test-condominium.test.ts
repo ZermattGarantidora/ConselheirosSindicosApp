@@ -129,6 +129,54 @@ describe("criação de condomínio para teste", () => {
     );
   });
 
+  it("remove a associação de teste sem apagar o cadastro", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/development/test-condominiums",
+      headers: { "x-development-user-id": developmentUserId() },
+      payload: { ...registration, condominiumId: "teste-saida" }
+    });
+    const leave = await app.inject({
+      method: "DELETE",
+      url: "/v1/development/test-condominiums/teste-saida/membership",
+      headers: { "x-development-user-id": developmentUserId() }
+    });
+    const context = await app.inject({
+      method: "GET",
+      url: "/v1/condominiums/teste-saida/context",
+      headers: { "x-development-user-id": developmentUserId() }
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(leave.statusCode).toBe(204);
+    expect(context.statusCode).toBe(403);
+  });
+
+  it("apaga o condomínio de teste inteiro quando o síndico confirma", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/development/test-condominiums",
+      headers: { "x-development-user-id": developmentUserId() },
+      payload: { ...registration, condominiumId: "teste-apagar" }
+    });
+    const deletion = await app.inject({
+      method: "DELETE",
+      url: "/v1/development/test-condominiums/teste-apagar",
+      headers: { "x-development-user-id": developmentUserId() }
+    });
+    const list = await app.inject({
+      method: "GET",
+      url: "/v1/development/test-condominiums",
+      headers: { "x-development-user-id": developmentUserId() }
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(deletion.statusCode).toBe(204);
+    expect(list.json().condominiums).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ condominiumId: "teste-apagar" })])
+    );
+  });
+
   it("rejeita perfil incompleto sem criar uma associação órfã", async () => {
     const invalid = await app.inject({
       method: "POST",

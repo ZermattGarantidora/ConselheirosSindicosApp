@@ -42,7 +42,14 @@ type ConversationHistoryEntry = Readonly<{
 }>;
 
 type FeedbackClassification = "correct" | "incorrect" | "incomplete" | "outdated";
-type View = "login" | "onboarding" | "condominiums" | "create-condominium" | "chat";
+type View =
+  | "landing"
+  | "login"
+  | "onboarding"
+  | "condominiums"
+  | "create-condominium"
+  | "chat"
+  | "chat-settings";
 type AiProvider = "gemini" | "local" | "unavailable";
 type CondominiumListItem = Readonly<{ id: string; name: string; detail: string }>;
 type RegistrationForm = Readonly<{
@@ -62,6 +69,19 @@ type RegistrationForm = Readonly<{
   phone: string;
 }>;
 type DocumentMemoryStatus = "ready" | "pending_confirmation" | "needs_review" | "failed";
+type AuthMode = "unknown" | "development" | "real";
+type AuthPanel = "login" | "register";
+type AuthUser = Readonly<{ userId: string; email: string; displayName: string }>;
+type RegistrationFile = Pick<File, "name" | "type" | "size">;
+type ChatSettings = Readonly<{
+  showHistory: boolean;
+  showEvidenceReminder: boolean;
+}>;
+
+const defaultChatSettings: ChatSettings = Object.freeze({
+  showHistory: true,
+  showEvidenceReminder: true
+});
 
 const developmentUserId = "sindico-demo";
 const suggestedQuestions = [
@@ -71,8 +91,8 @@ const suggestedQuestions = [
 ] as const;
 
 const condominiumCatalog: readonly CondominiumListItem[] = [
-  { id: "alameda", name: "Residencial Alameda", detail: "Documentos de demonstração disponíveis" },
-  { id: "bosque", name: "Condomínio Bosque", detail: "Segundo contexto isolado para testes" }
+  { id: "alameda", name: "Residencial Alameda", detail: "Documentos disponíveis" },
+  { id: "bosque", name: "Condomínio Bosque", detail: "Segundo condomínio autorizado" }
 ] as const;
 
 const emptyRegistrationForm: RegistrationForm = {
@@ -116,7 +136,7 @@ function condominiumSlug(name: string, cnpj: string): string {
   return `${base || "condominio"}-${onlyDigits(cnpj).slice(-6)}`;
 }
 
-function isPdf(file: File): boolean {
+function isPdf(file: Pick<File, "type" | "name">): boolean {
   return file.type === "application/pdf" || file.name.toLocaleLowerCase("pt-BR").endsWith(".pdf");
 }
 
@@ -159,6 +179,68 @@ async function readMessage(response: Response, fallback: string): Promise<string
   }
 }
 
+export function registrationValidationErrors(
+  form: RegistrationForm,
+  constitutionMinutes: RegistrationFile | undefined,
+  additionalDocuments: readonly RegistrationFile[],
+  documentsConfirmed: boolean,
+  realAccount: boolean
+): readonly string[] {
+  const errors: string[] = [];
+  const cnpjDigits = onlyDigits(form.cnpj);
+  const unitCount = form.unitCount.trim();
+
+  if (form.name.trim().length < 2) errors.push("nome do condomínio");
+  if (cnpjDigits.length !== 14) {
+    errors.push(realAccount ? "CNPJ com 14 dígitos" : "CNPJ sintético com 14 dígitos");
+  }
+  if (form.city.trim().length === 0) errors.push("cidade");
+  if (!/^[A-Z]{2}$/iu.test(form.state.trim())) errors.push("UF com 2 letras");
+  if (
+    unitCount !== "" &&
+    (!/^\d+$/u.test(unitCount) || Number(unitCount) < 1 || Number(unitCount) > 100_000)
+  ) {
+    errors.push("quantidade de unidades válida");
+  }
+  if (form.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(form.email.trim())) {
+    errors.push("e-mail de contato válido");
+  }
+
+  if (constitutionMinutes === undefined) {
+    errors.push("ata de constituição em PDF");
+  } else if (!isPdf(constitutionMinutes) || constitutionMinutes.size > 10 * 1024 * 1024) {
+    errors.push("ata em PDF de até 10 MB");
+  }
+
+  const invalidAdditionalDocument = additionalDocuments.find(
+    (file) => !isPdf(file) || file.size > 10 * 1024 * 1024
+  );
+  if (invalidAdditionalDocument !== undefined) {
+    errors.push(`arquivo adicional "${invalidAdditionalDocument.name}" em PDF de até 10 MB`);
+  }
+  if (!documentsConfirmed) {
+    errors.push("confirmação de que os documentos pertencem a este condomínio");
+  }
+
+  return errors;
+}
+
+export function formatRegistrationFailure(
+  error: unknown,
+  phase: "condominium" | "documents"
+): string {
+  const detail =
+    error instanceof Error && error.message.trim() !== ""
+      ? error.message.trim()
+      : "erro inesperado";
+  const normalizedDetail = detail.endsWith(".") ? detail : `${detail}.`;
+  const action = phase === "documents" ? "salvar a ata e os documentos" : "criar o condomínio";
+  const sessionHint = /acesso não autorizado|sessão não autenticada/iu.test(detail)
+    ? " Confira se a sessão ainda está ativa; se necessário, volte ao login e tente novamente."
+    : "";
+  return `Não foi possível ${action}: ${normalizedDetail}${sessionHint}`;
+}
+
 function ZermattMark() {
   return (
     <span className="zermatt-mark" aria-hidden="true">
@@ -174,8 +256,8 @@ function FormattedText({ text }: Readonly<{ text: string }>) {
 }
 
 export function App() {
-  const [view, setView] = useState<View>("login");
-  const [displayName, setDisplayName] = useState("Gestor de testes");
+  const [view, setView] = useState<View>("landing");
+  const [displayName, setDisplayName] = useState("Gestor");
   const [condominiumId, setCondominiumId] = useState("alameda");
   const [availableCondominiums, setAvailableCondominiums] = useState<CondominiumListItem[]>([
     ...condominiumCatalog
@@ -190,6 +272,7 @@ export function App() {
     "onboarding" | "condominiums"
   >("condominiums");
   const [setupNotice, setSetupNotice] = useState<string | undefined>();
+  const [registrationMessageIsError, setRegistrationMessageIsError] = useState(false);
   const [context, setContext] = useState<ContextResponse | undefined>();
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState("");
@@ -201,6 +284,19 @@ export function App() {
   const [feedback, setFeedback] = useState<FeedbackClassification | undefined>();
   const [message, setMessage] = useState("Escolha ou crie um condomínio para iniciar.");
   const [aiProvider, setAiProvider] = useState<AiProvider>("unavailable");
+  const [authMode, setAuthMode] = useState<AuthMode>("unknown");
+  const [authPanel, setAuthPanel] = useState<AuthPanel>("login");
+  const [authUser, setAuthUser] = useState<AuthUser | undefined>();
+  const [authDisplayName, setAuthDisplayName] = useState("");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [chatSettings, setChatSettings] = useState<ChatSettings>(defaultChatSettings);
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [leaveManagementOpen, setLeaveManagementOpen] = useState(false);
+  const [leaveManagementBusy, setLeaveManagementBusy] = useState(false);
+  const [condominiumNotice, setCondominiumNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const composerInput = useRef<HTMLTextAreaElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -211,15 +307,52 @@ export function App() {
     void fetch("/health")
       .then(async (response) => {
         if (!response.ok) return;
-        const body = (await response.json()) as Readonly<{ aiProvider?: unknown }>;
+        const body = (await response.json()) as Readonly<{
+          aiProvider?: unknown;
+          authMode?: unknown;
+        }>;
         if (body.aiProvider === "gemini" || body.aiProvider === "local") {
           setAiProvider(body.aiProvider);
         }
+        if (body.authMode === "real" || body.authMode === "development") {
+          setAuthMode(body.authMode);
+        }
       })
-      .catch(() => setAiProvider("unavailable"));
+      .catch(() => {
+        setAiProvider("unavailable");
+        setAuthMode("development");
+      });
   }, []);
 
   useEffect(() => {
+    if (authMode !== "unknown") return;
+    const timeoutId = window.setTimeout(() => {
+      setAuthMode((current) => (current === "unknown" ? "development" : current));
+    }, 4_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [authMode]);
+
+  useEffect(() => {
+    if (authMode !== "real") return;
+    void (async () => {
+      try {
+        const response = await fetch("/v1/auth/session", { credentials: "same-origin" });
+        if (!response.ok) return;
+        const body = (await response.json()) as Readonly<{ user?: AuthUser }>;
+        if (body.user === undefined) return;
+        setAuthUser(body.user);
+        setDisplayName(body.user.displayName);
+        await loadAuthorizedCondominiums();
+        setMessage("Escolha um condomínio autorizado para abrir a conversa.");
+        setView("condominiums");
+      } catch {
+        setAvailableCondominiums([]);
+      }
+    })();
+  }, [authMode]);
+
+  useEffect(() => {
+    if (authMode !== "development") return;
     void fetch("/v1/development/test-condominiums", {
       headers: { "x-development-user-id": developmentUserId }
     })
@@ -241,12 +374,12 @@ export function App() {
             .map((profile) => ({
               id: profile.condominiumId,
               name: profile.name,
-              detail: `${profile.address.city}/${profile.address.state} · Cadastro de teste`
+              detail: `${profile.address.city}/${profile.address.state} · Condomínio autorizado`
             }))
         ]);
       })
       .catch(() => undefined);
-  }, []);
+  }, [authMode]);
 
   useEffect(() => {
     const input = composerInput.current;
@@ -262,6 +395,71 @@ export function App() {
     input.style.overflowY = input.scrollHeight > maximumHeight ? "auto" : "hidden";
   }, [question]);
 
+  async function submitAuthentication(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setAuthBusy(true);
+    setAuthMessage("");
+    const endpoint = authPanel === "register" ? "/v1/auth/register" : "/v1/auth/login";
+    const payload =
+      authPanel === "register"
+        ? { displayName: authDisplayName, email: authEmail, password: authPassword }
+        : { email: authEmail, password: authPassword };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        setAuthMessage(await readMessage(response, "Não foi possível concluir o acesso."));
+        return;
+      }
+      const body = (await response.json()) as Readonly<{ user?: AuthUser }>;
+      if (body.user === undefined) {
+        setAuthMessage("A resposta do servidor não trouxe uma conta válida.");
+        return;
+      }
+      setAuthUser(body.user);
+      setDisplayName(body.user.displayName);
+      setAuthPassword("");
+      await loadAuthorizedCondominiums();
+      setMessage(
+        authPanel === "register"
+          ? "Conta criada. Seus grupos de condomínio aparecerão aqui quando forem autorizados."
+          : "Login concluído. Escolha um condomínio autorizado para abrir a conversa."
+      );
+      setView("condominiums");
+    } catch {
+      setAuthMessage("Não foi possível conectar ao servidor agora.");
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function logoutAccount(): Promise<void> {
+    await fetch("/v1/auth/logout", { method: "POST", credentials: "same-origin" }).catch(
+      () => undefined
+    );
+    setAuthUser(undefined);
+    setAuthDisplayName("");
+    setAuthEmail("");
+    setAuthPassword("");
+    setAuthMessage("");
+    setChatSettings(defaultChatSettings);
+    setCondominiumNotice("");
+    setAvailableCondominiums([...condominiumCatalog]);
+    setView("landing");
+  }
+
+  function openAuthentication(panel: AuthPanel): void {
+    setAuthPanel(panel);
+    setAuthMessage("");
+    setAuthPassword("");
+    setView("login");
+  }
+
   function resetConversation() {
     setQuestion("");
     setSubmittedQuestion("");
@@ -273,12 +471,19 @@ export function App() {
   }
 
   function openCondominiumPicker() {
-    if (window.matchMedia("(max-width: 580px)").matches) {
+    if (authMode === "real" || window.matchMedia("(max-width: 720px)").matches) {
       setCondominiumSearch("");
+      if (authMode === "real") void loadAuthorizedCondominiums();
       setView("condominiums");
       return;
     }
     setView("onboarding");
+  }
+
+  function openChatSettings(): void {
+    setSettingsMessage("");
+    setLeaveManagementOpen(false);
+    setView("chat-settings");
   }
 
   function openCondominiumRegistration(returnView: "onboarding" | "condominiums") {
@@ -291,7 +496,82 @@ export function App() {
     setAdditionalDocuments([]);
     setDocumentsConfirmed(false);
     setRegistrationMessage("");
+    setRegistrationMessageIsError(false);
     setView("create-condominium");
+  }
+
+  async function loadAuthorizedCondominiums(): Promise<void> {
+    try {
+      const response = await fetch("/v1/condominiums", { credentials: "same-origin" });
+      if (!response.ok) {
+        setAvailableCondominiums([]);
+        return;
+      }
+      const body = (await response.json()) as Readonly<{
+        condominiums?: readonly Readonly<{
+          condominiumId: string;
+          name: string;
+          detail: string;
+        }>[];
+      }>;
+      if (!Array.isArray(body.condominiums)) {
+        setAvailableCondominiums([]);
+        return;
+      }
+      setAvailableCondominiums(
+        body.condominiums.map((item) => ({
+          id: item.condominiumId,
+          name: item.name,
+          detail: item.detail
+        }))
+      );
+    } catch {
+      setAvailableCondominiums([]);
+    }
+  }
+
+  async function deleteCondominium(): Promise<void> {
+    const activeContext = context;
+    if (activeContext === undefined || activeContext.role !== "manager") return;
+
+    setLeaveManagementBusy(true);
+    setSettingsMessage("");
+    const condominiumId = activeContext.condominiumId;
+    const endpoint =
+      authMode === "real"
+        ? `/v1/condominiums/${encodeURIComponent(condominiumId)}`
+        : `/v1/development/test-condominiums/${encodeURIComponent(condominiumId)}`;
+    try {
+      const response = await fetch(endpoint, {
+        method: "DELETE",
+        credentials: "same-origin",
+        ...(authMode === "development"
+          ? { headers: { "x-development-user-id": developmentUserId } }
+          : {})
+      });
+      if (!response.ok) {
+        throw new Error(await readMessage(response, "Não foi possível apagar o condomínio."));
+      }
+
+      setAvailableCondominiums((current) =>
+        current.filter((item) => item.id !== activeContext.condominiumId)
+      );
+      setCondominiumId("");
+      setContext(undefined);
+      resetConversation();
+      setLeaveManagementOpen(false);
+      setCondominiumNotice(
+        "Condomínio apagado. O cadastro, os documentos, o chat e o histórico foram excluídos permanentemente."
+      );
+      setView("condominiums");
+    } catch (error: unknown) {
+      setLeaveManagementOpen(false);
+      setSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível apagar o condomínio."
+      );
+    } finally {
+      setLeaveManagementBusy(false);
+    }
   }
 
   function updateRegistrationField(field: keyof RegistrationForm, value: string) {
@@ -318,6 +598,7 @@ export function App() {
 
   async function selectCondominium(id = condominiumId, showChat = true) {
     setBusy(true);
+    setCondominiumNotice("");
     resetConversation();
     try {
       const response = await fetch(`/v1/condominiums/${encodeURIComponent(id)}/context`, {
@@ -326,7 +607,7 @@ export function App() {
 
       if (!response.ok) {
         setContext(undefined);
-        setMessage("Não foi possível acessar esse condomínio de teste.");
+        setMessage("Não foi possível acessar esse condomínio.");
         return;
       }
 
@@ -334,11 +615,11 @@ export function App() {
       setCondominiumId(body.condominiumId);
       setContext(body);
       await loadConversationHistory(body.condominiumId);
-      setMessage(`Contexto de teste ativo: ${body.condominiumId}.`);
+      setMessage(`Contexto ativo: ${body.condominiumId}.`);
       if (showChat) setView("chat");
     } catch {
       setContext(undefined);
-      setMessage("Não foi possível conectar ao ambiente de testes agora.");
+      setMessage("Não foi possível conectar ao servidor agora.");
     } finally {
       setBusy(false);
     }
@@ -354,7 +635,7 @@ export function App() {
       method: "POST",
       headers: {
         "content-type": "application/pdf",
-        "x-development-user-id": developmentUserId,
+        ...(authMode === "development" ? { "x-development-user-id": developmentUserId } : {}),
         "x-document-title": encodeURIComponent(title),
         "x-document-type": documentType,
         "x-document-validity-confirmed": "true"
@@ -368,72 +649,68 @@ export function App() {
     return body.memoryStatus;
   }
 
-  async function createTestCondominium(event: FormEvent<HTMLFormElement>) {
+  async function createCondominium(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const cnpj = onlyDigits(registrationForm.cnpj);
-    const invalidAdditionalDocument = additionalDocuments.find(
-      (file) => !isPdf(file) || file.size > 10 * 1024 * 1024
+    const realAccount = authMode === "real";
+    const validationErrors = registrationValidationErrors(
+      registrationForm,
+      constitutionMinutes,
+      additionalDocuments,
+      documentsConfirmed,
+      realAccount
     );
 
-    if (cnpj.length !== 14) {
-      setRegistrationMessage("Informe um CNPJ sintético com 14 dígitos.");
-      return;
-    }
-    if (constitutionMinutes === undefined) {
-      setRegistrationMessage("Anexe a ata de assembleia geral de constituição em PDF.");
-      return;
-    }
-    if (!isPdf(constitutionMinutes) || constitutionMinutes.size > 10 * 1024 * 1024) {
-      setRegistrationMessage("A ata deve ser um PDF de até 10 MB.");
-      return;
-    }
-    if (invalidAdditionalDocument !== undefined) {
+    if (validationErrors.length > 0) {
       setRegistrationMessage(
-        `O arquivo ${invalidAdditionalDocument.name} deve ser um PDF de até 10 MB.`
+        `${validationErrors.length === 1 ? "Revise este item" : "Revise estes itens"}: ${validationErrors.join("; ")}.`
       );
+      setRegistrationMessageIsError(true);
       return;
     }
-    if (!documentsConfirmed) {
-      setRegistrationMessage("Confirme que os documentos sintéticos pertencem a este condomínio.");
-      return;
-    }
+    if (constitutionMinutes === undefined) return;
 
+    const cnpj = onlyDigits(registrationForm.cnpj);
     const id = condominiumSlug(registrationForm.name, cnpj);
+    let registrationPhase: "condominium" | "documents" = "condominium";
     setBusy(true);
     setRegistrationMessage("Criando o condomínio…");
+    setRegistrationMessageIsError(false);
     try {
-      const response = await fetch("/v1/development/test-condominiums", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-development-user-id": developmentUserId
-        },
-        body: JSON.stringify({
-          condominiumId: id,
-          name: registrationForm.name,
-          cnpj,
-          administrationCompany: registrationForm.administrationCompany,
-          unitCount:
-            registrationForm.unitCount.trim() === "" ? null : Number(registrationForm.unitCount),
-          address: {
-            postalCode: registrationForm.postalCode,
-            street: registrationForm.street,
-            number: registrationForm.number,
-            complement: registrationForm.complement,
-            neighborhood: registrationForm.neighborhood,
-            city: registrationForm.city,
-            state: registrationForm.state
+      const response = await fetch(
+        realAccount ? "/v1/condominiums" : "/v1/development/test-condominiums",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(realAccount ? {} : { "x-development-user-id": developmentUserId })
           },
-          contact: {
-            managerName: registrationForm.managerName,
-            email: registrationForm.email,
-            phone: registrationForm.phone
-          }
-        })
-      });
+          body: JSON.stringify({
+            ...(realAccount ? {} : { condominiumId: id }),
+            name: registrationForm.name,
+            cnpj,
+            administrationCompany: registrationForm.administrationCompany,
+            unitCount:
+              registrationForm.unitCount.trim() === "" ? null : Number(registrationForm.unitCount),
+            address: {
+              postalCode: registrationForm.postalCode,
+              street: registrationForm.street,
+              number: registrationForm.number,
+              complement: registrationForm.complement,
+              neighborhood: registrationForm.neighborhood,
+              city: registrationForm.city,
+              state: registrationForm.state
+            },
+            contact: {
+              managerName: registrationForm.managerName,
+              email: registrationForm.email,
+              phone: registrationForm.phone
+            }
+          })
+        }
+      );
 
       let createdContext: ContextResponse;
-      if (response.status === 409) {
+      if (response.status === 409 && !realAccount) {
         const contextResponse = await fetch(`/v1/condominiums/${encodeURIComponent(id)}/context`, {
           headers: { "x-development-user-id": developmentUserId }
         });
@@ -445,7 +722,12 @@ export function App() {
         createdContext = (await response.json()) as ContextResponse;
       } else {
         throw new Error(
-          await readMessage(response, "Não foi possível criar o condomínio de teste.")
+          await readMessage(
+            response,
+            realAccount
+              ? "Não foi possível criar o condomínio."
+              : "Não foi possível criar o condomínio."
+          )
         );
       }
 
@@ -464,7 +746,12 @@ export function App() {
             ]
       );
 
-      setRegistrationMessage("Condomínio criado. Salvando a ata na memória…");
+      setRegistrationMessage(
+        realAccount
+          ? "Condomínio criado para sua conta. Salvando os documentos…"
+          : "Condomínio criado. Salvando a ata na memória…"
+      );
+      registrationPhase = "documents";
       const minutesStatus = await uploadRegistrationDocument(
         createdContext.condominiumId,
         constitutionMinutes,
@@ -486,6 +773,15 @@ export function App() {
         (result) => result.status === "fulfilled"
       ).length;
       const failedAdditional = additionalDocuments.length - savedAdditional;
+      const failedAdditionalDetails = additionalResults.flatMap((result, index) => {
+        if (result.status !== "rejected") return [];
+        const fileName = additionalDocuments[index]?.name ?? "arquivo adicional";
+        const detail =
+          result.reason instanceof Error && result.reason.message.trim() !== ""
+            ? result.reason.message.trim()
+            : "erro inesperado";
+        return [`${fileName}: ${detail.endsWith(".") ? detail : `${detail}.`}`];
+      });
       const reviewCount = [
         minutesStatus,
         ...additionalResults.flatMap((result) =>
@@ -507,17 +803,20 @@ export function App() {
       resetConversation();
       setSetupNotice(
         failedAdditional > 0
-          ? `Cadastro concluído e ata salva. ${failedAdditional} documento(s) adicional(is) não puderam ser salvos.`
+          ? `Cadastro concluído e ata salva. Não foi possível salvar: ${failedAdditionalDetails.join("; ")}`
           : reviewCount > 0
             ? "Cadastro concluído. Os arquivos foram salvos, mas alguns precisam de revisão antes de entrarem nas respostas."
             : `Cadastro concluído. A ata e ${savedAdditional} documento(s) adicional(is) já fazem parte da memória deste condomínio.`
       );
-      setMessage(`Contexto de teste ativo: ${createdContext.condominiumId}.`);
+      setMessage(
+        realAccount
+          ? `Condomínio ativo: ${createdContext.condominiumId}.`
+          : `Contexto ativo: ${createdContext.condominiumId}.`
+      );
       setView("chat");
     } catch (error: unknown) {
-      setRegistrationMessage(
-        error instanceof Error ? error.message : "Não foi possível concluir o cadastro agora."
-      );
+      setRegistrationMessage(formatRegistrationFailure(error, registrationPhase));
+      setRegistrationMessageIsError(true);
     } finally {
       setBusy(false);
     }
@@ -596,32 +895,193 @@ export function App() {
     }
   }
 
+  if (view === "landing") {
+    return (
+      <main className="landing-page">
+        <header className="landing-header">
+          <div className="login-brand">
+            <ZermattMark />
+            <span>Zermatt</span>
+          </div>
+          <span className="landing-header-label">CONSELHEIRO DOCUMENTAL</span>
+        </header>
+        <section className="landing-hero" aria-labelledby="landing-title">
+          <div className="landing-copy">
+            <p className="overline">GESTÃO CONDOMINIAL COM MAIS CLAREZA</p>
+            <h1 id="landing-title">Encontre a regra certa para tomar a próxima decisão.</h1>
+            <p className="landing-lead">
+              O Conselheiro organiza os documentos do seu condomínio e ajuda você a consultar
+              convenções, atas e contratos com respostas fundamentadas e fontes verificáveis.
+            </p>
+            <div className="landing-actions">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => openAuthentication("login")}
+              >
+                Entrar
+                <span aria-hidden="true">→</span>
+              </button>
+              <button
+                className="landing-secondary-button"
+                type="button"
+                onClick={() => openAuthentication("register")}
+              >
+                Criar minha conta
+              </button>
+            </div>
+            <p className="landing-privacy">
+              Seus documentos ficam separados por condomínio e só aparecem para quem tem
+              autorização.
+            </p>
+          </div>
+          <aside className="landing-proof" aria-label="Como o Conselheiro ajuda">
+            <div className="landing-proof-icon" aria-hidden="true">
+              ✓
+            </div>
+            <div>
+              <p className="landing-proof-overline">DO DOCUMENTO À DECISÃO</p>
+              <h2>Contexto para agir com segurança</h2>
+              <ul>
+                <li>Respostas baseadas no acervo autorizado</li>
+                <li>Documento, página e trecho como evidência</li>
+                <li>Alertas claros quando falta informação</li>
+              </ul>
+            </div>
+          </aside>
+        </section>
+        <footer className="landing-footer">Um espaço simples para a memória do condomínio.</footer>
+      </main>
+    );
+  }
+
   if (view === "login") {
+    if (authMode === "unknown") {
+      return (
+        <main className="login-page">
+          <section className="login-card auth-loading-card" aria-live="polite">
+            <div className="login-brand">
+              <ZermattMark />
+              <span>Zermatt</span>
+            </div>
+            <p className="overline">CONSELHEIRO DOCUMENTAL</p>
+            <h1>Preparando seu acesso.</h1>
+            <p className="login-lead">Só um instante enquanto verificamos o ambiente seguro.</p>
+            <p className="auth-hint">
+              Se essa tela não avançar, volte para a apresentação e tente novamente.
+            </p>
+            <button
+              className="return-login-button"
+              type="button"
+              onClick={() => setView("landing")}
+            >
+              Voltar para a apresentação
+            </button>
+          </section>
+        </main>
+      );
+    }
+    if (authMode === "real") {
+      const registering = authPanel === "register";
+      return (
+        <main className="login-page">
+          <section className="login-card" aria-labelledby="auth-title">
+            <div className="login-brand">
+              <ZermattMark />
+              <span>Zermatt</span>
+            </div>
+            <p className="overline">CONSELHEIRO DOCUMENTAL</p>
+            <h1 id="auth-title">{registering ? "Crie sua conta." : "Bem-vindo de volta."}</h1>
+            <p className="login-lead">
+              {registering
+                ? "Organize os documentos dos seus condomínios em um espaço seguro."
+                : "Entre para continuar de onde você parou, com seus condomínios autorizados."}
+            </p>
+            <form className="auth-form" onSubmit={submitAuthentication}>
+              {registering ? (
+                <label>
+                  Como quer ser chamado?
+                  <input
+                    value={authDisplayName}
+                    onChange={(event) => setAuthDisplayName(event.target.value)}
+                    autoComplete="name"
+                    minLength={2}
+                    maxLength={120}
+                    required
+                  />
+                </label>
+              ) : null}
+              <label>
+                E-mail
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={(event) => setAuthEmail(event.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </label>
+              <label>
+                Senha
+                <input
+                  type="password"
+                  value={authPassword}
+                  onChange={(event) => setAuthPassword(event.target.value)}
+                  autoComplete={registering ? "new-password" : "current-password"}
+                  minLength={12}
+                  maxLength={200}
+                  required
+                />
+              </label>
+              {registering ? (
+                <p className="auth-hint">
+                  Use pelo menos 12 caracteres. Não reutilize uma senha importante.
+                </p>
+              ) : null}
+              {authMessage !== "" ? (
+                <p className="auth-error" role="alert">
+                  {authMessage}
+                </p>
+              ) : null}
+              <button className="primary-button" type="submit" disabled={authBusy}>
+                {authBusy ? "Aguarde…" : registering ? "Criar conta" : "Entrar"}
+                <span aria-hidden="true">→</span>
+              </button>
+            </form>
+            <button
+              className="auth-switch"
+              type="button"
+              onClick={() => {
+                setAuthPanel(registering ? "login" : "register");
+                setAuthMessage("");
+                setAuthPassword("");
+              }}
+            >
+              {registering ? "Já tenho uma conta" : "Ainda não tenho uma conta"}
+            </button>
+            <p className="login-footer">
+              Seus documentos continuam separados por condomínio e só aparecem para quem tem
+              autorização.
+            </p>
+          </section>
+        </main>
+      );
+    }
+
     return (
       <main className="login-page">
-        <section className="login-card" aria-labelledby="login-title">
+        <section className="login-card" aria-labelledby="connection-title">
           <div className="login-brand">
             <ZermattMark />
             <span>Zermatt</span>
           </div>
           <p className="overline">CONSELHEIRO DOCUMENTAL</p>
-          <h1 id="login-title">Bem-vindo.</h1>
+          <h1 id="connection-title">Acesso indisponível.</h1>
           <p className="login-lead">
-            Consulte os documentos do condomínio com respostas fundamentadas e fontes verificáveis.
+            Não foi possível conectar o acesso seguro agora. Tente novamente em instantes.
           </p>
-          <div className="test-notice">
-            <strong>Ambiente de demonstração</strong>
-            <p>Este acesso não solicita nem envia credenciais reais.</p>
-          </div>
-          <label htmlFor="display-name">Como quer ser chamado?</label>
-          <input
-            id="display-name"
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-            autoComplete="off"
-          />
-          <button className="primary-button" type="button" onClick={() => setView("onboarding")}>
-            Entrar no ambiente de testes <span aria-hidden="true">→</span>
+          <button className="primary-button" type="button" onClick={() => window.location.reload()}>
+            Tentar novamente <span aria-hidden="true">→</span>
           </button>
           <p className="login-footer">
             Zermatt Garantidora · tecnologia para uma gestão mais segura
@@ -639,49 +1099,91 @@ export function App() {
             <ZermattMark />
             <span>Zermatt</span>
           </div>
-          <button type="button" onClick={() => setView("login")}>
-            Sair da demonstração
+          <button
+            type="button"
+            onClick={() => {
+              if (authMode === "real") {
+                void logoutAccount();
+                return;
+              }
+              setView("landing");
+            }}
+          >
+            Sair da conta
           </button>
         </header>
         <section className="onboarding-card" aria-labelledby="onboarding-title">
           <p className="overline">PASSO 1 DE 1</p>
-          <h1 id="onboarding-title">Vamos começar pelo condomínio.</h1>
+          <h1 id="onboarding-title">
+            {authMode === "real"
+              ? `Olá, ${authUser?.displayName ?? displayName}.`
+              : "Vamos começar pelo condomínio."}
+          </h1>
           <p>
-            Escolha um cenário já preparado ou crie um condomínio sintético para testar a jornada.
+            {authMode === "real"
+              ? "Sua conta está pronta para receber o primeiro condomínio autorizado."
+              : "Cadastre ou escolha um condomínio para começar a organizar sua memória documental."}
           </p>
-          <div className="sample-list">
-            <button type="button" onClick={() => selectCondominium("alameda")} disabled={busy}>
-              <span className="building-icon">▥</span>
-              <span>
-                <strong>Residencial Alameda</strong>
-                <small>Documentos de demonstração disponíveis</small>
-              </span>
-              <b>→</b>
-            </button>
-            <button type="button" onClick={() => selectCondominium("bosque")} disabled={busy}>
-              <span className="building-icon">▥</span>
-              <span>
-                <strong>Condomínio Bosque</strong>
-                <small>Segundo contexto isolado para testes</small>
-              </span>
-              <b>→</b>
-            </button>
-          </div>
-          <div className="create-test-card">
-            <div>
-              <strong>Cadastrar outro condomínio</strong>
-              <p>
-                Informe os dados básicos e adicione a ata de constituição para iniciar a memória.
-              </p>
-            </div>
-            <button
-              className="open-registration-button"
-              type="button"
-              onClick={() => openCondominiumRegistration("onboarding")}
-            >
-              Abrir cadastro completo <span aria-hidden="true">→</span>
-            </button>
-          </div>
+          {authMode === "real" ? (
+            <>
+              <div className="account-ready-card">
+                <span className="account-ready-icon" aria-hidden="true">
+                  ✓
+                </span>
+                <div>
+                  <strong>Conta ativa</strong>
+                  <p>
+                    Sua conta está protegida. O cadastro do primeiro condomínio será o próximo passo
+                    desta jornada.
+                  </p>
+                </div>
+              </div>
+              <button
+                className="return-login-button"
+                type="button"
+                onClick={() => void logoutAccount()}
+              >
+                ← Voltar para o login
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="sample-list">
+                <button type="button" onClick={() => selectCondominium("alameda")} disabled={busy}>
+                  <span className="building-icon">▥</span>
+                  <span>
+                    <strong>Residencial Alameda</strong>
+                    <small>Documentos disponíveis</small>
+                  </span>
+                  <b>→</b>
+                </button>
+                <button type="button" onClick={() => selectCondominium("bosque")} disabled={busy}>
+                  <span className="building-icon">▥</span>
+                  <span>
+                    <strong>Condomínio Bosque</strong>
+                    <small>Segundo condomínio autorizado</small>
+                  </span>
+                  <b>→</b>
+                </button>
+              </div>
+              <div className="create-test-card">
+                <div>
+                  <strong>Cadastrar outro condomínio</strong>
+                  <p>
+                    Informe os dados básicos e adicione a ata de constituição para iniciar a
+                    memória.
+                  </p>
+                </div>
+                <button
+                  className="open-registration-button"
+                  type="button"
+                  onClick={() => openCondominiumRegistration("onboarding")}
+                >
+                  Abrir cadastro completo <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            </>
+          )}
           <p className="onboarding-status" role="status">
             {message}
           </p>
@@ -708,7 +1210,7 @@ export function App() {
           <span className="registration-step">1 de 1</span>
         </header>
 
-        <form className="registration-form" onSubmit={createTestCondominium}>
+        <form className="registration-form" onSubmit={createCondominium} noValidate>
           <section className="registration-intro">
             <span className="registration-building" aria-hidden="true">
               ▥
@@ -717,8 +1219,9 @@ export function App() {
               <p className="overline">NOVO CONTEXTO</p>
               <h1>Cadastre o condomínio.</h1>
               <p>
-                Estes dados organizam o contexto do chat. Use apenas informações e documentos
-                sintéticos neste ambiente de testes.
+                {authMode === "real"
+                  ? "Esses dados criam um condomínio só para sua conta e organizam a memória documental."
+                  : "Esses dados organizam o contexto do chat e ficam vinculados ao condomínio selecionado."}
               </p>
             </div>
           </section>
@@ -950,6 +1453,7 @@ export function App() {
                   onChange={(event) => {
                     setConstitutionMinutes(event.target.files?.[0]);
                     setRegistrationMessage("");
+                    setRegistrationMessageIsError(false);
                   }}
                 />
                 <span className="document-icon" aria-hidden="true">
@@ -971,6 +1475,7 @@ export function App() {
                   onChange={(event) => {
                     setAdditionalDocuments(Array.from(event.target.files ?? []));
                     setRegistrationMessage("");
+                    setRegistrationMessageIsError(false);
                   }}
                 />
                 <span aria-hidden="true">＋</span>
@@ -1011,8 +1516,9 @@ export function App() {
                   onChange={(event) => setDocumentsConfirmed(event.target.checked)}
                 />
                 <span>
-                  Confirmo que os PDFs são sintéticos, pertencem a este condomínio e podem ser
-                  usados nas respostas do chat.
+                  {authMode === "real"
+                    ? "Confirmo que os PDFs pertencem a este condomínio e podem ser usados nas respostas do chat."
+                    : "Confirmo que os PDFs pertencem a este condomínio e podem ser usados nas respostas do chat."}
                 </span>
               </label>
 
@@ -1029,13 +1535,25 @@ export function App() {
           </div>
 
           <footer className="registration-actions">
-            <p role="status">{registrationMessage}</p>
+            <p
+              className={
+                registrationMessageIsError ? "registration-message error" : "registration-message"
+              }
+              role={registrationMessageIsError ? "alert" : "status"}
+              aria-live={registrationMessageIsError ? "assertive" : "polite"}
+            >
+              {registrationMessage}
+            </p>
             <div>
               <button type="button" onClick={() => setView(registrationReturnView)} disabled={busy}>
                 Cancelar
               </button>
               <button className="registration-submit" type="submit" disabled={busy}>
-                {busy ? "Salvando cadastro…" : "Criar condomínio e abrir chat"}
+                {busy
+                  ? "Salvando cadastro…"
+                  : authMode === "real"
+                    ? "Criar condomínio e abrir conversa"
+                    : "Criar condomínio e abrir conversa"}
               </button>
             </div>
           </footer>
@@ -1055,18 +1573,33 @@ export function App() {
         <header className="mobile-condominiums-header">
           <div>
             <strong>Condomínios</strong>
-            <small>Escolha o contexto da conversa</small>
+            <small>Seus grupos de conversa</small>
           </div>
-          <button
-            className="mobile-add-button"
-            type="button"
-            aria-label="Cadastrar novo condomínio"
-            onClick={() => openCondominiumRegistration("condominiums")}
-          >
-            +
-          </button>
+          {authMode === "real" ? (
+            <button
+              className="mobile-account-button"
+              type="button"
+              onClick={() => void logoutAccount()}
+            >
+              Voltar ao login
+            </button>
+          ) : (
+            <button
+              className="mobile-add-button"
+              type="button"
+              aria-label="Cadastrar novo condomínio"
+              onClick={() => openCondominiumRegistration("condominiums")}
+            >
+              +
+            </button>
+          )}
         </header>
         <section className="mobile-condominiums-content">
+          {condominiumNotice === "" ? null : (
+            <p className="mobile-condominiums-notice" role="status">
+              {condominiumNotice}
+            </p>
+          )}
           <label className="mobile-condominiums-search">
             <span aria-hidden="true">⌕</span>
             <input
@@ -1102,13 +1635,205 @@ export function App() {
               </button>
             ))}
             {visibleCondominiums.length === 0 ? (
-              <p className="mobile-condominiums-empty">Nenhum condomínio encontrado.</p>
+              <div className="mobile-condominiums-empty-card">
+                <span className="mobile-condominiums-empty-icon" aria-hidden="true">
+                  ▥
+                </span>
+                <strong>Nenhum grupo autorizado ainda</strong>
+                <p>
+                  Quando um condomínio for associado à sua conta, ele aparecerá aqui como uma
+                  conversa.
+                </p>
+                {authMode === "real" ? (
+                  <button
+                    className="mobile-create-first-button"
+                    type="button"
+                    onClick={() => openCondominiumRegistration("condominiums")}
+                  >
+                    Criar meu condomínio <span aria-hidden="true">→</span>
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </section>
       </main>
     );
   }
+
+  if (view === "chat-settings") {
+    const activeCondominium = availableCondominiums.find(
+      (item) => item.id === context?.condominiumId
+    );
+
+    return (
+      <main className="chat-settings-page">
+        <header className="chat-settings-header">
+          <button
+            type="button"
+            className="chat-settings-back"
+            aria-label="Voltar para conversa"
+            onClick={() => setView("chat")}
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M19 12H5m6-7-7 7 7 7" />
+            </svg>
+          </button>
+          <div>
+            <strong>Configurações do chat</strong>
+            <small>{activeCondominium?.name ?? context?.condominiumId ?? "Condomínio"}</small>
+          </div>
+        </header>
+
+        <section className="chat-settings-content" aria-label="Configurações gerais do chat">
+          <div className="chat-settings-identity">
+            <span className="chat-settings-identity-icon" aria-hidden="true">
+              ▥
+            </span>
+            <div>
+              <strong>{activeCondominium?.name ?? context?.condominiumId ?? "Condomínio"}</strong>
+              <small>Conversa documental protegida por condomínio</small>
+            </div>
+          </div>
+
+          <section className="chat-settings-card">
+            <div className="chat-settings-card-heading">
+              <div>
+                <p className="chat-settings-overline">PREFERÊNCIAS DA CONVERSA</p>
+                <h2>Como o chat aparece</h2>
+              </div>
+              <span aria-hidden="true">⚙</span>
+            </div>
+            <label className="chat-settings-toggle">
+              <span>
+                <strong>Mostrar histórico nesta tela</strong>
+                <small>
+                  Esconde ou exibe as conversas anteriores carregadas para este condomínio.
+                </small>
+              </span>
+              <input
+                type="checkbox"
+                checked={chatSettings.showHistory}
+                onChange={(event) =>
+                  setChatSettings((current) => ({
+                    ...current,
+                    showHistory: event.target.checked
+                  }))
+                }
+              />
+            </label>
+            <label className="chat-settings-toggle">
+              <span>
+                <strong>Lembrete de evidências</strong>
+                <small>
+                  Mostra o aviso de que respostas documentais usam apenas fontes autorizadas.
+                </small>
+              </span>
+              <input
+                type="checkbox"
+                checked={chatSettings.showEvidenceReminder}
+                onChange={(event) =>
+                  setChatSettings((current) => ({
+                    ...current,
+                    showEvidenceReminder: event.target.checked
+                  }))
+                }
+              />
+            </label>
+            <button
+              type="button"
+              className="chat-settings-secondary-button"
+              onClick={() => {
+                resetConversation();
+                setSettingsMessage(
+                  "A conversa visível foi limpa. O histórico salvo não foi apagado."
+                );
+              }}
+            >
+              Limpar conversa visível
+            </button>
+            <small className="chat-settings-footnote">
+              Essas preferências ficam neste dispositivo.
+            </small>
+          </section>
+
+          <section className="chat-settings-card chat-settings-danger-card">
+            <div className="chat-settings-card-heading">
+              <div>
+                <p className="chat-settings-overline">GESTÃO DO CONDOMÍNIO</p>
+                <h2>Sair da gestão e apagar condomínio</h2>
+              </div>
+              <span aria-hidden="true">!</span>
+            </div>
+            <p>
+              Esta ação apaga permanentemente o condomínio selecionado, incluindo documentos,
+              conversas e histórico. Sua conta não será apagada.
+            </p>
+            {context?.role === "manager" ? null : (
+              <p className="chat-settings-footnote">
+                Apenas o síndico responsável pode apagar o condomínio.
+              </p>
+            )}
+            <button
+              type="button"
+              className="chat-settings-leave-button"
+              onClick={() => {
+                setSettingsMessage("");
+                setLeaveManagementOpen(true);
+              }}
+              disabled={leaveManagementBusy || context?.role !== "manager"}
+            >
+              Sair da gestão e apagar condomínio
+            </button>
+          </section>
+
+          {settingsMessage === "" ? null : (
+            <p className="chat-settings-message" role="status">
+              {settingsMessage}
+            </p>
+          )}
+        </section>
+
+        {leaveManagementOpen ? (
+          <div className="chat-settings-overlay" role="presentation">
+            <section
+              className="chat-settings-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="leave-management-title"
+            >
+              <p className="chat-settings-overline">CONFIRMAÇÃO</p>
+              <h2 id="leave-management-title">Apagar condomínio?</h2>
+              <p>
+                O condomínio, todos os documentos, conversas, histórico e associações serão apagados
+                permanentemente. Essa ação não pode ser desfeita e não apaga sua conta.
+              </p>
+              <div className="chat-settings-dialog-actions">
+                <button
+                  type="button"
+                  className="chat-settings-secondary-button"
+                  onClick={() => setLeaveManagementOpen(false)}
+                  disabled={leaveManagementBusy}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="chat-settings-leave-button"
+                  onClick={() => void deleteCondominium()}
+                  disabled={leaveManagementBusy}
+                >
+                  {leaveManagementBusy ? "Apagando…" : "Apagar condomínio"}
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </main>
+    );
+  }
+
+  const visibleConversationHistory = chatSettings.showHistory ? conversationHistory : [];
 
   return (
     <main
@@ -1133,7 +1858,9 @@ export function App() {
           aria-label="Voltar para condomínios"
           onClick={openCondominiumPicker}
         >
-          ←
+          <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <path d="M19 12H5m6-7-7 7 7 7" />
+          </svg>
         </button>
         <div className="login-brand inverse">
           <ZermattMark />
@@ -1169,18 +1896,29 @@ export function App() {
             </small>
           </div>
         </div>
+        <button
+          className="chat-settings-button"
+          type="button"
+          aria-label="Configurações do chat"
+          onClick={openChatSettings}
+        >
+          <span aria-hidden="true">⚙</span>
+          <span>Configurações</span>
+        </button>
         <button type="button" onClick={openCondominiumPicker}>
           Trocar condomínio
         </button>
       </header>
       <section className="chat-main" aria-label="Conversa documental">
-        {submittedQuestion !== "" && !isConversationalMessage(submittedQuestion) ? (
+        {chatSettings.showEvidenceReminder &&
+        submittedQuestion !== "" &&
+        !isConversationalMessage(submittedQuestion) ? (
           <div className="security-notice">
             ✓ A resposta só pode usar evidências do condomínio selecionado.
           </div>
         ) : null}
         <div className="messages" aria-live="polite">
-          {conversationHistory.map((entry) => (
+          {visibleConversationHistory.map((entry) => (
             <div className="history-turn" key={entry.answer.answerId}>
               <div className="user-message">
                 <p>{entry.question}</p>
@@ -1195,7 +1933,9 @@ export function App() {
               </article>
             </div>
           ))}
-          {conversationHistory.length === 0 && submittedQuestion === "" && answer === undefined ? (
+          {visibleConversationHistory.length === 0 &&
+          submittedQuestion === "" &&
+          answer === undefined ? (
             <>
               <p className="conversation-date">HOJE</p>
               {setupNotice === undefined ? null : (

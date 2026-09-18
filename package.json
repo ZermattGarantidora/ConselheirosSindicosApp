@@ -17,6 +17,7 @@
     "worker": "tsx -e \"import('./apps/api/worker/worker.ts').then(({ startPersistentWorkerFromEnvironment }) => startPersistentWorkerFromEnvironment())\"",
     "db:up": "docker compose up -d database",
     "db:migrate": "docker compose exec -T database sh -c \"for migration in /migrations/*.sql; do psql -U postgres -d conselheiro -v ON_ERROR_STOP=1 -f \\\"$migration\\\" || exit 1; done\"",
+    "db:migrate:remote": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs scripts/migrate-database.ts",
     "db:migrate:neon": "node scripts/run-tsx.mjs scripts/migrate-neon-integration.ts",
     "format": "prettier --write \"*.{json,mjs,ts}\" \"{apps,tests,scripts,contracts,evals}/**/*.{ts,tsx,mjs,json}\"",
     "format:check": "prettier --check \"*.{json,mjs,ts}\" \"{apps,tests,scripts,contracts,evals}/**/*.{ts,tsx,mjs,json}\"",

@@ -17,6 +17,9 @@ import {
 } from "../documents/document-source.js";
 import { createDevelopmentIdentityRepository } from "../identity/development-identity-repository.js";
 import { createPostgresMembershipRepository } from "../identity/postgres-identity-repository.js";
+import { createPostgresAccountAuth } from "../identity/postgres-account-auth.js";
+import { createPostgresCondominiumDirectory } from "../identity/postgres-condominium-directory.js";
+import { createGoogleOAuthFromEnvironment } from "../identity/google-oauth.js";
 import { createPostgresAnswerTraceStore } from "../answers/postgres-answer-trace-store.js";
 import {
   createDevelopmentScopedRetrievalIndex,
@@ -31,6 +34,7 @@ export async function startServer(
   environment: NodeJS.ProcessEnv = process.env
 ): Promise<ReturnType<typeof createApi>> {
   const databaseUrl = environment.DATABASE_URL?.trim();
+  const googleOAuth = createGoogleOAuthFromEnvironment(environment);
   const geminiGateway = createGeminiAnswerGatewayFromEnvironment(environment);
   const answerGateway = geminiGateway ?? createLocalSyntheticAnswerGateway();
   const aiProvider = geminiGateway === undefined ? "local" : "gemini";
@@ -59,6 +63,10 @@ export async function startServer(
   const pool = new Pool({ connectionString: databaseUrl });
   const app = createApi({
     membershipRepository: createPostgresMembershipRepository(pool),
+    accountAuth: createPostgresAccountAuth(pool),
+    ...(googleOAuth === undefined ? {} : { googleOAuth }),
+    condominiumDirectory: createPostgresCondominiumDirectory(pool),
+    secureCookies: environment.APP_ENV?.trim().toLowerCase() === "production",
     aiProvider,
     documentStorage: createLocalPrivateDocumentStorage(
       environment.DOCUMENT_STORAGE_ROOT?.trim() || ".local/synthetic-documents"
