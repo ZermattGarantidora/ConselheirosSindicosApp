@@ -30,7 +30,13 @@ describe("contrato HTTP de saúde", () => {
               "200": {
                 content: {
                   "application/json": {
-                    schema: { required: expect.arrayContaining(["aiProvider"]) }
+                    schema: {
+                      required: expect.arrayContaining([
+                        "aiProvider",
+                        "authMode",
+                        "googleAuthEnabled"
+                      ])
+                    }
                   }
                 }
               }

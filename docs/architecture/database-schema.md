@@ -1,7 +1,7 @@
 # Estrutura de banco de dados — consulta documental
 
-**Status:** implementada localmente na migration 009 para a Spec 001
-**Atualizado em:** 2026-09-09
+**Status:** implementada localmente nas migrations 009 e 015 para as Specs 001 e 009
+**Atualizado em:** 2026-09-17
 **Decisão relacionada:** `docs/adr/0005-postgresql-pgvector.md`
 
 ## 1. Escopo e alinhamento
@@ -101,6 +101,11 @@ Raiz de isolamento.
 | `id` | `uuid` | PK e valor usado como `condominium_id` nos filhos |
 | `display_name` | `text` | obrigatório |
 | `status` | `text` | `active`, `suspended` ou `pending_deletion` |
+| `cnpj` | `text` | opcional; único quando informado |
+| `address` | `jsonb` | cidade/UF obrigatórias no fluxo de criação |
+| `administration_company` | `text` | opcional |
+| `unit_count` | `integer` | opcional; positivo quando informado |
+| `contact` | `jsonb` | dados básicos de contato da gestão |
 | `created_at` | `timestamptz` | obrigatório |
 | `updated_at` | `timestamptz` | obrigatório |
 
@@ -368,6 +373,11 @@ O runtime, o worker e a migração usam papéis separados. Runtime e worker não
 
 A consulta de membership usada pelas policies deve ficar em uma função mínima `SECURITY DEFINER`, pertencente a um papel `NOLOGIN`, com `search_path` fixo, sem SQL dinâmico e com permissão de execução restrita. Isso evita recursão de RLS sem transformar a função em uma API genérica de leitura.
 
+No ambiente persistente, `app.list_authorized_condominiums` lista somente memberships ativas da
+identidade autenticada e `app.create_condominium_for_user` cria o condomínio e a membership inicial
+de `manager` em uma única transação. Ambas são funções `SECURITY DEFINER` executáveis apenas por
+`app_runtime`; o cliente não recebe grants de escrita nas tabelas.
+
 `condominiums` recebe política sobre `id = active_condominium_id`. `memberships` também exige o tenant ativo. `users` possui política própria para a identidade atual e não é consultada como tabela de conteúdo de tenant.
 
 ### Contexto transacional
@@ -420,6 +430,13 @@ Todas as tabelas e objetos derivados são enumeráveis por `condominium_id`. O f
 6. manter apenas recibo técnico minimizado permitido pela política.
 
 Não se usa soft delete como substituto de purge. Os prazos de `retention_until`, backup e recibo precisam ser aprovados em T003 antes do piloto.
+
+Na fatia da Spec 009, a migration `015_delete_condominium.sql` oferece a função privilegiada
+`app.delete_condominium_for_user` para o síndico responsável. Ela revalida a membership `manager`
+e remove, em uma única transação, as linhas do `condominium_id` selecionado em ordem de dependência,
+sem remover usuários ou sessões globais. A remoção dos objetos físicos do storage privado e um
+recibo técnico de retenção ainda precisam ser acoplados antes de qualquer piloto com dados reais;
+por isso este fluxo permanece local/sintético.
 
 ## 13. Ordem de implementação futura
 

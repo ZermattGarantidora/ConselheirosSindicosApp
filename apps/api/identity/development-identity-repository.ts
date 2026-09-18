@@ -40,6 +40,8 @@ export type DevelopmentMembershipRegistry = MembershipRepository &
       condominium: DevelopmentCondominiumProfile;
     }>;
     listTestCondominiums(userId: UserId): readonly DevelopmentCondominiumProfile[];
+    leaveTestCondominium(userId: UserId, condominiumId: string): void;
+    deleteTestCondominium(userId: UserId, condominiumId: string): void;
   }>;
 
 export type DevelopmentCondominiumProfile = Readonly<{
@@ -199,9 +201,63 @@ export function createDevelopmentIdentityRepository(
     listTestCondominiums(userId) {
       return Object.freeze(
         testCondominiums
-          .filter((record) => record.userId === userId)
+          .filter(
+            (record) =>
+              record.userId === userId &&
+              testMemberships.some(
+                (membership) =>
+                  membership.userId === userId &&
+                  membership.condominiumId === record.profile.condominiumId &&
+                  membership.status === "active"
+              )
+          )
           .map((record) => record.profile)
       );
+    },
+    leaveTestCondominium(userId, inputCondominiumId) {
+      const condominiumId = createCondominiumId(inputCondominiumId);
+      const index = testMemberships.findIndex(
+        (membership) =>
+          membership.userId === userId &&
+          membership.condominiumId === condominiumId &&
+          membership.status === "active"
+      );
+      if (index === -1) throw new Error("O condomínio não está associado à sua conta.");
+
+      const membership = testMemberships[index];
+      if (membership === undefined) throw new Error("O condomínio não está associado à sua conta.");
+      testMemberships[index] = Object.freeze({
+        ...membership,
+        status: "revoked",
+        validUntil: new Date(),
+        revision: `${membership.revision}-revoked`
+      });
+    },
+
+    deleteTestCondominium(userId, inputCondominiumId) {
+      const condominiumId = createCondominiumId(inputCondominiumId);
+      const managerMembership = testMemberships.find(
+        (membership) =>
+          membership.userId === userId &&
+          membership.condominiumId === condominiumId &&
+          membership.status === "active"
+      );
+      if (managerMembership === undefined) {
+        throw new Error("O condomínio não está associado à sua conta.");
+      }
+      if (managerMembership.roleKey !== "manager") {
+        throw new Error("Somente o síndico responsável pode apagar o condomínio.");
+      }
+
+      for (let index = testMemberships.length - 1; index >= 0; index -= 1) {
+        if (testMemberships[index]?.condominiumId === condominiumId)
+          testMemberships.splice(index, 1);
+      }
+      for (let index = testCondominiums.length - 1; index >= 0; index -= 1) {
+        if (testCondominiums[index]?.profile.condominiumId === condominiumId) {
+          testCondominiums.splice(index, 1);
+        }
+      }
     }
   };
 }
