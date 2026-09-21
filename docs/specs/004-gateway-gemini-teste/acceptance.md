@@ -10,3 +10,4 @@
 | AC-406 | Provedor falha, expira ou devolve conteúdo não estruturado | O sistema registra falha mínima e retorna mensagem segura, sem fonte inventada. |
 | AC-407 | Usuário envia apenas um cumprimento | A Cora responde de modo acolhedor, sem alegação documental e sem citação. |
 | AC-408 | Usuário pede orientação prática condominial sem citar um documento | A Cora responde em linguagem conversacional, sem fontes vazias, sem alegar regra local e com encaminhamento humano quando houver risco. |
+| AC-409 | `GEMINI_MODEL` não é informado no ambiente de testes | O gateway usa `gemini-3.5-flash-lite`; uma variável explícita continua substituindo o padrão. |

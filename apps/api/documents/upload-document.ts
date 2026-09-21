@@ -18,7 +18,7 @@ export type UploadedDocumentRecord = Readonly<{
   sizeBytes: number;
   uploadedByUserId: AuthorizedCondominiumContext["userId"];
   processingStatus: "uploaded";
-  validityStatus: "pending";
+  validityStatus: "pending" | "confirmed";
 }>;
 
 export interface DocumentUploadRepository {
@@ -82,6 +82,7 @@ export async function uploadDocument(
     documentType: string;
     content: Buffer;
     documentId?: string;
+    validityConfirmed?: boolean;
   }>
 ): Promise<UploadedDocumentRecord> {
   if (!context.permissions.includes("document:upload")) {
@@ -113,7 +114,7 @@ export async function uploadDocument(
     sizeBytes: input.content.length,
     uploadedByUserId: context.userId,
     processingStatus: "uploaded",
-    validityStatus: "pending"
+    validityStatus: input.validityConfirmed === true ? "confirmed" : "pending"
   });
 
   try {

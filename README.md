@@ -2,6 +2,9 @@
 
 MVP de um conselheiro documental que ajuda síndicos a encontrar informações nos documentos do condomínio, entender a base utilizada e transformar resultados em próximos passos seguros.
 
+Para retomar o desenvolvimento em outra conta ou sessão, use o prompt e o estado registrados em
+[`docs/handoff/2026-09-21-continuacao.md`](docs/handoff/2026-09-21-continuacao.md).
+
 ## Estrutura do repositório
 
 ```text
@@ -181,13 +184,14 @@ Na faixa gratuita, use exclusivamente os documentos sintéticos do projeto.
 Copy-Item .env.example .env.local
 # Edite .env.local e preencha apenas estas duas linhas:
 # GEMINI_API_KEY=sua-chave
-# GEMINI_MODEL=gemini-flash-lite-latest
+# GEMINI_MODEL=gemini-3.5-flash-lite
 pnpm run dev:api
 ```
 
 Sem `GEMINI_API_KEY`, o ambiente usa o gateway sintético local. A Gemini recebe somente a pergunta
 e os trechos já recuperados para o condomínio autorizado; a saída ainda passa pela validação local
-de citações antes de ser mostrada.
+de citações antes de ser mostrada. Para os testes, o padrão é `gemini-3.5-flash-lite`, priorizando
+o menor custo; `GEMINI_MODEL` permite uma substituição explícita quando um eval exigir outro modelo.
 
 As perguntas e respostas são registradas pela persistência de respostas e reaparecem ao reabrir o
 condomínio pela rota `GET /v1/condominiums/:condominiumId/history`. Sem `DATABASE_URL`, esse histórico

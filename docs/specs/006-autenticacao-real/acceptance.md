@@ -1,7 +1,7 @@
 # Critérios de aceitação — Spec 006
 
 **Status:** aprovado para implementação local
-**Atualizado em:** 2026-09-18
+**Atualizado em:** 2026-09-21
 
 ## AC-601 — Criar conta persistente
 
@@ -73,7 +73,8 @@
 **Então** ela apresenta primeiro o propósito do Conselheiro Documental
 **E** oferece ações separadas para entrar e criar uma conta quando o ambiente é persistente
 **E** organiza conteúdo e ações em uma coluna confortável para telas estreitas
-**E** mantém visível que os documentos são separados por condomínio e dependem de autorização.
+**E** apresenta a promessa de evidência como conteúdo editorial integrado à página, sem card, painel ou moldura
+**E** não exibe sob as ações o texto “Seus documentos ficam separados por condomínio e só aparecem para quem tem autorização.”
 
 ## AC-611 — Recuperar de uma verificação pendente
 

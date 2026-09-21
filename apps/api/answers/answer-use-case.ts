@@ -17,9 +17,13 @@ import {
   type GeneratedAnswer,
   type RiskClass
 } from "./answer-contract.js";
-import { type AnswerGateway, type AnswerGatewayTelemetry } from "./answer-gateway.js";
+import {
+  AnswerGatewayUnavailableError,
+  type AnswerGateway,
+  type AnswerGatewayTelemetry
+} from "./answer-gateway.js";
 import { detectDocumentConflict } from "./conflict-detection.js";
-import { validateGeneratedAnswer } from "./citation-validator.js";
+import { InvalidAnswerValidationError, validateGeneratedAnswer } from "./citation-validator.js";
 import {
   type AnswerPersistence,
   type AuditEventRecord,
@@ -172,9 +176,17 @@ function isProtectedContextRequest(question: string): boolean {
 }
 
 function isDocumentaryQuestion(question: string): boolean {
-  return /convenção|convencao|regimento|ata\b|assembleia|contrato|cláusula|clausula|documento|regra|norma|página|pagina|quórum|quorum|vigência|vigencia|prazo|vencimento/iu.test(
-    question
-  );
+  const normalized = question.trim();
+  const explicitlyDocumentary =
+    /convenção|convencao|regimento|ata\b|assembleia|contrato|cláusula|clausula|documento|regra|norma|página|pagina|quórum|quorum|vigência|vigencia|prazo|vencimento/iu.test(
+      normalized
+    );
+  const factualQuestion =
+    /^(?:qual|quais|quem|quant[oa]s?|quando|em\s+que|até\s+quando|ate\s+quando)\b/iu.test(
+      normalized
+    );
+
+  return explicitlyDocumentary || factualQuestion;
 }
 
 function isConversationalMessage(question: string): boolean {
@@ -571,16 +583,23 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
           claims = makeClaims(idFactory, validated.claims, validated);
           telemetry = generated.telemetry;
         } catch (error: unknown) {
-          payload = failedPayload(
-            "A resposta gerada não passou pela validação de segurança.",
-            assessment
-          );
+          const failureReason =
+            error instanceof AnswerGatewayUnavailableError
+              ? error.message
+              : error instanceof InvalidAnswerValidationError
+                ? "A resposta gerada não passou pela validação de segurança."
+                : "Não foi possível concluir a geração com segurança.";
+          payload = failedPayload(failureReason, assessment);
           telemetry = policyTelemetry(
             question,
             assessment,
             "failed",
             "geração ou validação pós-geração falhou",
-            error instanceof Error ? "answer_validation_failed" : "answer_generation_failed"
+            error instanceof AnswerGatewayUnavailableError
+              ? "answer_gateway_unavailable"
+              : error instanceof InvalidAnswerValidationError
+                ? "answer_validation_failed"
+                : "answer_generation_failed"
           );
           claims = Object.freeze([]);
         }

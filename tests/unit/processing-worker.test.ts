@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
-import { processOne } from "../../apps/api/worker/processing-worker.js";
+import { drainProcessingQueue, processOne } from "../../apps/api/worker/processing-worker.js";
 import { startWorker } from "../../apps/api/worker/worker.js";
 
 describe("worker de processamento", () => {
@@ -65,5 +65,56 @@ describe("worker de processamento", () => {
     ).rejects.toBe(expected);
 
     expect(failed).toEqual(["job-1"]);
+  });
+
+  it("drena todos os documentos disponíveis sem exigir execução manual por arquivo", async () => {
+    const pending = ["version-1", "version-2"];
+    const processed: string[] = [];
+
+    const count = await drainProcessingQueue(
+      {
+        async claimNext() {
+          const documentVersionId = pending.shift();
+          return documentVersionId === undefined
+            ? undefined
+            : {
+                jobId: `job-${documentVersionId}`,
+                condominiumId: createCondominiumId("alameda"),
+                documentVersionId,
+                attemptCount: 1
+              };
+        }
+      },
+      {
+        async process(input) {
+          processed.push(input.documentVersionId);
+        }
+      }
+    );
+
+    expect(count).toBe(2);
+    expect(processed).toEqual(["version-1", "version-2"]);
+  });
+
+  it("limita a drenagem para não monopolizar o processo", async () => {
+    let claimed = 0;
+    const count = await drainProcessingQueue(
+      {
+        async claimNext() {
+          claimed += 1;
+          return {
+            jobId: `job-${claimed}`,
+            condominiumId: createCondominiumId("alameda"),
+            documentVersionId: `version-${claimed}`,
+            attemptCount: 1
+          };
+        }
+      },
+      { async process() {} },
+      2
+    );
+
+    expect(count).toBe(2);
+    expect(claimed).toBe(2);
   });
 });

@@ -2,7 +2,7 @@
 
 **Status:** aprovada para implementação local  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-09-01
+**Atualizado em:** 2026-09-21
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -95,6 +95,8 @@ Toda operação deve receber o condomínio selecionado, validar a associação d
 
 O sistema deve armazenar o original, calcular sua identidade de conteúdo, detectar se há texto utilizável e aplicar OCR quando necessário. O estado de processamento e a qualidade estimada devem ser visíveis.
 
+No ambiente integrado de teste, o processamento enfileirado deve ser executado automaticamente após o upload, sem exigir que o usuário inicie manualmente outro processo. A confirmação explícita de que o documento pode fundamentar respostas deve ser persistida como estado de validade da versão, e não somente mantida na interface.
+
 Estados mínimos: `uploaded`, `processing`, `ready`, `needs_review` e `failed`.
 
 ### RQ-003 — Versão e vigência
@@ -108,6 +110,8 @@ Toda busca deve aplicar o `condominium_id` autorizado antes de qualquer ranking 
 ### RQ-005 — Resposta fundamentada
 
 A geração só pode ocorrer depois da recuperação de evidências suficientes. Cada afirmação sobre o condomínio deve ser sustentada por uma ou mais evidências retornadas pelo recuperador.
+
+Perguntas factuais em linguagem natural devem seguir o fluxo documental mesmo quando não citarem palavras como “ata”, “documento” ou “convenção”. Isso inclui perguntas sobre identificação do condomínio, pessoas, datas, valores, quórum, prazos, deliberações, pendências e limites de autorização. Somente mensagens inequivocamente conversacionais podem usar o fluxo sem evidências; na dúvida, o sistema deve buscar os documentos e se abster se eles não sustentarem a resposta.
 
 ### RQ-006 — Citações verificáveis
 
@@ -157,6 +161,8 @@ Cada resposta deve registrar, de forma minimizada:
 ### RQ-013 — Falha segura
 
 Falhas em OCR, busca, banco, provedor ou validação não podem produzir uma resposta aparentemente completa. O sistema deve retornar estado de falha recuperável ou pedir nova tentativa.
+
+Quando apenas o provedor generativo estiver temporariamente indisponível, o ambiente de teste pode usar um fallback documental local, desde que ele receba somente as evidências já autorizadas, mantenha citações verificáveis, não amplie o sentido dos trechos e informe a degradação. Falhas de busca, autorização, evidência ou validação continuam fechadas e não podem acionar esse fallback.
 
 ### RQ-014 — Formato da resposta
 

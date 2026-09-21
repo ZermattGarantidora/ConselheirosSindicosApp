@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("navegação móvel entre condomínios", () => {
-  it("AC-310: apresenta propósito e caminhos de acesso antes do login", async () => {
+  it("AC-610: apresenta propósito e caminhos de acesso antes do login", async () => {
     const [app, styles] = await Promise.all([
       readFile("apps/web/App.tsx", "utf8"),
       readFile("apps/web/styles.css", "utf8")
@@ -15,14 +15,26 @@ describe("navegação móvel entre condomínios", () => {
     expect(app).toContain('"Entrar"');
     expect(app).toContain("Criar minha conta");
     expect(app).not.toContain("Entrar na demonstração");
-    expect(app).not.toContain("Ambiente de demonstração");
-    expect(app).toContain("Seus documentos ficam separados por condomínio");
+    expect(app).toContain('authMode === "development"');
+    expect(app).toContain("Acesse o ambiente de teste.");
+    expect(app).toContain("Ambiente de demonstração");
+    expect(app).not.toContain(
+      "Seus documentos ficam separados por condomínio e só aparecem para quem tem autorização."
+    );
+    expect(app).toContain('className="landing-evidence"');
+    expect(app).toContain("Você vê a resposta e de onde ela veio.");
+    expect(app).not.toContain('className="landing-proof"');
     expect(app).toContain(
       'setAuthMode((current) => (current === "unknown" ? "development" : current))'
     );
     expect(app).toContain("Voltar para a apresentação");
     expect(styles).toContain(".landing-page");
     expect(styles).toContain(".landing-actions");
+    expect(styles).toContain(".landing-evidence");
+    expect(styles).not.toMatch(/\.landing-proof\s*\{/u);
+    expect(styles).toMatch(
+      /@media \(max-width: 720px\)[\s\S]*?\.landing-evidence\s*\{[\s\S]*?display:\s*none;/u
+    );
     expect(styles).toMatch(
       /@media \(max-width: 720px\)[\s\S]*?\.landing-hero\s*\{[\s\S]*?align-content:\s*start;/u
     );
@@ -42,7 +54,9 @@ describe("navegação móvel entre condomínios", () => {
     expect(app).toMatch(
       /if \(authMode === "real" \|\| window\.matchMedia\("\(max-width: 720px\)"\)\.matches\)/u
     );
-    expect(app).toMatch(/setAuthUser\(body\.user\);[\s\S]*?setView\("condominiums"\);/u);
+    expect(app).toMatch(/setAuthUser\(body\.user\);[\s\S]*?loadAuthorizedCondominiums\(\);/u);
+    expect(app).toContain('className="landing-session-button"');
+    expect(app).toContain("Continuar como");
     expect(app).toContain("Nenhum grupo autorizado ainda");
     expect(app).toContain('className="mobile-account-button"');
     expect(app).toContain('className="return-login-button"');

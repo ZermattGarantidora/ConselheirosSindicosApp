@@ -491,14 +491,17 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
               a.specialist_reason,
               a.risk_class,
               a.schema_version,
-              a.prompt_version,
-              a.pipeline_version,
+              mi.prompt_version,
+              mi.pipeline_version,
               a.validation_status,
               a.created_at
             FROM app.answers AS a
             JOIN app.questions AS q
               ON q.condominium_id = a.condominium_id
               AND q.id = a.question_id
+            JOIN app.model_invocations AS mi
+              ON mi.condominium_id = a.condominium_id
+              AND mi.answer_id = a.id
             WHERE a.condominium_id = app.current_condominium_id()
               AND a.id = $1
             LIMIT 1
@@ -548,14 +551,17 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
               a.specialist_reason,
               a.risk_class,
               a.schema_version,
-              a.prompt_version,
-              a.pipeline_version,
+              mi.prompt_version,
+              mi.pipeline_version,
               a.validation_status,
               a.created_at
             FROM app.answers AS a
             JOIN app.questions AS q
               ON q.condominium_id = a.condominium_id
               AND q.id = a.question_id
+            JOIN app.model_invocations AS mi
+              ON mi.condominium_id = a.condominium_id
+              AND mi.answer_id = a.id
             WHERE a.condominium_id = app.current_condominium_id()
               AND q.asked_by_user_id = $1
             ORDER BY q.created_at DESC, a.id DESC
@@ -609,14 +615,17 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
               a.specialist_reason,
               a.risk_class,
               a.schema_version,
-              a.prompt_version,
-              a.pipeline_version,
+              mi.prompt_version,
+              mi.pipeline_version,
               a.validation_status,
               a.created_at
             FROM app.answers AS a
             JOIN app.questions AS q
               ON q.condominium_id = a.condominium_id
               AND q.id = a.question_id
+            JOIN app.model_invocations AS mi
+              ON mi.condominium_id = a.condominium_id
+              AND mi.answer_id = a.id
             WHERE a.condominium_id = app.current_condominium_id()
               AND q.idempotency_key = $1
             LIMIT 1

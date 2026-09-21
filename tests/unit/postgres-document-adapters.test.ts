@@ -90,6 +90,22 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
     expect(fake.client.release).toHaveBeenCalledOnce();
   });
 
+  it("grava o estado de validade confirmado recebido no upload", async () => {
+    const fake = createFakeClient();
+    const repository = createPostgresDocumentUploadRepository(createPool(fake.client));
+
+    await repository.recordUploaded({ ...createRecord(), validityStatus: "confirmed" });
+
+    const stateInsert = fake.queries.find(({ sql }) =>
+      sql.includes("INSERT INTO app.document_version_states")
+    );
+    expect(stateInsert?.values).toEqual([
+      "alameda",
+      "22222222-2222-4222-8222-222222222222",
+      "confirmed"
+    ]);
+  });
+
   it("faz rollback quando o registro persistido falha", async () => {
     const fake = createFakeClient();
     let calls = 0;

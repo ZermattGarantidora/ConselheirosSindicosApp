@@ -34,7 +34,8 @@ describe("contrato HTTP de saúde", () => {
                       required: expect.arrayContaining([
                         "aiProvider",
                         "authMode",
-                        "googleAuthEnabled"
+                        "googleAuthEnabled",
+                        "authSessionRestore"
                       ])
                     }
                   }

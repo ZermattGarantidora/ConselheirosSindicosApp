@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AnswerGatewayUnavailableError,
+  createFallbackAnswerGateway,
   createLocalSyntheticAnswerGateway
 } from "../../apps/api/answers/answer-gateway.js";
 import type { RetrievalEvidence } from "../../apps/api/retrieval/retrieval-contract.js";
@@ -153,5 +154,139 @@ describe("gateway de respostas", () => {
 
     expect(result.output.answer).toContain("não representa autorização definitiva");
     expect(result.output.specialist.type).toBe("engenheiro");
+  });
+
+  it("usa fallback documental quando o provedor primário está temporariamente indisponível", async () => {
+    const gateway = createFallbackAnswerGateway(
+      {
+        async generate() {
+          throw new AnswerGatewayUnavailableError("limite temporário");
+        }
+      },
+      createLocalSyntheticAnswerGateway()
+    );
+
+    const result = await gateway.generate(
+      input("Qual é o valor da cota?", "grounded_answer", [
+        evidence("A cota ordinária aprovada é de R$ 1.600,00 por unidade.")
+      ])
+    );
+
+    expect(result.output).toMatchObject({ answerMode: "grounded" });
+    expect(result.output.attentionPoints.join(" ")).toContain("extraída localmente");
+    expect(result.telemetry).toMatchObject({
+      providerKey: "local",
+      routingReason: expect.stringContaining("fallback documental local")
+    });
+  });
+
+  it("prioriza o trecho que declara o fato em vez de repetir uma pergunta do documento", async () => {
+    const gateway = createLocalSyntheticAnswerGateway();
+    const result = await gateway.generate(
+      input("Qual é o nome do condomínio?", "grounded_answer", [
+        evidence("Perguntas úteis para teste incluem: qual é o nome do condomínio?", {
+          id: "question-list",
+          rerankScore: 0.95
+        }),
+        evidence(
+          "A assembleia aprovou o uso do nome Condomínio Residencial Horizonte Azul para a identificação administrativa.",
+          { id: "official-name", rerankScore: 0.7, pageNumber: 2 }
+        )
+      ])
+    );
+
+    expect(result.output.answer).toContain("Condomínio Residencial Horizonte Azul");
+    expect(result.output.citations.map((citation) => citation.evidenceId)).toEqual([
+      "official-name"
+    ]);
+  });
+
+  it("não mascara erro de programação do provedor primário com fallback", async () => {
+    const fallback = createLocalSyntheticAnswerGateway();
+    const gateway = createFallbackAnswerGateway(
+      {
+        async generate() {
+          throw new TypeError("erro de contrato");
+        }
+      },
+      fallback
+    );
+
+    await expect(
+      gateway.generate(
+        input("Qual é o valor da cota?", "grounded_answer", [
+          evidence("A cota ordinária aprovada é de R$ 1.600,00 por unidade.")
+        ])
+      )
+    ).rejects.toThrow("erro de contrato");
+  });
+
+  it("preserva a resposta do provedor primário quando ele está disponível", async () => {
+    let fallbackCalls = 0;
+    const primary = createLocalSyntheticAnswerGateway();
+    const gateway = createFallbackAnswerGateway(primary, {
+      async generate() {
+        fallbackCalls += 1;
+        throw new Error("fallback não deveria ser chamado");
+      }
+    });
+
+    const result = await gateway.generate(
+      input("Qual regra vale?", "grounded_answer", [evidence("A regra documental está vigente.")])
+    );
+
+    expect(result.output.answerMode).toBe("grounded");
+    expect(fallbackCalls).toBe(0);
+    expect(new AnswerGatewayUnavailableError().message).toContain("indisponível");
+  });
+
+  it("recorta um trecho longo ao redor dos termos relevantes e mantém offsets válidos", async () => {
+    const prefix = `${"contexto ".repeat(90)} início `;
+    const fact = "A contratação do seguro termina em 30 de setembro de 2026";
+    const suffix = ` final ${"detalhe ".repeat(90)}`;
+    const content = `${prefix}${fact}${suffix}`;
+    const result = await createLocalSyntheticAnswerGateway().generate(
+      input("Até quando o seguro deve ser contratado?", "grounded_answer", [evidence(content)])
+    );
+    const citation = result.output.citations[0];
+
+    expect(citation?.excerpt).toContain("contratação do seguro");
+    expect(citation?.excerpt.length).toBeLessThan(content.length);
+    expect(citation?.startOffset).toBeGreaterThan(0);
+    expect(citation?.endOffset).toBeLessThanOrEqual(Array.from(content).length);
+  });
+
+  it("mantém fallback seguro para pergunta sem termos úteis e alto risco genérico", async () => {
+    const longEvidence = evidence(`${"regra ".repeat(150)}fim.`);
+    const simple = await createLocalSyntheticAnswerGateway().generate(
+      input("Qual?", "grounded_answer", [longEvidence])
+    );
+    const highRisk = await createLocalSyntheticAnswerGateway().generate({
+      ...input("Preciso decidir uma situação sensível?", "grounded_answer", [
+        evidence("A decisão exige validação documental.")
+      ]),
+      task: "specialist_review",
+      riskClass: "high"
+    });
+
+    expect(simple.output.citations).toHaveLength(1);
+    expect(highRisk.output.specialist).toMatchObject({ required: true, type: "advogado" });
+  });
+
+  it("reconhece variação morfológica ao escolher a evidência mais útil", async () => {
+    const result = await createLocalSyntheticAnswerGateway().generate(
+      input("Até quando o seguro deve ser contratado?", "grounded_answer", [
+        evidence("O documento cita apenas o seguro sem informar prazo.", {
+          id: "generic",
+          rerankScore: 0.95
+        }),
+        evidence("A contratação do seguro deverá ocorrer até 30 de setembro de 2026.", {
+          id: "deadline",
+          rerankScore: 0.6
+        })
+      ])
+    );
+
+    expect(result.output.citations.map((citation) => citation.evidenceId)).toEqual(["deadline"]);
   });
 });

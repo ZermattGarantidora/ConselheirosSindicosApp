@@ -2,7 +2,7 @@
 
 **Status:** rascunho para revisão
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-09-14
+**Atualizado em:** 2026-09-21
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -73,7 +73,7 @@ Síndico em ambiente de demonstração, avaliando uma consulta documental sem us
 
 ### RQ-401 — Seleção explícita do provedor
 
-O servidor usa Gemini somente quando `GEMINI_API_KEY` não estiver vazia. Em desenvolvimento, `pnpm run dev:api` também carrega `.env.local`, ignorado pelo Git. `GEMINI_MODEL` é opcional e o padrão documentado é `gemini-flash-lite-latest`. A ausência de chave não impede o fluxo local.
+O servidor usa Gemini somente quando `GEMINI_API_KEY` não estiver vazia. Em desenvolvimento, `pnpm run dev:api` também carrega `.env.local`, ignorado pelo Git. `GEMINI_MODEL` é opcional e o padrão de testes é o modelo estável econômico `gemini-3.5-flash-lite`. Uma substituição explícita continua permitida para evals comparativos. A ausência de chave não impede o fluxo local.
 
 ### RQ-402 — Limite de dados e isolamento
 

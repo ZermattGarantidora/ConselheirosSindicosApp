@@ -58,6 +58,38 @@ export class AnswerGatewayUnavailableError extends Error {
   }
 }
 
+export function createFallbackAnswerGateway(
+  primary: AnswerGateway,
+  fallback: AnswerGateway
+): AnswerGateway {
+  return Object.freeze({
+    async generate(input: AnswerGatewayInput): Promise<AnswerGatewayResult> {
+      try {
+        return await primary.generate(input);
+      } catch (error: unknown) {
+        if (!(error instanceof AnswerGatewayUnavailableError)) {
+          throw error;
+        }
+
+        const result = await fallback.generate(input);
+        return Object.freeze({
+          output: Object.freeze({
+            ...result.output,
+            attentionPoints: Object.freeze([
+              ...result.output.attentionPoints,
+              "A resposta foi extraída localmente dos documentos porque o provedor de IA está temporariamente indisponível."
+            ])
+          }),
+          telemetry: Object.freeze({
+            ...result.telemetry,
+            routingReason: "fallback documental local após indisponibilidade do provedor primário"
+          })
+        });
+      }
+    }
+  });
+}
+
 const modelKey = "deterministic-synthetic-answer";
 const modelVersion = "1";
 
@@ -80,31 +112,119 @@ function sentenceCandidates(content: string): readonly string[] {
   return sentences.map((sentence) => sentence.trim()).filter((sentence) => sentence.length > 0);
 }
 
-function safeExcerpt(evidence: RetrievalEvidence): Readonly<{
+const excerptStopWords = new Set([
+  "qual",
+  "quais",
+  "quem",
+  "quantas",
+  "quantos",
+  "quando",
+  "como",
+  "para",
+  "pela",
+  "pelo",
+  "das",
+  "dos",
+  "uma",
+  "foram",
+  "deve",
+  "sobre"
+]);
+
+function relevantTerms(question: string): readonly string[] {
+  return Object.freeze(
+    question
+      .toLocaleLowerCase("pt-BR")
+      .split(/[^\p{L}\p{N}]+/gu)
+      .filter((term) => term.length >= 3 && !excerptStopWords.has(term))
+  );
+}
+
+function termMatchesContent(term: string, content: string): boolean {
+  if (content.includes(term)) return true;
+  const prefix = term.slice(0, Math.min(7, term.length));
+  return (
+    prefix.length >= 6 && content.split(/[^\p{L}\p{N}]+/gu).some((word) => word.startsWith(prefix))
+  );
+}
+
+function evidenceQuestionScore(question: string, evidence: RetrievalEvidence): number {
+  const normalized = evidence.content.toLocaleLowerCase("pt-BR");
+  const terms = relevantTerms(question);
+  let score = terms.filter((term) => termMatchesContent(term, normalized)).length;
+  if (
+    /nome.*condom[íi]nio/iu.test(question) &&
+    /uso do nome\s+condom[íi]nio|denomina(?:ç|c)[aã]o|identifica(?:ç|c)[aã]o administrativa/iu.test(
+      evidence.content
+    )
+  ) {
+    score += 5;
+  }
+  if (
+    /(?:quem.*(?:sub)?s[íi]ndic|per[íi]odo.*mandato.*s[íi]ndic)/iu.test(question) &&
+    /(?:sub)?s[íi]ndic[ao]?\s+[\p{L}\s]+\d{2}\/\d{2}\/\d{4}\s+a\s+\d{2}\/\d{2}\/\d{4}/iu.test(
+      evidence.content
+    )
+  ) {
+    score += 5;
+  }
+  return score;
+}
+
+function compactExcerpt(candidate: string, question: string): string {
+  const maximumLength = 650;
+  if (candidate.length <= maximumLength) return candidate;
+
+  const normalized = candidate.toLocaleLowerCase("pt-BR");
+  const positions = relevantTerms(question)
+    .map((term) => normalized.indexOf(term))
+    .filter((position) => position >= 0)
+    .sort((left, right) => left - right);
+  const anchor = positions[0] ?? 0;
+  let start = Math.max(0, anchor - 120);
+  let end = Math.min(candidate.length, start + maximumLength);
+  if (end - start < maximumLength) start = Math.max(0, end - maximumLength);
+  while (start > 0 && !/\s/u.test(candidate[start - 1] ?? "")) start -= 1;
+  while (end < candidate.length && !/\s/u.test(candidate[end] ?? "")) end += 1;
+  return candidate.slice(start, end).trim();
+}
+
+function safeExcerpt(
+  evidence: RetrievalEvidence,
+  question: string
+): Readonly<{
   text: string;
   startOffset: number;
   endOffset: number;
 }> | null {
   const sentences = sentenceCandidates(evidence.content);
-  const candidate = sentences.some(isInstructionLike)
-    ? sentences.find((sentence) => !isInstructionLike(sentence))
-    : evidence.content.trim();
+  const safeSentences = sentences.filter((sentence) => !isInstructionLike(sentence));
+  const candidate = [...safeSentences].sort(
+    (left, right) =>
+      relevantTerms(question).filter((term) =>
+        termMatchesContent(term, right.toLocaleLowerCase("pt-BR"))
+      ).length -
+        relevantTerms(question).filter((term) =>
+          termMatchesContent(term, left.toLocaleLowerCase("pt-BR"))
+        ).length || left.length - right.length
+  )[0];
   if (candidate === undefined || candidate.length === 0) {
     return null;
   }
-  const utf16Offset = evidence.content.indexOf(candidate);
+  const excerpt = compactExcerpt(candidate, question);
+  const utf16Offset = evidence.content.indexOf(excerpt);
   const localStart =
     utf16Offset < 0 ? 0 : Array.from(evidence.content.slice(0, utf16Offset)).length;
   const startOffset = evidence.startOffset + localStart;
   return Object.freeze({
-    text: candidate,
+    text: excerpt,
     startOffset,
-    endOffset: startOffset + Array.from(candidate).length
+    endOffset: startOffset + Array.from(excerpt).length
   });
 }
 
-function citationFor(evidence: RetrievalEvidence): GeneratedCitation | null {
-  const excerpt = safeExcerpt(evidence);
+function citationFor(evidence: RetrievalEvidence, question: string): GeneratedCitation | null {
+  const excerpt = safeExcerpt(evidence, question);
   if (excerpt === null) {
     return null;
   }
@@ -187,7 +307,7 @@ function conflictAnswer(
   const citations = Object.freeze(
     (convention === undefined && rules === undefined ? evidence : [convention, rules])
       .filter((item): item is RetrievalEvidence => item !== undefined)
-      .map(citationFor)
+      .map((item) => citationFor(item, question))
       .filter((citation): citation is GeneratedCitation => citation !== null)
   );
   const specialist = specialistForRisk(riskClass, inferSpecialistFromEvidence(riskClass, question));
@@ -222,9 +342,17 @@ function groundedAnswer(
   evidence: readonly RetrievalEvidence[],
   riskClass: RiskClass
 ): GeneratedAnswer {
-  const selected = evidence.slice(0, 3);
+  const selected = [...evidence]
+    .sort(
+      (left, right) =>
+        evidenceQuestionScore(question, right) - evidenceQuestionScore(question, left) ||
+        right.rerankScore - left.rerankScore
+    )
+    .slice(0, 1);
   const citations = Object.freeze(
-    selected.map(citationFor).filter((citation): citation is GeneratedCitation => citation !== null)
+    selected
+      .map((item) => citationFor(item, question))
+      .filter((citation): citation is GeneratedCitation => citation !== null)
   );
   const excerpts = citations.map((citation) => citation.excerpt).join(" ");
   const specialist = specialistForRisk(riskClass, inferSpecialistFromEvidence(riskClass, question));
