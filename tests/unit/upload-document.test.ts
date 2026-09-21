@@ -76,6 +76,29 @@ describe("upload privado de documento", () => {
     expect(fixture.stored).toHaveLength(1);
   });
 
+  it("persiste a confirmação explícita para permitir o uso documental", async () => {
+    const fixture = createStorage();
+    let recorded: UploadedDocumentRecord | undefined;
+
+    await uploadDocument(
+      fixture.storage,
+      {
+        async recordUploaded(record) {
+          recorded = record;
+        }
+      },
+      context,
+      {
+        title: "Ata sintética confirmada",
+        documentType: "meeting_minutes",
+        content: Buffer.from("%PDF-1.7"),
+        validityConfirmed: true
+      }
+    );
+
+    expect(recorded?.validityStatus).toBe("confirmed");
+  });
+
   it("rejeita conteúdo que não é PDF antes de gravar", async () => {
     const fixture = createStorage();
 

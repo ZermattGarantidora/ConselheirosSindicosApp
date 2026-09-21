@@ -29,7 +29,8 @@ describe("seleção de condomínio", () => {
       version: "0.1.0",
       aiProvider: "local",
       authMode: "development",
-      googleAuthEnabled: false
+      googleAuthEnabled: false,
+      authSessionRestore: false
     });
   });
 
@@ -141,6 +142,46 @@ describe("seleção de condomínio", () => {
     expect(response.body).not.toContain("private/");
     expect(recorded).toHaveLength(1);
     expect(recorded[0]).toMatchObject({ condominiumId: "alameda", documentType: "convention" });
+    await uploadApp.close();
+  });
+
+  it("AC-023: confirma a validade e aciona o processamento integrado após o upload", async () => {
+    const recorded: UploadedDocumentRecord[] = [];
+    let processingRuns = 0;
+    const uploadApp = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      documentStorage: {
+        async storeOriginal({ objectId }) {
+          return { storageKey: `private/${objectId}` };
+        },
+        async removeOriginal() {}
+      },
+      documentUploadRepository: {
+        async recordUploaded(record) {
+          recorded.push(record);
+        }
+      },
+      async processPendingDocuments() {
+        processingRuns += 1;
+      }
+    });
+
+    const response = await uploadApp.inject({
+      method: "POST",
+      url: "/v1/condominiums/alameda/documents",
+      headers: {
+        "content-type": "application/pdf",
+        "x-development-user-id": "sindico-demo",
+        "x-document-title": "Ata sintética confirmada",
+        "x-document-type": "meeting_minutes",
+        "x-document-validity-confirmed": "true"
+      },
+      payload: Buffer.from("%PDF-1.7\nconteúdo sintético")
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(recorded[0]?.validityStatus).toBe("confirmed");
+    expect(processingRuns).toBe(1);
     await uploadApp.close();
   });
 

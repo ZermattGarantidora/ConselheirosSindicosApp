@@ -1,7 +1,7 @@
 # Critérios de aceitação — Spec 001
 
 **Status:** implementação local B1–B6 validada com dados sintéticos
-**Atualizado em:** 2026-09-09
+**Atualizado em:** 2026-09-21
 
 Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser calibrado com a baseline, desde que nenhuma invariante de segurança seja flexibilizada.
 
@@ -161,3 +161,30 @@ Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser cali
 **Quando** uma transação de runtime não fixa `app.condominium_id`
 **Então** o banco não retorna dados de nenhum condomínio
 **E** quando fixa Alameda, não retorna linhas de Bosque.
+
+## AC-023 — Processar documento confirmado sem etapa manual oculta (P0)
+
+**Dado** um PDF textual enviado durante o cadastro
+**E** o usuário confirmou que o documento pode fundamentar respostas
+**Quando** o upload persistido termina
+**Então** a confirmação fica registrada na versão documental
+**E** o processamento enfileirado é executado automaticamente no ambiente integrado de teste
+**E** a versão pronta possui páginas e trechos recuperáveis sem o usuário iniciar um worker separado.
+
+## AC-024 — Reconhecer perguntas factuais sem palavra-chave documental (P0)
+
+**Dado** um documento confirmado que registra fatos do condomínio
+**Quando** o usuário pergunta, por exemplo, “Qual é o endereço?”, “Quem foi eleita síndica?” ou “Qual é o valor da cota ordinária?”
+**Então** a pergunta segue o fluxo de recuperação documental
+**E** uma resposta afirmativa exige página e trecho verificáveis
+**E** a ausência de evidência produz abstenção, nunca uma resposta geral da IA nem um atalho baseado apenas no cadastro.
+
+## AC-025 — Manter resposta documental durante indisponibilidade do provedor (P0)
+
+**Dado** que a recuperação retornou evidência suficiente e autorizada
+**E** o provedor generativo está temporariamente indisponível ou sem cota
+**Quando** a resposta é solicitada
+**Então** o fallback local pode responder somente por extração dos trechos recuperados
+**E** mantém citações e validação pós-geração
+**E** informa que operou em modo documental local
+**E** erros de autorização, busca, evidência ou contrato não são mascarados pelo fallback.

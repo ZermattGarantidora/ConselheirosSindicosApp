@@ -55,3 +55,24 @@ export async function processOne(
 
   return "processed";
 }
+
+export async function drainProcessingQueue(
+  queue: ProcessingJobQueueLike,
+  processor: ScopedDocumentProcessor,
+  maximumJobs = 100
+): Promise<number> {
+  if (!Number.isInteger(maximumJobs) || maximumJobs < 1) {
+    throw new Error("O limite de jobs deve ser um inteiro positivo.");
+  }
+
+  let processedJobs = 0;
+  while (processedJobs < maximumJobs) {
+    const result = await processOne(queue, processor);
+    if (result === "idle") {
+      return processedJobs;
+    }
+    processedJobs += 1;
+  }
+
+  return processedJobs;
+}

@@ -93,6 +93,8 @@ export type CreateApiOptions = Readonly<{
   googleOAuth?: GoogleOAuthClient;
   condominiumDirectory?: CondominiumDirectory;
   secureCookies?: boolean;
+  authSessionRestore?: boolean;
+  processPendingDocuments?: () => Promise<void>;
 }>;
 
 type AskBody = Readonly<{ question: string }>;
@@ -287,6 +289,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
   >();
   const accountAuth = options.accountAuth;
   const secureCookies = options.secureCookies ?? false;
+  const authSessionRestore = options.authSessionRestore ?? true;
   const unauthenticatedMessage =
     accountAuth === undefined
       ? "Identidade de desenvolvimento inválida."
@@ -330,7 +333,8 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     version,
     aiProvider,
     authMode: accountAuth === undefined ? "development" : "real",
-    googleAuthEnabled: accountAuth !== undefined && options.googleOAuth !== undefined
+    googleAuthEnabled: accountAuth !== undefined && options.googleOAuth !== undefined,
+    authSessionRestore: accountAuth !== undefined && authSessionRestore
   }));
 
   app.post<{ Body: unknown }>("/v1/auth/register", async (request, reply) => {
@@ -707,13 +711,15 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         ...(request.headers["x-document-id"] === undefined
           ? {}
           : { documentId: request.headers["x-document-id"] }),
-        content: request.body
+        content: request.body,
+        validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
       });
       const memoryStatus = await options.developmentDocumentMemory?.indexUploaded({
         record: uploaded,
         content: request.body,
         validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
       });
+      await options.processPendingDocuments?.();
 
       return reply.code(202).send({
         documentId: uploaded.documentId,
@@ -821,6 +827,10 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       ) {
         return reply.code(400).send({ message: error.message });
       }
+      console.error("Falha ao processar pergunta", {
+        name: error instanceof Error ? error.name : "UnknownError",
+        message: error instanceof Error ? error.message : "Erro desconhecido"
+      });
       return reply
         .code(500)
         .send({ message: "Não foi possível processar a consulta com segurança." });

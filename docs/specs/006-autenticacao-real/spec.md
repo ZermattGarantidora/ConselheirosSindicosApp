@@ -2,19 +2,19 @@
 
 **Status:** aprovada para implementação local
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-09-18
+**Atualizado em:** 2026-09-21
 
 ## 0. Alinhamento com a visão do projeto
 
 | Dimensão da visão | Seções do briefing | Como esta spec contribui |
 | --- | --- | --- |
-| Problema e hipótese | §§1, 2 e 11 | Permite que o síndico retorne ao conselheiro com identidade persistente, reduzindo fricção e preservando o histórico autorizado. |
-| Público | §3 | Atende síndicos profissionais e moradores que precisam de uma conta individual para acessar sua carteira de condomínios. |
-| Proposta de valor | §§5 e 10 | Mantém a experiência simples e contextual sem substituir as fontes documentais por uma identidade genérica. |
-| Prioridades do MVP | §§7, 11 e 14 | Implementa a autenticação prevista no MVP e prepara a criação de um ou mais condomínios por usuário. |
-| Segurança e confiança | §§9, 12, 13 e 14 | Evita senha em texto puro, usa sessão revogável, impede acesso anônimo às operações protegidas e mantém `condominium_id` como fronteira de autorização. |
-| Estratégia técnica e custo | §15 | Usa o monólito e PostgreSQL já adotados, sem adicionar provedor externo ou dependência SaaS antes da validação. |
-| Validação e métricas | §§16 e 17 | Permite medir ativação, retorno e recorrência por usuário sem usar documentos confidenciais para prospecção. |
+| Problema e hipótese        | §§1, 2 e 11        | Permite que o síndico retorne ao conselheiro com identidade persistente, reduzindo fricção e preservando o histórico autorizado.                        |
+| Público                    | §3                 | Atende síndicos profissionais e moradores que precisam de uma conta individual para acessar sua carteira de condomínios.                                |
+| Proposta de valor          | §§5 e 10           | Mantém a experiência simples e contextual sem substituir as fontes documentais por uma identidade genérica.                                             |
+| Prioridades do MVP         | §§7, 11 e 14       | Implementa a autenticação prevista no MVP e prepara a criação de um ou mais condomínios por usuário.                                                    |
+| Segurança e confiança      | §§9, 12, 13 e 14   | Evita senha em texto puro, usa sessão revogável, impede acesso anônimo às operações protegidas e mantém `condominium_id` como fronteira de autorização. |
+| Estratégia técnica e custo | §15                | Usa o monólito e PostgreSQL já adotados, sem adicionar provedor externo ou dependência SaaS antes da validação.                                         |
+| Validação e métricas       | §§16 e 17          | Permite medir ativação, retorno e recorrência por usuário sem usar documentos confidenciais para prospecção.                                            |
 
 ### Limites respeitados
 
@@ -103,6 +103,8 @@ Uma conta autenticada deve continuar sujeita à membership vigente e às políti
 ### RQ-607 — Entrada orientada antes da autenticação
 
 Antes de exibir os formulários de acesso, o cliente deve apresentar uma página de entrada responsiva que explique o propósito do Conselheiro Documental e ofereça caminhos claros para entrar ou criar uma conta. A composição deve priorizar telas estreitas, manter a separação entre orientação e autenticação e não anunciar o acesso demonstrativo como uma conta persistente.
+
+A explicação complementar sobre evidência deve fazer parte da composição editorial da página, sem card, painel ou moldura que simule uma tela dentro da tela.
 
 ### RQ-608 — Falha recuperável na descoberta do ambiente
 

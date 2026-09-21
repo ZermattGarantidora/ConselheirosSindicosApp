@@ -277,6 +277,7 @@ export function App() {
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState("");
   const [answer, setAnswer] = useState<PublicAnswer | undefined>();
+  const [conversationError, setConversationError] = useState("");
   const [conversationHistory, setConversationHistory] = useState<
     readonly ConversationHistoryEntry[]
   >([]);
@@ -285,6 +286,7 @@ export function App() {
   const [message, setMessage] = useState("Escolha ou crie um condomínio para iniciar.");
   const [aiProvider, setAiProvider] = useState<AiProvider>("unavailable");
   const [authMode, setAuthMode] = useState<AuthMode>("unknown");
+  const [authSessionRestore, setAuthSessionRestore] = useState(true);
   const [authPanel, setAuthPanel] = useState<AuthPanel>("login");
   const [authUser, setAuthUser] = useState<AuthUser | undefined>();
   const [authDisplayName, setAuthDisplayName] = useState("");
@@ -310,12 +312,16 @@ export function App() {
         const body = (await response.json()) as Readonly<{
           aiProvider?: unknown;
           authMode?: unknown;
+          authSessionRestore?: unknown;
         }>;
         if (body.aiProvider === "gemini" || body.aiProvider === "local") {
           setAiProvider(body.aiProvider);
         }
         if (body.authMode === "real" || body.authMode === "development") {
           setAuthMode(body.authMode);
+        }
+        if (typeof body.authSessionRestore === "boolean") {
+          setAuthSessionRestore(body.authSessionRestore);
         }
       })
       .catch(() => {
@@ -334,6 +340,12 @@ export function App() {
 
   useEffect(() => {
     if (authMode !== "real") return;
+    if (!authSessionRestore) {
+      void fetch("/v1/auth/logout", { method: "POST", credentials: "same-origin" }).catch(
+        () => undefined
+      );
+      return;
+    }
     void (async () => {
       try {
         const response = await fetch("/v1/auth/session", { credentials: "same-origin" });
@@ -344,12 +356,11 @@ export function App() {
         setDisplayName(body.user.displayName);
         await loadAuthorizedCondominiums();
         setMessage("Escolha um condomínio autorizado para abrir a conversa.");
-        setView("condominiums");
       } catch {
         setAvailableCondominiums([]);
       }
     })();
-  }, [authMode]);
+  }, [authMode, authSessionRestore]);
 
   useEffect(() => {
     if (authMode !== "development") return;
@@ -464,9 +475,11 @@ export function App() {
     setQuestion("");
     setSubmittedQuestion("");
     setAnswer(undefined);
+    setConversationError("");
     setConversationHistory([]);
     setSelectedCitation(undefined);
     setFeedback(undefined);
+    setConversationError("");
     setSetupNotice(undefined);
   }
 
@@ -840,9 +853,12 @@ export function App() {
     }
     setBusy(true);
     setSubmittedQuestion(trimmedQuestion);
-    setAnswer(undefined);
+    setQuestion("");
     setSelectedCitation(undefined);
     setFeedback(undefined);
+    setConversationError("");
+    const controller = new AbortController();
+    const requestTimeout = window.setTimeout(() => controller.abort(), 70_000);
     try {
       const response = await fetch(
         `/v1/condominiums/${encodeURIComponent(context.condominiumId)}/questions`,
@@ -852,18 +868,26 @@ export function App() {
             "content-type": "application/json",
             "x-development-user-id": developmentUserId
           },
+          credentials: "same-origin",
+          signal: controller.signal,
           body: JSON.stringify({ question: trimmedQuestion })
         }
       );
       if (!response.ok) {
-        setMessage(await readMessage(response, "Não foi possível processar a pergunta."));
+        setAnswer(undefined);
+        const failure = await readMessage(response, "Não foi possível processar a pergunta.");
+        setMessage(failure);
+        setConversationError(failure);
         return;
       }
       setAnswer((await response.json()) as PublicAnswer);
-      setQuestion("");
     } catch {
-      setMessage("Não foi possível conectar ao conselheiro agora.");
+      setAnswer(undefined);
+      const failure = "Não foi possível conectar ao conselheiro agora.";
+      setMessage(failure);
+      setConversationError(failure);
     } finally {
+      window.clearTimeout(requestTimeout);
       setBusy(false);
     }
   }
@@ -930,25 +954,28 @@ export function App() {
                 Criar minha conta
               </button>
             </div>
-            <p className="landing-privacy">
-              Seus documentos ficam separados por condomínio e só aparecem para quem tem
-              autorização.
-            </p>
+            {authUser === undefined ? null : (
+              <button
+                className="landing-session-button"
+                type="button"
+                onClick={() => setView("condominiums")}
+              >
+                Continuar como {authUser.displayName}
+                <span aria-hidden="true">→</span>
+              </button>
+            )}
           </div>
-          <aside className="landing-proof" aria-label="Como o Conselheiro ajuda">
-            <div className="landing-proof-icon" aria-hidden="true">
-              ✓
-            </div>
-            <div>
-              <p className="landing-proof-overline">DO DOCUMENTO À DECISÃO</p>
-              <h2>Contexto para agir com segurança</h2>
-              <ul>
-                <li>Respostas baseadas no acervo autorizado</li>
-                <li>Documento, página e trecho como evidência</li>
-                <li>Alertas claros quando falta informação</li>
-              </ul>
-            </div>
-          </aside>
+          <section className="landing-evidence" aria-label="Como o Conselheiro ajuda">
+            <p className="landing-evidence-overline">SEM RESPOSTAS NO ESCURO</p>
+            <h2>Você vê a resposta e de onde ela veio.</h2>
+            <p className="landing-evidence-copy">
+              Pergunte como falaria com alguém da sua equipe. O Conselheiro procura a regra nos
+              documentos e mostra a página e o trecho usados na resposta.
+            </p>
+            <p className="landing-evidence-note">
+              Se os documentos não bastarem, ele deixa isso claro.
+            </p>
+          </section>
         </section>
         <footer className="landing-footer">Um espaço simples para a memória do condomínio.</footer>
       </main>
@@ -977,6 +1004,48 @@ export function App() {
             >
               Voltar para a apresentação
             </button>
+          </section>
+        </main>
+      );
+    }
+    if (authMode === "development") {
+      return (
+        <main className="login-page">
+          <section className="login-card" aria-labelledby="demo-access-title">
+            <div className="login-brand">
+              <ZermattMark />
+              <span>Zermatt</span>
+            </div>
+            <p className="overline">CONSELHEIRO DOCUMENTAL</p>
+            <h1 id="demo-access-title">Acesse o ambiente de teste.</h1>
+            <p className="login-lead">
+              Escolha um condomínio sintético e experimente perguntas com respostas fundamentadas e
+              fontes verificáveis.
+            </p>
+            <div className="test-notice">
+              <strong>Ambiente de demonstração</strong>
+              <p>Este acesso não solicita nem envia credenciais reais.</p>
+            </div>
+            <label htmlFor="display-name">Como quer ser chamado?</label>
+            <input
+              id="display-name"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              autoComplete="off"
+            />
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => {
+                setMessage("Escolha um condomínio sintético para iniciar a conversa.");
+                setView("onboarding");
+              }}
+            >
+              Entrar no ambiente de testes <span aria-hidden="true">→</span>
+            </button>
+            <p className="login-footer">
+              Use somente informações e documentos fictícios neste ambiente.
+            </p>
           </section>
         </main>
       );
@@ -1980,6 +2049,16 @@ export function App() {
               </div>
             </div>
           ) : null}
+          {conversationError === "" ? null : (
+            <div className="assistant-message response-message" role="alert">
+              <div className="answer-meta">
+                <strong>Cora</strong>
+                <span className="answer-mode failed">FALHA TEMPORÁRIA</span>
+              </div>
+              <p className="answer-copy">{conversationError}</p>
+              <p>Tente novamente. Sua pergunta continua visível na conversa.</p>
+            </div>
+          )}
           {answer === undefined ? null : (
             <>
               <article className="assistant-message response-message">
@@ -2102,6 +2181,16 @@ export function App() {
           ref={composerInput}
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !window.matchMedia("(max-width: 760px)").matches
+            ) {
+              event.preventDefault();
+              if (!busy && question.trim().length > 0) void askQuestion();
+            }
+          }}
           placeholder="Ex.: O que a convenção diz sobre animais?"
           aria-label="Escreva sua pergunta"
           rows={1}

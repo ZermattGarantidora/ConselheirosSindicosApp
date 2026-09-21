@@ -14,7 +14,7 @@ import {
 import { answerPromptVersion, buildAnswerPrompt } from "./prompt-catalog.js";
 
 const interactionsUrl = "https://generativelanguage.googleapis.com/v1beta/interactions";
-const defaultModel = "gemini-flash-lite-latest";
+const defaultModel = "gemini-3.5-flash-lite";
 const defaultTimeoutMs = 30_000;
 
 type GeminiInteraction = Readonly<{
@@ -283,6 +283,7 @@ export function createGeminiAnswerGateway(options: GeminiAnswerGatewayOptions): 
 export function createGeminiAnswerGatewayFromEnvironment(
   environment: NodeJS.ProcessEnv = process.env
 ): AnswerGateway | undefined {
+  if (environment.GEMINI_ENABLED?.trim().toLowerCase() === "false") return undefined;
   const apiKey = environment.GEMINI_API_KEY?.trim();
   if (apiKey === undefined || apiKey.length === 0) return undefined;
   const timeoutMs = Number(environment.GEMINI_TIMEOUT_MS);

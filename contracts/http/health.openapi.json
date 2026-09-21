@@ -15,13 +15,21 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "required": ["status", "version", "aiProvider", "authMode", "googleAuthEnabled"],
+                  "required": [
+                    "status",
+                    "version",
+                    "aiProvider",
+                    "authMode",
+                    "googleAuthEnabled",
+                    "authSessionRestore"
+                  ],
                   "properties": {
                     "status": { "type": "string", "const": "ok" },
                     "version": { "type": "string" },
                     "aiProvider": { "type": "string", "enum": ["gemini", "local"] },
                     "authMode": { "type": "string", "enum": ["development", "real"] },
-                    "googleAuthEnabled": { "type": "boolean" }
+                    "googleAuthEnabled": { "type": "boolean" },
+                    "authSessionRestore": { "type": "boolean" }
                   }
                 }
               }

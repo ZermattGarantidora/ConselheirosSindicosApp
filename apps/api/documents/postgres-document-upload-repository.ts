@@ -141,9 +141,9 @@ export function createPostgresDocumentUploadRepository(pool: PoolLike): Document
             INSERT INTO app.document_version_states (
               condominium_id, document_version_id, processing_status, validity_status
             )
-            VALUES ($1, $2, 'uploaded', 'pending')
+            VALUES ($1, $2, 'uploaded', $3)
           `,
-          [record.condominiumId, record.documentVersionId]
+          [record.condominiumId, record.documentVersionId, record.validityStatus]
         );
 
         const jobId = randomUUID();

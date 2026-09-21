@@ -198,6 +198,61 @@ describe("caso de uso de consulta documental", () => {
     });
   });
 
+  it("trata as 32 perguntas da ata como documentais mesmo sem citar documento", async () => {
+    const questions = [
+      "Qual é o nome do condomínio?",
+      "Quantas unidades residenciais existem?",
+      "Qual é o endereço?",
+      "Em que data ocorreu a assembleia?",
+      "Quem foi eleita síndica?",
+      "Quem foi eleito subsíndico?",
+      "Qual é o valor da cota ordinária?",
+      "Qual é o dia de vencimento da cota?",
+      "Quem presidiu a assembleia?",
+      "Quem secretariou os trabalhos?",
+      "Qual foi o quórum da assembleia?",
+      "Qual é o período do mandato da síndica?",
+      "Quem são os membros do conselho fiscal?",
+      "Qual é o valor total do orçamento mensal?",
+      "Qual é o percentual destinado ao fundo de reserva?",
+      "Até quando o seguro deve ser contratado?",
+      "Qual é o prazo para abertura da conta bancária?",
+      "Quando deve ser publicado o primeiro balancete?",
+      "Quando deve ocorrer a prestação de contas?",
+      "Quais foram as regras aprovadas para pagamentos em atraso?",
+      "Quais deliberações tiveram abstenções ou votos contrários?",
+      "Quais assuntos foram registrados sem deliberação?",
+      "Quais temas ficaram pendentes para a próxima assembleia?",
+      "Quais são as condições para contratação de serviços acima de R$ 20.000,00?",
+      "Quais pendências técnicas foram identificadas nas áreas comuns?",
+      "Quais documentos ou evidências devem ser guardados após a inspeção inicial?",
+      "Quais são as limitações da autorização dada à síndica?",
+      "A ata aprovou regras sobre animais, locações por temporada ou carregadores elétricos?",
+      "Qual é a diferença entre a cota ordinária e a cota inicial de implantação?",
+      "A ata informa o nome de uma administradora?",
+      "Qual CNPJ foi registrado oficialmente?",
+      "A ata substitui a convenção condominial registrada?"
+    ] as const;
+    const gateway = { generate: vi.fn() } as unknown as AnswerGateway;
+    const useCase = createAnswerUseCase({
+      retriever: retrieverFor(createRetrievalResult([])),
+      gateway,
+      persistence: createInMemoryAnswerPersistence(fixedIdFactory("documentary-list"), fixedNow),
+      now: fixedNow,
+      idFactory: fixedIdFactory("documentary-list-interaction")
+    });
+
+    for (const [index, question] of questions.entries()) {
+      const answer = await useCase.ask(managerContext, {
+        question,
+        requestId: `request-documentary-${index}`
+      });
+      expect(answer.answerMode, question).toBe("abstained");
+    }
+
+    expect(gateway.generate).not.toHaveBeenCalled();
+  });
+
   it("explica quando há candidatos, mas o OCR não permite confirmação", async () => {
     const persistence = createInMemoryAnswerPersistence(fixedIdFactory("ocr"), fixedNow);
     const useCase = createAnswerUseCase({

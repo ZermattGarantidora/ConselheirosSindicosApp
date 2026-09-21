@@ -100,7 +100,12 @@ describe("gateway Gemini", () => {
     expect(JSON.stringify(result.telemetry)).not.toContain("secret-key");
     const request = fetch.mock.calls[0]?.[1];
     expect(request?.headers).toMatchObject({ "x-goog-api-key": "secret-key" });
-    const body = JSON.parse(String(request?.body)) as { store: boolean; input: string };
+    const body = JSON.parse(String(request?.body)) as {
+      model: string;
+      store: boolean;
+      input: string;
+    };
+    expect(body.model).toBe("gemini-3.5-flash-lite");
     expect(body.store).toBe(false);
     expect(body.input).toContain("EVIDENCE_DATA_START");
     expect(body.input).not.toContain("alameda");
