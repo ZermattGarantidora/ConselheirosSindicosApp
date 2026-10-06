@@ -10,6 +10,8 @@ const state = {
   pending: false,
   activeSource: undefined
 };
+// Nome provisório do piloto; mantido em um único ponto para facilitar a decisão posterior.
+const provisionalBrand = Object.freeze({ name: "Alvitra", mark: "A" });
 const onboardingView = document.querySelector("#onboardingView");
 const chatView = document.querySelector("#chatView");
 const onboardingContent = document.querySelector("#onboardingContent");
@@ -75,7 +77,7 @@ function renderOnboarding() {
   stepLabel.textContent = `Passo ${step} de 3`;
   progressFill.style.width = `${step * 33.333}%`;
   if (step === 1) {
-    onboardingContent.innerHTML = `<p class="step-kicker">BEM-VINDO À CORA</p><h1 class="step-title">Vamos deixar tudo pronto para você.</h1><p class="step-copy">Antes de começar, conte só o essencial. Assim a Cora fala com você do jeito certo.</p><div class="field-group"><span class="field-label">Como podemos te chamar?</span><input class="text-field" id="nameField" autocomplete="name" placeholder="Seu nome" value="${escapeHtml(state.name)}" /></div><div class="field-group"><span class="field-label">Qual é o seu perfil?</span><div class="role-grid" role="group" aria-label="Perfil profissional">${[
+    onboardingContent.innerHTML = `<p class="step-kicker">BEM-VINDO À ${provisionalBrand.name.toLocaleUpperCase("pt-BR")}</p><h1 class="step-title">Vamos deixar tudo pronto para você.</h1><p class="step-copy">Antes de começar, conte só o essencial. Assim a ${provisionalBrand.name} fala com você do jeito certo.</p><div class="field-group"><span class="field-label">Como podemos te chamar?</span><input class="text-field" id="nameField" autocomplete="name" placeholder="Seu nome" value="${escapeHtml(state.name)}" /></div><div class="field-group"><span class="field-label">Qual é o seu perfil?</span><div class="role-grid" role="group" aria-label="Perfil profissional">${[
       ["manager", "Síndico profissional"],
       ["building", "Síndico morador"],
       ["people", "Administradora"]
@@ -97,7 +99,7 @@ function renderOnboarding() {
       })
     );
   } else if (step === 2) {
-    onboardingContent.innerHTML = `<p class="step-kicker">SEU PRIMEIRO CONTEXTO</p><h1 class="step-title">Qual condomínio você cuida primeiro?</h1><p class="step-copy">A Cora mantém cada condomínio em um espaço separado. Você poderá adicionar outros depois.</p><div class="field-group"><label class="field-label" for="condoField">Nome do condomínio</label><input class="text-field" id="condoField" autocomplete="organization" placeholder="Ex.: Residencial Aurora" value="${escapeHtml(state.condo)}" /></div><div class="field-group"><label class="field-label" for="addressField">Cidade e estado <span style="color:#9aa7a7;font-weight:500">(opcional)</span></label><input class="text-field" id="addressField" autocomplete="address-level2" placeholder="Ex.: São Paulo, SP" value="${escapeHtml(state.address)}" /></div><div id="stepValidation"></div><div class="button-row"><button class="secondary-button" type="button" data-action="back">Voltar</button><button class="primary-button" type="button" data-action="next">Continuar <span class="button-arrow">→</span></button></div>`;
+    onboardingContent.innerHTML = `<p class="step-kicker">SEU PRIMEIRO CONTEXTO</p><h1 class="step-title">Qual condomínio você cuida primeiro?</h1><p class="step-copy">A ${provisionalBrand.name} mantém cada condomínio em um espaço separado. Você poderá adicionar outros depois.</p><div class="field-group"><label class="field-label" for="condoField">Nome do condomínio</label><input class="text-field" id="condoField" autocomplete="organization" placeholder="Ex.: Residencial Aurora" value="${escapeHtml(state.condo)}" /></div><div class="field-group"><label class="field-label" for="addressField">Cidade e estado <span style="color:#9aa7a7;font-weight:500">(opcional)</span></label><input class="text-field" id="addressField" autocomplete="address-level2" placeholder="Ex.: São Paulo, SP" value="${escapeHtml(state.address)}" /></div><div id="stepValidation"></div><div class="button-row"><button class="secondary-button" type="button" data-action="back">Voltar</button><button class="primary-button" type="button" data-action="next">Continuar <span class="button-arrow">→</span></button></div>`;
     document
       .querySelector("#condoField")
       .addEventListener("input", (event) => (state.condo = event.target.value));
@@ -105,7 +107,7 @@ function renderOnboarding() {
       .querySelector("#addressField")
       .addEventListener("input", (event) => (state.address = event.target.value));
   } else {
-    onboardingContent.innerHTML = `<p class="step-kicker">TUDO PRONTO</p><h1 class="step-title">Seu espaço está preparado.</h1><p class="step-copy">A partir de agora, suas perguntas ficam organizadas no contexto certo e a Cora já pode começar a ajudar.</p><div class="ready-card"><div class="ready-card-head"><div class="ready-avatar">${escapeHtml(initials(state.name))}</div><div><strong>${escapeHtml(state.name || "Síndico")}</strong><span>${escapeHtml(state.role)}</span></div></div><div class="ready-message"><strong>${escapeHtml(state.condo || "Seu condomínio")}</strong><span>${escapeHtml(state.address || "Contexto privado")}</span></div></div><div class="button-row"><button class="secondary-button" type="button" data-action="back">Voltar</button><button class="primary-button" type="button" data-action="start">Abrir meu chat <span class="button-arrow">↗</span></button></div>`;
+    onboardingContent.innerHTML = `<p class="step-kicker">TUDO PRONTO</p><h1 class="step-title">Seu espaço está preparado.</h1><p class="step-copy">A partir de agora, suas perguntas ficam organizadas no contexto certo e a ${provisionalBrand.name} já pode começar a ajudar.</p><div class="ready-card"><div class="ready-card-head"><div class="ready-avatar">${escapeHtml(initials(state.name))}</div><div><strong>${escapeHtml(state.name || "Síndico")}</strong><span>${escapeHtml(state.role)}</span></div></div><div class="ready-message"><strong>${escapeHtml(state.condo || "Seu condomínio")}</strong><span>${escapeHtml(state.address || "Contexto privado")}</span></div></div><div class="button-row"><button class="secondary-button" type="button" data-action="back">Voltar</button><button class="primary-button" type="button" data-action="start">Abrir meu chat <span class="button-arrow">↗</span></button></div>`;
   }
   document.querySelector('[data-action="next"]')?.addEventListener("click", () => {
     if (state.step === 1 && !state.name.trim())
@@ -171,17 +173,17 @@ function renderMessages() {
       if (message.role === "user")
         return `<div class="message-row user"><div class="message-content"><div class="message-bubble"><p>${escapeHtml(message.text)}</p></div><div class="message-time">agora · enviado</div></div></div>`;
       if (message.type === "welcome")
-        return `<div class="message-row"><div class="message-avatar">c</div><div class="message-content"><div class="message-bubble welcome-message"><p class="message-intro">Oi, ${escapeHtml(state.name || "tudo bem")}! Eu sou a Cora. ✨</p><p>Estou no contexto de <strong>${escapeHtml(condominium.name)}</strong>. Há <strong>${condominium.files.length} arquivo${condominium.files.length === 1 ? "" : "s"}</strong> disponível${condominium.files.length === 1 ? "" : "is"} só aqui.</p><p>Por onde começamos?</p><div class="quick-actions"><button class="quick-action" data-suggestion="Consultar a convenção sobre locação por temporada">Consultar um documento</button><button class="quick-action" data-suggestion="Quais são as pendências desta semana?">Ver pendências</button><button class="quick-action" data-suggestion="Preciso preparar um aviso para os moradores">Preparar um aviso</button></div></div><div class="message-time">agora · Cora</div></div></div>`;
+        return `<div class="message-row"><div class="message-avatar">${provisionalBrand.mark}</div><div class="message-content"><div class="message-bubble welcome-message"><p class="message-intro">Oi, ${escapeHtml(state.name || "tudo bem")}! Eu sou a ${provisionalBrand.name}. ✨</p><p>Estou no contexto de <strong>${escapeHtml(condominium.name)}</strong>. Há <strong>${condominium.files.length} arquivo${condominium.files.length === 1 ? "" : "s"}</strong> disponível${condominium.files.length === 1 ? "" : "is"} só aqui.</p><p>Por onde começamos?</p><div class="quick-actions"><button class="quick-action" data-suggestion="Consultar a convenção sobre locação por temporada">Consultar um documento</button><button class="quick-action" data-suggestion="Quais são as pendências desta semana?">Ver pendências</button><button class="quick-action" data-suggestion="Preciso preparar um aviso para os moradores">Preparar um aviso</button></div></div><div class="message-time">agora · ${provisionalBrand.name}</div></div></div>`;
       const citation = message.citation
         ? `<button class="citation-link" data-citation-id="${message.citation.id}"><span class="citation-dot"></span>${escapeHtml(message.citation.name)} · ${escapeHtml(message.citation.details)}</button>`
         : "";
-      return `<div class="message-row"><div class="message-avatar">c</div><div class="message-content"><div class="message-bubble"><p>${message.html || escapeHtml(message.text)}</p>${citation}</div><div class="message-time">agora · Cora</div></div></div>`;
+      return `<div class="message-row"><div class="message-avatar">${provisionalBrand.mark}</div><div class="message-content"><div class="message-bubble"><p>${message.html || escapeHtml(message.text)}</p>${citation}</div><div class="message-time">agora · ${provisionalBrand.name}</div></div></div>`;
     })
     .join("");
   if (state.pending)
     messageList.insertAdjacentHTML(
       "beforeend",
-      '<div class="message-row"><div class="message-avatar">c</div><div class="message-content"><div class="message-bubble typing-bubble"><span></span><span></span><span></span></div></div></div>'
+      `<div class="message-row"><div class="message-avatar">${provisionalBrand.mark}</div><div class="message-content"><div class="message-bubble typing-bubble"><span></span><span></span><span></span></div></div></div>`
     );
   document
     .querySelectorAll("[data-suggestion]")

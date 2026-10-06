@@ -1,6 +1,6 @@
 # Protótipo PWA — onboarding e chat
 
-Protótipo estático e responsivo do fluxo de cadastro do síndico até a primeira conversa com a Cora.
+Protótipo estático e responsivo do fluxo de cadastro do síndico até a primeira conversa com a Alvitra, nome provisório do produto e da agente.
 
 ## Executar localmente
 

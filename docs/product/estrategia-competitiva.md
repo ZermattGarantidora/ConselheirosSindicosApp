@@ -2,7 +2,7 @@
 
 **Status:** ativa  
 **Responsáveis:** produto e engenharia  
-**Atualizado em:** 2026-09-04
+**Atualizado em:** 2026-10-06
 **Revisão prevista:** trimestral ou quando surgir evidência relevante de mercado ou de piloto
 
 ## 1. Autoridade e relação com a visão
@@ -98,7 +98,7 @@ Uma versão nova não substitui silenciosamente a anterior. Quando fontes aplic�
 
 Uma afirmação documental só pode ser apresentada quando estiver associada a evidência recuperada e autorizada. A citação deve conter documento, versão, página e trecho, e o trecho deve existir na página indicada e sustentar o sentido da afirmação.
 
-Uma resposta fluente sem evidência suficiente é falha. Nessa situação, o sistema deve se abster, explicar o que foi consultado e indicar qual documento ou validação pode resolver a lacuna.
+Uma afirmação sobre regra, fato ou decisão do condomínio sem evidência suficiente é falha. Nessa situação, o sistema deve se abster da conclusão documental, explicar a lacuna e indicar qual documento ou validação pode resolvê-la. Para não abandonar o usuário, pode oferecer uma orientação geral formulada para a pergunta, desde que ela apareça claramente separada da base documental, sem citação e sem se apresentar como regra local ou parecer profissional.
 
 ### 5.3 Diagnóstico do acervo
 
@@ -138,6 +138,8 @@ O produto pode tratar problemas documentais e operacionais complexos, mas deve e
 
 Facilidade de uso deve ser medida por tempo até o primeiro valor, conclusão do onboarding, abandono, necessidade de suporte e capacidade de usuários reais obterem respostas corretas sem orientação da equipe.
 
+A personalização do perfil do condomínio é uma extensão pequena dessa facilidade: permite reconhecer o espaço de trabalho e manter seus dados básicos sem transformar o Alvitra em um portal operacional. Nome, descrição e fotos servem apenas à identificação; não aumentam a autoridade documental, não entram em respostas e não podem gerar qualificação comercial. Seu valor deve ser observado por conclusão do cadastro e menor confusão ao alternar entre condomínios.
+
 ### 5.8 Separação entre orientação e oferta comercial
 
 Qualquer convite para conhecer a Zermatt deve ser visual e semanticamente separado da resposta da IA, ser compatível com a necessidade apresentada e permitir recusa sem insistência ou perda de funcionalidade. Solicitação de contato, simulação ou envio de dados à equipe comercial exige confirmação explícita.
@@ -160,9 +162,11 @@ Priorizar exclusivamente o núcleo necessário para provar confiança documental
 
 Extração de obrigações e geração de comunicados pertencem ao MVP, mas permanecem fora desta primeira fatia até que a Spec 001 cumpra seus critérios.
 
+Como apoio de usabilidade, a Spec 009 pode permitir ao síndico manter a identificação básica do condomínio (incluindo uma descrição curta e fotos privadas) junto às configurações já existentes. Essa manutenção do cadastro não altera a prioridade do núcleo documental, não cria fluxo operacional para moradores e não permite usar informações de apresentação como evidência.
+
 ### Próximas capacidades do MVP
 
-Depois de validar o núcleo documental, avançar em fatias pequenas para:
+Avançar em fatias pequenas e completas, testadas continuamente pelo usuário, para:
 
 1. demais formatos documentais autorizados pelo briefing;
 2. resumos estruturados;
@@ -171,9 +175,22 @@ Depois de validar o núcleo documental, avançar em fatias pequenas para:
 5. feedback e correções que melhorem a avaliação sem alterar trilhas históricas.
 6. caminho comercial mínimo e separado para o usuário solicitar informações ou uma simulação da Zermatt, somente depois que a utilidade e a confiança do núcleo estiverem demonstradas.
 
-### Somente após validação
+### Exceção de sequenciamento aprovada — balancetes
 
-Comparação de orçamentos, análise contratual aprofundada, preparação de assembleias, gestão de fornecedores, permissões ampliadas, integrações e painel consolidado de carteira só devem avançar quando as evidências de uso e compra justificarem a expansão.
+Em 2026-09-24, o usuário autorizou antecipar “despesas e balancetes” no MVP e definiu a leitura
+integral de PDFs como pré-requisito imediato dessa evolução.
+A decisão testa recorrência, economia de tempo e confiança em um trabalho frequente do síndico e
+fortalece o diferencial de evidência verificável frente a uma IA genérica. A fatia fica limitada a
+extração rastreável, cálculo determinístico, explicação de divergências e rascunho sujeito à revisão
+humana. Não inclui escrituração, auditoria, aprovação de contas, boletos, conciliação sem extratos,
+movimentação bancária ou ação financeira externa.
+
+### Capacidades posteriores
+
+Comparação de orçamentos, análise contratual aprofundada, preparação de assembleias, gestão de fornecedores, permissões ampliadas, integrações e painel consolidado de carteira devem avançar em fatias próprias, com custo e complexidade justificados. A exceção aprovada para balancetes não antecipa essas demais capacidades.
+
+Um piloto formal não é gate de desenvolvimento. Os gates técnicos, de segurança, privacidade,
+isolamento, evidência e revisão humana continuam obrigatórios antes de considerar cada fatia pronta.
 
 ## 7. Fronteiras que não devem ser cruzadas inicialmente
 

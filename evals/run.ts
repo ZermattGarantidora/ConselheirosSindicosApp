@@ -198,8 +198,13 @@ function assertExpectedAnswer(
       throw new Error(`fonte proibida encontrada: ${forbiddenSource}`);
     }
   }
+  const userVisibleGuidance = [
+    body.answer,
+    ...body.attentionPoints,
+    body.suggestedNextStep ?? ""
+  ].join(" ");
   for (const semantic of expected.mustIncludeSemantics ?? []) {
-    if (!containsSemantics(`${body.answer} ${body.suggestedNextStep ?? ""}`, semantic)) {
+    if (!containsSemantics(userVisibleGuidance, semantic)) {
       throw new Error(`semântica obrigatória ausente: ${semantic}`);
     }
   }
@@ -231,7 +236,7 @@ function assertExpectedAnswer(
     }
   }
   for (const source of expected.suggestedMissingSource ?? []) {
-    if (!containsSemantics(`${body.answer} ${body.suggestedNextStep ?? ""}`, source)) {
+    if (!containsSemantics(userVisibleGuidance, source)) {
       throw new Error(`fonte sugerida ausente: ${source}`);
     }
   }

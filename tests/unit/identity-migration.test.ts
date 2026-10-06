@@ -112,6 +112,18 @@ describe("migration de identidade e isolamento", () => {
     expect(migration).toContain("condominium_id = app.current_condominium_id()");
   });
 
+  it("permite ao worker ler e identificar somente documentos do tenant em processamento", async () => {
+    const migration = await readFile(
+      "infrastructure/database/024_worker_document_access.sql",
+      "utf8"
+    );
+
+    expect(migration).toContain("GRANT SELECT, UPDATE ON app.documents TO app_worker");
+    expect(migration).toContain("CREATE POLICY documents_worker_read ON app.documents");
+    expect(migration).toContain("CREATE POLICY documents_worker_update ON app.documents");
+    expect(migration).toContain("condominium_id = app.current_condominium_id()");
+  });
+
   it("cria trilha, fontes e feedback imutáveis com RLS por tenant", async () => {
     const migration = await readFile(
       "infrastructure/database/009_answers_feedback_and_audit.sql",

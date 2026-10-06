@@ -160,6 +160,8 @@ function lexicalScore(query: string, content: string): number {
 function compareEvidence(left: RetrievalEvidence, right: RetrievalEvidence): number {
   return (
     right.rerankScore - left.rerankScore ||
+    Number((right.sourceScope ?? "condominium") === "legislation") -
+      Number((left.sourceScope ?? "condominium") === "legislation") ||
     right.qualityScore - left.qualityScore ||
     right.documentVersionNumber - left.documentVersionNumber ||
     left.pageNumber - right.pageNumber ||

@@ -92,6 +92,7 @@ function validateCitation(
 
   return Object.freeze({
     ...citation,
+    sourceScope: source.sourceScope ?? "condominium",
     startOffset,
     endOffset
   });

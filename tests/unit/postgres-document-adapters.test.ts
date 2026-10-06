@@ -15,7 +15,10 @@ import type {
 } from "../../apps/api/documents/document-processing.js";
 import type { PrivateDocumentReader } from "../../apps/api/documents/private-document-storage.js";
 import type { UploadedDocumentRecord } from "../../apps/api/documents/upload-document.js";
-import { createUserId } from "../../apps/api/identity/authorized-condominium-context.js";
+import {
+  createUserId,
+  type AuthorizedCondominiumContext
+} from "../../apps/api/identity/authorized-condominium-context.js";
 import { createPostgresProcessingJobQueue } from "../../apps/api/worker/postgres-processing-job-queue.js";
 
 type QueryResult = Readonly<{ rows: readonly unknown[]; rowCount?: number }>;
@@ -104,6 +107,232 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
       "22222222-2222-4222-8222-222222222222",
       "confirmed"
     ]);
+  });
+
+  it("lista somente as versões documentais mais recentes no contexto autorizado", async () => {
+    const fake = createFakeClient([
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      {
+        rows: [
+          {
+            condominium_id: "alameda",
+            document_id: "document-1",
+            document_version_id: "version-2",
+            title: "Convenção sintética",
+            document_type: "convention",
+            version_number: "2",
+            size_bytes: "4096",
+            storage_object_id: "44444444-4444-4444-8444-444444444444",
+            processing_status: "ready",
+            validity_status: "confirmed",
+            expected_page_count: "4",
+            processed_page_count: "3",
+            searchable_page_count: "2",
+            unreadable_page_numbers: [4],
+            extraction_completeness: "0.75",
+            extraction_method: "ocr",
+            ocr_quality_score: "0.93",
+            uploaded_by_current_user: false,
+            created_at: "2026-09-23T10:00:00.000Z"
+          },
+          {
+            condominium_id: "alameda",
+            document_id: "document-2",
+            document_version_id: "version-3",
+            title: "Regimento em processamento",
+            document_type: "regulation",
+            version_number: "1",
+            size_bytes: "2048",
+            storage_object_id: "55555555-5555-4555-8555-555555555555",
+            processing_status: "processing",
+            validity_status: "pending",
+            expected_page_count: null,
+            processed_page_count: null,
+            searchable_page_count: null,
+            unreadable_page_numbers: null,
+            extraction_completeness: null,
+            extraction_method: null,
+            ocr_quality_score: null,
+            uploaded_by_current_user: true,
+            created_at: "2026-09-22T10:00:00.000Z"
+          }
+        ]
+      },
+      { rows: [] }
+    ]);
+    const repository = createPostgresDocumentUploadRepository(createPool(fake.client));
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId("alameda"),
+      userId: createUserId("11111111-1111-4111-8111-111111111111"),
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+
+    await expect(repository.listAuthorized(context)).resolves.toEqual([
+      {
+        condominiumId: "alameda",
+        documentId: "document-1",
+        documentVersionId: "version-2",
+        title: "Convenção sintética",
+        documentType: "convention",
+        versionNumber: 2,
+        sizeBytes: 4096,
+        processingStatus: "ready",
+        validityStatus: "confirmed",
+        createdAt: "2026-09-23T10:00:00.000Z",
+        expectedPageCount: 4,
+        processedPageCount: 3,
+        searchablePageCount: 2,
+        unreadablePageNumbers: [4],
+        extractionCompleteness: 0.75,
+        extractionMethod: "ocr",
+        ocrQualityScore: 0.93,
+        storageObjectId: "44444444-4444-4444-8444-444444444444",
+        uploadedByCurrentUser: false
+      },
+      {
+        condominiumId: "alameda",
+        documentId: "document-2",
+        documentVersionId: "version-3",
+        title: "Regimento em processamento",
+        documentType: "regulation",
+        versionNumber: 1,
+        sizeBytes: 2048,
+        processingStatus: "processing",
+        validityStatus: "pending",
+        createdAt: "2026-09-22T10:00:00.000Z",
+        expectedPageCount: null,
+        processedPageCount: null,
+        searchablePageCount: null,
+        unreadablePageNumbers: [],
+        extractionCompleteness: null,
+        extractionMethod: null,
+        ocrQualityScore: null,
+        storageObjectId: "55555555-5555-4555-8555-555555555555",
+        uploadedByCurrentUser: true
+      }
+    ]);
+    expect(fake.queries.map((query) => query.sql)).toEqual([
+      "BEGIN",
+      "SET LOCAL ROLE app_runtime",
+      expect.stringContaining("set_config('app.user_id'"),
+      expect.stringContaining("set_config('app.condominium_id'"),
+      expect.stringContaining("JOIN LATERAL"),
+      "COMMIT"
+    ]);
+    expect(fake.queries[4]?.values).toEqual(["alameda"]);
+    expect(fake.client.release).toHaveBeenCalledOnce();
+  });
+
+  it("arquiva o PDF de qualquer remetente autorizado sem apagar o original recuperável", async () => {
+    const fake = createFakeClient();
+    const repository = createPostgresDocumentUploadRepository(createPool(fake.client));
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId("alameda"),
+      userId: createUserId("11111111-1111-4111-8111-111111111111"),
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+    const archiveAuthorized = repository.archiveAuthorized;
+    expect(archiveAuthorized).toBeDefined();
+
+    await expect(archiveAuthorized!(context, "documento-enviado-por-outra-pessoa")).resolves.toBe(
+      true
+    );
+
+    const archiveQuery = fake.queries.find((query) => query.sql.includes("UPDATE app.documents"));
+    expect(archiveQuery?.sql).not.toContain("uploaded_by_user_id");
+    expect(archiveQuery?.values).toEqual(["alameda", "documento-enviado-por-outra-pessoa"]);
+    expect(
+      fake.queries.some((query) => query.sql.includes("DELETE FROM app.document_original_contents"))
+    ).toBe(false);
+    expect(fake.queries.at(-1)?.sql).toBe("COMMIT");
+  });
+
+  it("não altera um documento quando ele não pode ser arquivado", async () => {
+    const fake = createFakeClient([
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [], rowCount: 0 }
+    ]);
+    const repository = createPostgresDocumentUploadRepository(createPool(fake.client));
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId("alameda"),
+      userId: createUserId("11111111-1111-4111-8111-111111111111"),
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+    const archiveAuthorized = repository.archiveAuthorized;
+    expect(archiveAuthorized).toBeDefined();
+
+    await expect(archiveAuthorized!(context, "documento-inexistente")).resolves.toBe(false);
+    expect(
+      fake.queries.some((query) => query.sql.includes("DELETE FROM app.document_original_contents"))
+    ).toBe(false);
+    expect(fake.queries.at(-1)?.sql).toBe("COMMIT");
+  });
+
+  it("lista a lixeira do condomínio e restaura somente um documento arquivado", async () => {
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId("alameda"),
+      userId: createUserId("11111111-1111-4111-8111-111111111111"),
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+    const archivedFake = createFakeClient([
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      {
+        rows: [
+          {
+            document_id: "documento-removido",
+            title: "Ata removida",
+            archived_at: "2026-10-05T12:00:00.000Z"
+          }
+        ]
+      }
+    ]);
+    const archivedRepository = createPostgresDocumentUploadRepository(
+      createPool(archivedFake.client)
+    );
+    const listArchivedAuthorized = archivedRepository.listArchivedAuthorized;
+    expect(listArchivedAuthorized).toBeDefined();
+    await expect(listArchivedAuthorized!(context)).resolves.toEqual([
+      {
+        condominiumId: "alameda",
+        documentId: "documento-removido",
+        title: "Ata removida",
+        archivedAt: "2026-10-05T12:00:00.000Z"
+      }
+    ]);
+    expect(archivedFake.queries[4]?.sql).toContain("app.document_original_contents");
+
+    const restoreFake = createFakeClient();
+    const restoreRepository = createPostgresDocumentUploadRepository(
+      createPool(restoreFake.client)
+    );
+    const restoreAuthorized = restoreRepository.restoreAuthorized;
+    expect(restoreAuthorized).toBeDefined();
+    await expect(restoreAuthorized!(context, "documento-removido")).resolves.toBe(true);
+    expect(
+      restoreFake.queries.some((query) =>
+        query.sql.includes("SET status = 'active', archived_at = NULL")
+      )
+    ).toBe(true);
+    expect(
+      restoreFake.queries.some((query) => query.sql.includes("app.document_original_contents"))
+    ).toBe(true);
   });
 
   it("faz rollback quando o registro persistido falha", async () => {
@@ -288,7 +517,16 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
           qualityScore: 1,
           contentSha256: "c".repeat(64)
         }
-      ]
+      ],
+      extractionSummary: {
+        expectedPageCount: 1,
+        processedPageCount: 1,
+        searchablePageCount: 1,
+        unreadablePageNumbers: [],
+        extractionCompleteness: 1,
+        extractionMethod: "pdf_text",
+        ocrQualityScore: null
+      }
     };
 
     await repository.saveProcessingResult({
@@ -371,7 +609,16 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
             qualityScore: 1,
             contentSha256: "d".repeat(64)
           }
-        ]
+        ],
+        extractionSummary: {
+          expectedPageCount: 2,
+          processedPageCount: 2,
+          searchablePageCount: 2,
+          unreadablePageNumbers: [],
+          extractionCompleteness: 1,
+          extractionMethod: "pdf_text",
+          ocrQualityScore: null
+        }
       }
     });
 
@@ -398,7 +645,16 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
         ocrQualityScore: null
       },
       pages: [],
-      reason: "pdf_parse_failed"
+      reason: "pdf_parse_failed",
+      extractionSummary: {
+        expectedPageCount: 0,
+        processedPageCount: 0,
+        searchablePageCount: 0,
+        unreadablePageNumbers: [],
+        extractionCompleteness: 0,
+        extractionMethod: null,
+        ocrQualityScore: null
+      }
     };
 
     await expect(

@@ -8,7 +8,7 @@ import { createDevelopmentIdentityRepository } from "../../apps/api/identity/dev
 
 describe("consulta documental", () => {
   it("AC-010 e AC-018: responde no condomínio autorizado com contrato e citação verificável", async () => {
-    const app = await startServer(0);
+    const app = await startServer(0, { DEMO_MODE: "true" });
 
     const response = await app.inject({
       method: "POST",
@@ -47,7 +47,7 @@ describe("consulta documental", () => {
   });
 
   it("AC-014: não usa o corpus de outro condomínio e se abstém quando não há base", async () => {
-    const app = await startServer(0);
+    const app = await startServer(0, { DEMO_MODE: "true" });
 
     const response = await app.inject({
       method: "POST",
@@ -63,7 +63,7 @@ describe("consulta documental", () => {
   });
 
   it("nega a consulta de um condomínio que o usuário não pode acessar", async () => {
-    const app = await startServer(0);
+    const app = await startServer(0, { DEMO_MODE: "true" });
 
     const response = await app.inject({
       method: "POST",
@@ -78,7 +78,7 @@ describe("consulta documental", () => {
   });
 
   it("abre somente a página citada no contexto autorizado", async () => {
-    const app = await startServer(0);
+    const app = await startServer(0, { DEMO_MODE: "true" });
 
     const source = await app.inject({
       method: "GET",
@@ -103,7 +103,7 @@ describe("consulta documental", () => {
   });
 
   it("rejeita pergunta vazia e não expõe uma resposta sem serviço configurado", async () => {
-    const app = await startServer(0);
+    const app = await startServer(0, { DEMO_MODE: "true" });
 
     const invalid = await app.inject({
       method: "POST",

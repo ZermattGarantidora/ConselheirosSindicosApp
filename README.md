@@ -34,7 +34,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 - [Briefing — visão canônica](BRIEFING_PRODUTO_CONSELHEIRO_SINDICO.md)
 - [Definição do MVP](docs/product/mvp.md)
 - [Diretriz de estratégia competitiva](docs/product/estrategia-competitiva.md)
-- [Método de atuação da Cora](docs/product/metodo-atuacao-cora.md)
+- [Método de atuação da Alvitra](docs/product/metodo-atuacao-cora.md)
 - [Glossário](docs/product/glossary.md)
 - [Template obrigatório de spec](docs/specs/TEMPLATE.md)
 - [Spec 001 — consulta documental](docs/specs/001-consulta-documental/spec.md)
@@ -111,16 +111,11 @@ pnpm run dev:api
 pnpm run dev:web
 ```
 
-Ao abrir o cliente local, o fluxo começa em um acesso demonstrativo. É possível escolher os
-condomínios sintéticos existentes ou criar um condomínio de teste temporário; esta criação só é
-habilitada quando a API é iniciada sem `DATABASE_URL`, permanece em memória e não recebe
-documentos automaticamente.
-
-Quando `DATABASE_URL` está definido, o cliente deixa o modo demonstrativo e mostra a entrada de
-conta real. O cadastro usa nome, e-mail e senha de no mínimo 12 caracteres; o servidor guarda
-somente o hash da senha e uma sessão opaca em cookie HttpOnly. Depois do login, nenhuma associação
-é criada automaticamente: a pessoa cria explicitamente seu condomínio e recebe o papel de síndico
-somente nesse novo contexto. Verificação de e-mail, recuperação de senha e MFA ainda são etapas
+Ao abrir o cliente local, o site real é o padrão e exige `DATABASE_URL`. Ele mostra a entrada e o
+cadastro com e-mail e senha. O cadastro usa nome, e-mail e senha de no mínimo 12 caracteres; o
+servidor guarda somente o hash da senha e uma sessão opaca em cookie HttpOnly. Depois do login,
+nenhuma associação é criada automaticamente: a pessoa cria explicitamente seu condomínio e recebe
+o papel de síndico somente nesse novo contexto. Verificação de e-mail, recuperação de senha e MFA ainda são etapas
 obrigatórias antes de um piloto público, conforme a [Spec 006](docs/specs/006-autenticacao-real/spec.md),
 a [Spec 007](docs/specs/007-condominio-real/spec.md), a [Spec 008](docs/specs/008-login-google/spec.md)
 e o [ADR 0011](docs/adr/0011-autenticacao-real-email-senha.md).
@@ -147,6 +142,21 @@ pnpm.cmd run db:migrate:remote
 pnpm.cmd run dev:api
 ```
 
+Depois das migrations, importe ou atualize a Constituição Federal oficial na biblioteca legal
+compartilhada do aplicativo:
+
+```powershell
+pnpm.cmd run legal:import:constitution
+```
+
+O comando aceita somente o PDF HTTPS da Câmara dos Deputados, valida o arquivo, preserva versões e
+grava páginas, trechos e índice vetorial uma única vez para todos os condomínios.
+
+A demonstração sintética não é ativada automaticamente quando o banco está ausente. Para iniciá-la
+deliberadamente, remova `DATABASE_URL` do ambiente, defina `DEMO_MODE=true` e execute a API. Sem
+uma dessas duas configurações, o servidor interrompe a inicialização para não substituir o site real
+por um ambiente de teste.
+
 O comando remoto registra migrations aplicadas em `app.schema_migrations` e interrompe sem alterar
 um banco que já tenha tabelas, mas não tenha esse histórico. O navegador não recebe a credencial do
 banco. A primeira execução precisa usar a credencial administrativa do banco para criar o papel
@@ -154,6 +164,24 @@ restrito `app_runtime`; depois, a API continua usando a mesma URL e troca para e
 consultas protegidas. A migration 012 habilita a criação transacional do condomínio e da membership
 do síndico e a listagem dos grupos autorizados. O comando `db:migrate:neon` continua reservado ao banco de integração
 sintética do ADR 0007.
+
+Para habilitar uma conta administrativa da Zermatt no ambiente controlado, aplique também a
+migration 016. Crie a conta pelo fluxo normal, copie o `userId` retornado pela autenticação e
+configure no servidor os identificadores autorizados, separados por vírgula:
+
+```env
+ADMIN_USER_IDS=00000000-0000-4000-8000-000000000000
+```
+
+No desenvolvimento local, essa configuração pode ficar em `.env.admin.local`, arquivo ignorado
+pelo Git e carregado automaticamente por `pnpm run dev:api` depois de `.env.local`.
+
+A pessoa acessa novamente sua conta pelo login normal depois que o servidor é reiniciado. Quando o
+identificador interno está nessa lista, ela entra diretamente no painel administrativo. O painel mostra somente contas ativas, novos
+cadastros e pessoas com acesso nos últimos sete dias; não consulta nem exibe condomínios,
+documentos, perguntas, respostas ou contatos individuais. Sem `ADMIN_USER_IDS`, o acesso
+administrativo permanece desabilitado. Veja a [Spec 012](docs/specs/012-painel-administrativo-zermatt/spec.md)
+e o [ADR 0014](docs/adr/0014-painel-administrativo-minimizado.md).
 
 A migration 014 mantém o endpoint técnico de revogação de membership por compatibilidade. A ação
 “Sair da gestão e apagar condomínio” da interface usa a migration 015: somente o síndico responsável
@@ -185,6 +213,9 @@ Copy-Item .env.example .env.local
 # Edite .env.local e preencha apenas estas duas linhas:
 # GEMINI_API_KEY=sua-chave
 # GEMINI_MODEL=gemini-3.5-flash-lite
+# GEMINI_TIMEOUT_MS=60000
+# GEMINI_MAX_ATTEMPTS=3
+# GEMINI_RETRY_BASE_DELAY_MS=200
 pnpm run dev:api
 ```
 
@@ -192,6 +223,9 @@ Sem `GEMINI_API_KEY`, o ambiente usa o gateway sintético local. A Gemini recebe
 e os trechos já recuperados para o condomínio autorizado; a saída ainda passa pela validação local
 de citações antes de ser mostrada. Para os testes, o padrão é `gemini-3.5-flash-lite`, priorizando
 o menor custo; `GEMINI_MODEL` permite uma substituição explícita quando um eval exigir outro modelo.
+Falhas transitórias são repetidas até três vezes dentro do orçamento total de
+`GEMINI_TIMEOUT_MS`. Se todas falharem e houver evidência suficiente, o sistema mantém uma resposta
+curta em modo documental local, sem expor um trecho bruto ou fragmentado como resposta.
 
 As perguntas e respostas são registradas pela persistência de respostas e reaparecem ao reabrir o
 condomínio pela rota `GET /v1/condominiums/:condominiumId/history`. Sem `DATABASE_URL`, esse histórico

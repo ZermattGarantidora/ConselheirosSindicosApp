@@ -1,13 +1,13 @@
 # Cronograma e visão de futuro por blocos
 
 **Status:** referência operacional do projeto  
-**Atualizado em:** 2026-09-09
+**Atualizado em:** 2026-09-24
 
 Este documento explica o caminho do produto em blocos. Cada bloco representa uma etapa compreensível do trabalho. A previsão abaixo é indicativa: um bloco só é dado como concluído quando o código, os testes, a segurança e a documentação estiverem coerentes.
 
 ## Em que ponto estamos
 
-Os blocos **B1** a **B6** foram concluídos na fatia local com dados sintéticos. A separação entre condomínios, o fluxo documental, a recuperação, as respostas fundamentadas, o feedback, a auditoria e os 20 evals estão validados; GitHub/CI remoto, piloto e dados reais continuam fora deste escopo.
+Os blocos **B1** a **B6** foram concluídos na fatia local com dados sintéticos. A separação entre condomínios, o fluxo documental, a recuperação, as respostas fundamentadas, o feedback, a auditoria e os 20 evals estão validados. O desenvolvimento segue por módulos enquanto o usuário testa; dados reais externos continuam sujeitos aos gates de privacidade e segurança.
 
 ## Cronograma
 
@@ -19,8 +19,11 @@ Os blocos **B1** a **B6** foram concluídos na fatia local com dados sintéticos
 | **B4 — Encontrar os trechos certos** ✅ | Concluído em 04/09/2026 | Criar a busca que procura somente dentro do condomínio escolhido e encontra as páginas mais relevantes. | O sistema localiza a regra ou decisão relacionada à pergunta. |
 | **B5 — Criar o chat confiável** ✅ | Concluído em 09/09/2026 | Permitir perguntas e continuações em linguagem natural, montar respostas com fontes, reconhecer falta de informação, mostrar conflitos e recomendar especialista quando necessário. | O síndico conversa sem aprender comandos, recebe uma resposta direta, confere a fonte e entende quando não há segurança para responder. |
 | **B6 — Aprender com o uso** ✅ | Concluído em 09/09/2026 | Registrar avaliações, erros, facilidade de uso, tempo de resposta e custo; executar os casos de teste e corrigir problemas. | Sabemos se as respostas estão corretas, se a conversa é fácil, se as fontes ajudam e quanto custa cada resposta aprovada. |
-| **B7 — Preparar e conduzir o piloto** 🔴 | Semanas 8 e 9 | Fazer os últimos testes de segurança, definir uma cobrança acessível, organizar documentos autorizados ou anonimizados e começar um piloto pequeno. Depois que o núcleo demonstrar confiança, testar um convite separado e opcional para conhecer a Zermatt. | Síndicos testam a primeira versão com acompanhamento humano; medimos utilidade, confiança, custo e interesse comercial consentido. |
-| **B8 — Evoluir depois da validação** ⏸️ | Após os gates e o piloto | Avaliar provedor real de IA, GitHub e CI remoto, uso de dados reais, integrações, automações e evolução do fluxo comercial somente quando houver autorização, política de dados e evidência de valor. | O produto evolui sem colocar confiança, segurança ou custo em risco. |
+| **B7 — Garantir leitura integral de PDFs** 🟡 | Próxima fatia | Ler todas as páginas, preservar linhas e tabelas, medir completude e impedir que páginas vazias ou ilegíveis sejam tratadas como prontas. | O síndico vê quantas páginas foram lidas, a qualidade e quais páginas exigem revisão. |
+| **B8.1 — Conferir o balancete** ⏸️ | Depois do B7 | Identificar tipo e competência, extrair valores com origem, permitir correção humana e recalcular receitas, despesas e saldo. | Um balancete produz números conferíveis e cálculos reproduzíveis. |
+| **B8.2 — Analisar as finanças** ⏸️ | Depois do B8.1 | Organizar categorias, fornecedores, duplicidades, variações, orçamento versus realizado, perguntas naturais e documentos ausentes. | O síndico entende o período e abre a evidência de cada conclusão. |
+| **B8.3 — Preparar a prestação de contas** ⏸️ | Depois do B8.2 | Montar rascunho, índice de evidências, impressão, feedback e auditoria final. | Um rascunho completo fica pronto para revisão humana, nunca para aprovação automática. |
+| **B9 — Completar o produto por módulos** ⏸️ | Após cada fatia aprovada | Evoluir obrigações, comunicados, demais documentos, integrações e fluxo comercial em módulos end-to-end, testados continuamente pelo usuário. | O aplicativo cresce sem depender de uma etapa formal de piloto para liberar a próxima funcionalidade. |
 
 O cronograma começa no ponto atual e pode ser ajustado conforme os testes. Se um bloco encontrar um problema de segurança, a prioridade será corrigi-lo antes de avançar.
 
@@ -60,7 +63,10 @@ Essas escolhas mantêm o foco na pergunta principal: **o síndico consegue encon
 
 ## Critério para avançar
 
-Depois do B7, só ampliaremos o produto se o piloto mostrar que os síndicos:
+Por decisão explícita de produto em 2026-09-24, um piloto formal não bloqueia mais o avanço do
+desenvolvimento. Cada módulo pode seguir quando sua fatia vertical estiver utilizável, os testes e
+gates de segurança passarem e o usuário puder testá-la no aplicativo. As métricas abaixo continuam
+úteis para validar o produto durante o uso:
 
 - voltam a usar o sistema semanalmente;
 - economizam tempo de forma perceptível;
@@ -69,8 +75,9 @@ Depois do B7, só ampliaremos o produto se o piloto mostrar que os síndicos:
 - geram um custo sustentável por condomínio;
 - e, sem pressão, parte deles solicita conhecer ou simular os serviços da Zermatt.
 
-O principal resultado econômico do piloto será o número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial. Recorrência, confiança, precisão e facilidade de uso permanecem condições obrigatórias, porque são elas que sustentam a geração dessas oportunidades ao longo do tempo.
+O principal resultado econômico do produto será o número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial. Recorrência, confiança, precisão e facilidade de uso permanecem condições obrigatórias, porque são elas que sustentam a geração dessas oportunidades ao longo do tempo.
 
-Enquanto esses sinais não aparecerem, continuaremos melhorando o núcleo documental em vez de adicionar funções apenas por volume.
+Ausência desses sinais orienta ajustes, mas não impede construir a próxima fatia aprovada. Falhas de
+isolamento, autorização, proteção de dados, cálculo ou evidência continuam bloqueando a entrega.
 
-O fluxo comercial não muda os blocos B4, B5 e B6. Primeiro o produto precisa encontrar a evidência certa, conversar bem, errar o mínimo possível e demonstrar confiança. A aproximação com a Zermatt entra no piloto apenas como uma opção separada, acionada pelo próprio usuário e sem uso oculto dos documentos para prospecção.
+O fluxo comercial não muda os blocos B4, B5 e B6. A aproximação com a Zermatt continua sendo uma opção separada, acionada pelo próprio usuário e sem uso oculto dos documentos para prospecção.

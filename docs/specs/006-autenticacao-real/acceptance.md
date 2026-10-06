@@ -1,7 +1,7 @@
 # Critérios de aceitação — Spec 006
 
 **Status:** aprovado para implementação local
-**Atualizado em:** 2026-09-21
+**Atualizado em:** 2026-09-23
 
 ## AC-601 — Criar conta persistente
 
@@ -61,7 +61,7 @@
 
 ## AC-609 — Manter demonstração local explícita
 
-**Dado** a API iniciada sem `DATABASE_URL`
+**Dado** a API iniciada sem `DATABASE_URL` e com `DEMO_MODE=true`
 **Quando** a pessoa abre o cliente
 **Então** o acesso continua identificado como demonstração
 **E** nenhum cadastro é anunciado como persistente.
@@ -82,4 +82,23 @@
 **Quando** o limite de espera é atingido
 **Então** a interface sai do estado “Preparando seu acesso”
 **E** oferece um caminho para voltar à apresentação
-**E** não mantém os botões de acesso bloqueados indefinidamente.
+**E** não mantém os botões de acesso bloqueados indefinidamente
+**E** não troca silenciosamente o login real pelo acesso demonstrativo.
+
+## AC-612 — Exigir modo real por padrão
+
+**Dado** que `DATABASE_URL` não foi configurada
+**E** `DEMO_MODE=true` não foi definido explicitamente
+**Quando** a API é iniciada
+**Então** a inicialização é recusada com uma mensagem clara
+**E** nenhuma identidade ou informação sintética é disponibilizada.
+
+## AC-613 — Recuperar falha temporária de autenticação
+
+**Dado** um cadastro, login ou acesso de sessão no modo real
+**Quando** uma tentativa falha por DNS, timeout ou conexão encerrada
+**Então** o adaptador repete a operação por uma quantidade pequena e limitada de vezes
+**E** não repete erros de entrada, credencial ou duplicidade
+**E** reconhece uma conta ou sessão que a própria tentativa anterior já tenha criado
+**E** responde `503` com orientação simples se a conexão continuar indisponível
+**E** não expõe mensagem, endereço ou credencial do banco.

@@ -6,6 +6,8 @@ import type { AuthorizedCondominiumContext } from "../identity/authorized-condom
 
 export const retrievalPipelineVersion = "hybrid-v1" as const;
 
+export type EvidenceSourceScope = "condominium" | "legislation";
+
 export type EmbeddingProfile = Readonly<{
   embeddingProfile: string;
   providerKey: string;
@@ -43,6 +45,7 @@ export type RetrievableChunk = Readonly<{
   documentTitle: string;
   documentType: DocumentType;
   sourceKind: "user_upload" | "administrator_import";
+  sourceScope?: EvidenceSourceScope;
   pageId: string;
   pageNumber: number;
   startOffset: number;

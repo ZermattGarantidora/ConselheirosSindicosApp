@@ -1,5 +1,6 @@
 import type { CondominiumId } from "../core/condominium-scope.js";
 import type { UserId } from "../identity/authorized-condominium-context.js";
+import type { EvidenceSourceScope } from "../retrieval/retrieval-contract.js";
 
 export const answerSchemaVersion = "answer-v1" as const;
 export const answerPipelineVersion = "answer-pipeline-v1" as const;
@@ -32,6 +33,7 @@ export type GeneratedCitation = Readonly<{
   title: string;
   page: number;
   excerpt: string;
+  sourceScope?: EvidenceSourceScope;
   startOffset?: number;
   endOffset?: number;
 }>;
@@ -61,6 +63,7 @@ export type AnswerCitation = Readonly<{
   title: string;
   page: number;
   excerpt: string;
+  sourceScope?: EvidenceSourceScope;
   startOffset: number;
   endOffset: number;
 }>;

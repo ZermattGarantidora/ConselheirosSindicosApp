@@ -1,7 +1,7 @@
 # Critérios de aceitação — Spec 001
 
 **Status:** implementação local B1–B6 validada com dados sintéticos
-**Atualizado em:** 2026-09-21
+**Atualizado em:** 2026-09-24
 
 Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser calibrado com a baseline, desde que nenhuma invariante de segurança seja flexibilizada.
 
@@ -103,13 +103,15 @@ Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser cali
 **Quando** a busca termina  
 **Então** `answerMode` é `abstained`  
 **E** a resposta não apresenta conhecimento geral como regra do condomínio  
+**E** pode oferecer orientação geral formulada para a pergunta, claramente identificada como não confirmada nos documentos e sem citação
 **E** sugere o documento ou validação necessários.
 
 ## AC-015 — Abster-se com evidência fraca (P0)
 
 **Dado** somente um trecho incompleto ou OCR de baixa confiança  
 **Quando** ele seria insuficiente para sustentar a conclusão  
-**Então** o sistema se abstém ou responde com limitação explícita, conforme política aprovada.
+**Então** o sistema se abstém da conclusão documental
+**E** pode oferecer orientação geral sem fonte, com a limitação explícita e sem transformar o trecho fraco em regra confirmada.
 
 ## AC-016 — Mostrar conflito documental (P0)
 
@@ -152,7 +154,8 @@ Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser cali
 
 **Dado** que retrieval ou provedor está indisponível  
 **Quando** o usuário faz uma pergunta  
-**Então** `answerMode` é `failed` ou a requisição retorna erro recuperável  
+**Então** o sistema tenta oferecer orientação geral sem fontes quando o provedor de IA continua disponível
+**E** usa `answerMode: failed` ou retorna erro recuperável apenas quando nem essa orientação pode ser gerada com segurança
 **E** nenhuma resposta sintética aparenta ter sido baseada nos documentos.
 
 ## AC-022 — Exigir condomínio selecionado no banco (P0)
@@ -177,14 +180,120 @@ Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser cali
 **Quando** o usuário pergunta, por exemplo, “Qual é o endereço?”, “Quem foi eleita síndica?” ou “Qual é o valor da cota ordinária?”
 **Então** a pergunta segue o fluxo de recuperação documental
 **E** uma resposta afirmativa exige página e trecho verificáveis
-**E** a ausência de evidência produz abstenção, nunca uma resposta geral da IA nem um atalho baseado apenas no cadastro.
+**E** a ausência de evidência não produz um valor, nome, data ou decisão inventados
+**E** uma eventual orientação geral apenas explica a limitação e como obter ou validar a informação.
 
 ## AC-025 — Manter resposta documental durante indisponibilidade do provedor (P0)
 
 **Dado** que a recuperação retornou evidência suficiente e autorizada
 **E** o provedor generativo está temporariamente indisponível ou sem cota
 **Quando** a resposta é solicitada
+**Então** falhas transitórias são repetidas de forma limitada dentro do orçamento total de tempo antes do fallback
 **Então** o fallback local pode responder somente por extração dos trechos recuperados
 **E** mantém citações e validação pós-geração
 **E** informa que operou em modo documental local
+**E** apresenta uma frase curta e completa, sem copiar um bloco bruto, começar ou terminar no meio de palavra ou misturar campos de tabela
+**E** se abstém quando não consegue formular essa frase sem ampliar o sentido da evidência
 **E** erros de autorização, busca, evidência ou contrato não são mascarados pelo fallback.
+
+## AC-026 — Manter cada resposta no turno correto (P0)
+
+**Dado** um turno concluído no chat
+**Quando** o usuário envia uma nova pergunta
+**Então** o turno concluído é preservado no histórico
+**E** a resposta anterior deixa a área ativa antes de aparecer o estado de espera
+**E** nenhuma resposta é exibida como se pertencesse à nova pergunta
+**E** um segundo envio permanece bloqueado enquanto a consulta atual estiver em andamento
+**E** uma confirmação sonora curta é iniciada sem bloquear o envio, mesmo que o áudio não esteja disponível
+**E** uma resposta concluída com sucesso produz um segundo som, diferente do envio, sem tocar como sucesso em caso de falha.
+
+## AC-027 — Evitar metadados repetidos na geração (P1)
+
+**Dado** que o recuperador forneceu evidências autorizadas com documento, versão, página e trecho
+**Quando** o gateway solicita uma resposta documental ao provedor
+**Então** cada citação gerada precisa informar somente o `evidenceId`
+**E** os demais campos da fonte são reconstruídos localmente a partir da evidência autorizada
+**E** uma identificação inexistente continua sendo descartada pela validação
+**E** a redução do conteúdo de saída não altera as citações verificáveis exibidas ao usuário.
+
+## AC-028 — Responder de forma direta sem repetir blocos (P1)
+
+**Dado** um cumprimento ou uma pergunta social simples
+**Quando** o agente responde
+**Então** usa somente uma frase breve e natural
+**E** não apresenta passos genéricos, risco, pontos de atenção ou fontes.
+
+**Dado** que o usuário pergunta, sem incluir um assunto condominial específico, “Como a Alvitra pode me ajudar?”
+**Quando** o agente responde
+**Então** explica brevemente que pode consultar e explicar documentos do condomínio
+**E** não realiza busca documental nem mostra limitação, risco, ponto de atenção ou fonte.
+
+**Dado** uma pergunta substantiva sem evidência documental suficiente
+**Quando** o agente oferece orientação geral
+**Então** a resposta começa pela orientação útil, sem introdução ou despedida
+**E** usa no máximo três frases curtas ou dois passos quando uma sequência for necessária
+**E** a limitação documental aparece uma única vez nos pontos de atenção
+**E** nenhum bloco vazio de fontes é exibido.
+
+**Dado** uma resposta documental fundamentada de risco baixo ou médio
+**Quando** a resposta é exibida
+**Então** não são criados pontos de atenção nem próximo passo genéricos
+**E** a resposta começa pela conclusão e inclui um ou dois detalhes úteis presentes na evidência, quando existirem
+**E** permanece com até 90 palavras, sem alongar o texto com conteúdo genérico
+**E** qualquer condição indispensável para compreender a conclusão aparece de forma curta na resposta direta
+**E** a interface não apresenta cada parte da resposta como uma mensagem separada.
+**E** a interface não adiciona etiquetas rotineiras de “Com base nos documentos” ou “Risco baixo”; as fontes verificáveis são o sinal da base documental.
+
+**Dado** uma abstenção, falha, conflito, risco alto, validação profissional ou degradação relevante do serviço
+**Quando** uma ressalva ou ação for essencial
+**Então** no máximo um ponto de atenção e um próximo passo são exibidos
+**E** eles aparecem dentro do mesmo cartão da resposta direta.
+**E** um indicador visual adicional só aparece quando identifica um conflito, uma falha, risco alto ou uma validação humana relevante.
+
+## AC-029 — Consultar legislação oficial como base principal (P0)
+
+**Dado** um usuário com acesso ativo a qualquer condomínio
+**E** uma versão vigente da Constituição Federal importada de fonte oficial
+**Quando** ele faz uma pergunta substantiva
+**Então** a recuperação consulta a legislação compartilhada e os documentos do condomínio autorizado
+**E** uma fonte legal relevante tem sua origem identificada como legislação oficial
+**E** documento interno e legislação não são confundidos nem misturados com outro condomínio
+**E** a citação legal aponta para título, versão, página e trecho verificáveis
+**E** um trecho legal irrelevante não é exibido somente para preencher a resposta
+**E** uma nova versão legal preserva a anterior e passa por importação administrativa, sem upload do usuário.
+
+## AC-030 — Enviar e identificar documento pela conversa (P1)
+
+**Dado** um usuário autorizado com permissão de envio no condomínio selecionado
+**Quando** ele escolhe um PDF válido pelo botão de documento na conversa
+**Então** o arquivo fica somente anexado localmente, com nome visível
+**E** não é enviado até que o usuário clique na seta de envio da conversa
+**Quando** ele clica na seta de envio
+**Então** o arquivo é enviado somente ao condomínio ativo
+**E** a conversa mostra que o usuário enviou o documento, com seu nome
+**E** a conversa confirma que a leitura foi iniciada sem afirmar que o documento já está pronto
+**E** após a extração, sinais textuais suficientes classificam o documento como convenção,
+regimento interno, ata ou contrato
+**E** ausência de sinal suficiente mantém o tipo como `other`
+**E** conteúdo do PDF não altera permissões, instruções ou o escopo do condomínio.
+
+## AC-031 — Visualizar e remover documento pelo síndico (P0)
+
+**Dado** um usuário autorizado no condomínio selecionado
+**Quando** ele abre um PDF no catálogo
+**Então** o original é servido do banco de dados somente após validar o contexto autorizado
+**E** nenhum arquivo local é necessário para a visualização.
+
+**Dado** um síndico autorizado com permissão de envio no condomínio selecionado
+**E** um PDF registrado nesse condomínio, independentemente de quem o enviou
+**Quando** ele confirma a remoção explícita
+**Então** o documento deixa de integrar a memória consultável do condomínio
+**E** a interface informa que ele pode recuperá-lo por 30 dias
+**E** o PDF original permanece protegido e recuperável até o prazo
+**E** um processo interno apaga o original após 30 dias sem recuperação
+**E** a ação não alcança documento nem PDF de outro condomínio.
+
+**Dado** que o síndico envia uma nova ata e existe outra ata registrada no condomínio
+**Quando** ele confirma o envio
+**Então** a interface pergunta se deseja remover a ata anterior
+**E** não a remove sem essa confirmação.

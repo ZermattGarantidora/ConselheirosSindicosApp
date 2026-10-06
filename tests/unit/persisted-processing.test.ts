@@ -228,9 +228,9 @@ describe("adaptadores persistidos de documentos", () => {
         : result([], 1)
     );
     const outcome: DocumentProcessingOutcome = {
-      status: "completed",
+      status: "needs_review",
       state: {
-        processingStatus: "ready",
+        processingStatus: "needs_review",
         validityStatus: "pending",
         validFrom: null,
         validUntil: null,
@@ -259,7 +259,17 @@ describe("adaptadores persistidos de documentos", () => {
           qualityScore: 0,
           contentSha256: createHash("sha256").update("").digest("hex")
         }
-      ]
+      ],
+      reason: "ocr_unavailable",
+      extractionSummary: {
+        expectedPageCount: 2,
+        processedPageCount: 2,
+        searchablePageCount: 1,
+        unreadablePageNumbers: [2],
+        extractionCompleteness: 0.5,
+        extractionMethod: "pdf_text",
+        ocrQualityScore: null
+      }
     };
     const repository = createPostgresDocumentProcessingRepository(fixture.pool, {
       async readOriginal() {
@@ -275,7 +285,12 @@ describe("adaptadores persistidos de documentos", () => {
       outcome
     });
 
-    expect(fixture.queries.some((query) => query.includes("to_tsvector('portuguese'"))).toBe(true);
+    expect(fixture.queries.some((query) => query.includes("INSERT INTO app.document_pages"))).toBe(
+      true
+    );
+    expect(fixture.queries.some((query) => query.includes("INSERT INTO app.document_chunks"))).toBe(
+      false
+    );
     expect(fixture.queries.some((query) => query.includes("finished_at = now()"))).toBe(true);
     expect(fixture.queries.at(-1)).toBe("COMMIT");
   });
@@ -302,7 +317,16 @@ describe("adaptadores persistidos de documentos", () => {
         ocrQualityScore: null
       },
       pages: [],
-      reason: "pdf_parse_failed"
+      reason: "pdf_parse_failed",
+      extractionSummary: {
+        expectedPageCount: 0,
+        processedPageCount: 0,
+        searchablePageCount: 0,
+        unreadablePageNumbers: [],
+        extractionCompleteness: 0,
+        extractionMethod: null,
+        ocrQualityScore: null
+      }
     };
     const repository = createPostgresDocumentProcessingRepository(fixture.pool, {
       async readOriginal() {
@@ -351,7 +375,16 @@ describe("adaptadores persistidos de documentos", () => {
         validUntil: null,
         ocrQualityScore: null
       },
-      pages: []
+      pages: [],
+      extractionSummary: {
+        expectedPageCount: 0,
+        processedPageCount: 0,
+        searchablePageCount: 0,
+        unreadablePageNumbers: [],
+        extractionCompleteness: 0,
+        extractionMethod: null,
+        ocrQualityScore: null
+      }
     } as DocumentProcessingOutcome;
 
     await expect(

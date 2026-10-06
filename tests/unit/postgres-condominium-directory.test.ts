@@ -69,6 +69,21 @@ describe("diretório PostgreSQL de condomínios", () => {
     expect(fixture.client.release).toHaveBeenCalledOnce();
   });
 
+  it("localiza por CNPJ somente entre os condomínios autorizados da conta", async () => {
+    const fixture = createFixture();
+    const directory = createPostgresCondominiumDirectory(fixture.pool);
+    const userId = createUserId("11111111-1111-4111-8111-111111111111");
+
+    await expect(directory.findAuthorizedByCnpj(userId, "12345678000199")).resolves.toMatchObject({
+      condominiumId: row.condominium_id,
+      roleKey: "manager"
+    });
+    expect(fixture.client.query).toHaveBeenCalledWith(expect.stringContaining("WHERE cnpj = $2"), [
+      userId,
+      "12345678000199"
+    ]);
+  });
+
   it("remove somente a membership da conta ao sair da gestão", async () => {
     const fixture = createFixture();
     const directory = createPostgresCondominiumDirectory(fixture.pool);

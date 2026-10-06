@@ -51,6 +51,7 @@ type CitationRow = Readonly<{
   page_start_offset: number | string;
   page_end_offset: number | string;
   excerpt_snapshot: string;
+  source_scope: "condominium" | "legislation";
 }>;
 
 type ClaimRow = Readonly<{
@@ -128,6 +129,7 @@ function mapAnswer(
           title: citation.document_title_snapshot,
           page: Number(citation.page_number_snapshot),
           excerpt: citation.excerpt_snapshot,
+          sourceScope: citation.source_scope ?? "condominium",
           startOffset: Number(citation.page_start_offset),
           endOffset: Number(citation.page_end_offset)
         })
@@ -179,6 +181,7 @@ async function loadAnswerDetails(
           page_start_offset,
           page_end_offset,
           excerpt_snapshot
+          , source_scope
         FROM app.citations
         WHERE condominium_id = $1 AND answer_id = $2
         ORDER BY ordinal
@@ -261,9 +264,9 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
               INSERT INTO app.retrieval_evidence (
                 condominium_id, retrieval_run_id, document_chunk_id,
                 rank, lexical_score, semantic_score, rerank_score,
-                selected_for_generation, sufficiency_flags
+                selected_for_generation, sufficiency_flags, source_scope
               )
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
             `,
             [
               evidence.condominiumId,
@@ -274,7 +277,8 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
               evidence.semanticScore,
               evidence.rerankScore,
               evidence.selectedForGeneration,
-              JSON.stringify(evidence.sufficiencyFlags)
+              JSON.stringify(evidence.sufficiencyFlags),
+              evidence.sourceScope ?? "condominium"
             ]
           );
         }
@@ -348,9 +352,9 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
                 condominium_id, id, answer_id, answer_claim_id, retrieval_run_id,
                 retrieval_evidence_id, ordinal, document_id, document_version_id, document_title_snapshot,
                 page_number_snapshot, page_start_offset, page_end_offset,
-                excerpt_snapshot, excerpt_sha256
+                excerpt_snapshot, excerpt_sha256, source_scope
               )
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             `,
             [
               input.answer.condominiumId,
@@ -367,7 +371,8 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
               citation.startOffset,
               citation.endOffset,
               citation.excerpt,
-              sha256(citation.excerpt)
+              sha256(citation.excerpt),
+              citation.sourceScope ?? "condominium"
             ]
           );
         }

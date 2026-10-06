@@ -2,7 +2,7 @@
 
 **Status:** aprovada para implementação local  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-09-17
+**Atualizado em:** 2026-09-23
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -56,6 +56,9 @@ Síndico profissional ou síndico morador autenticado que ainda não possui memb
 - Criação persistente de um condomínio com nome, CNPJ, localização e metadados básicos.
 - Criação transacional da membership ativa com papel `manager` para a conta criadora.
 - Continuidade do formulário de documentos iniciais após a autorização do novo contexto.
+- Retomada segura do envio documental quando o condomínio já foi criado pela mesma conta em uma tentativa anterior.
+- Recuperação automática da resposta de criação quando o banco confirma o condomínio, mas a primeira resposta ao navegador falha.
+- Revalidação do contexto e nova tentativa única quando o primeiro envio documental recebe uma negação de autorização transitória.
 - Entrada visual em formato de grupos/conversas, sem integração com WhatsApp externo.
 
 ## 5. Fora do escopo
@@ -100,12 +103,24 @@ Antes do envio, a interface deve listar os campos, documentos ou confirmações 
 Se a API ou o armazenamento documental rejeitar a operação, a mensagem deve identificar a etapa
 que falhou e preservar o motivo retornado, sem expor detalhes sensíveis.
 
+### RQ-707 — Retomar cadastro interrompido
+
+Se a criação do condomínio e da membership terminar, mas o envio da ata falhar, uma nova tentativa com o mesmo CNPJ pela mesma conta deve recuperar o contexto já autorizado e continuar o envio dos documentos. A retomada não pode criar outro condomínio nem outra membership. Se o CNPJ pertencer a um contexto não autorizado para a sessão, a API mantém a resposta genérica de duplicidade e não revela sua identidade.
+
+Se a operação de criação falhar depois de o banco já ter confirmado o condomínio e a membership, a própria requisição deve consultar o CNPJ somente no escopo da conta autenticada e retornar o contexto retomado. A pessoa não deve precisar reenviar o formulário para recuperar uma criação já concluída. Se não houver contexto autorizado, a API mantém a falha segura sem revelar dados de outro condomínio.
+
+### RQ-708 — Revalidar autorização antes de desistir do upload
+
+Se o primeiro envio da ata ou de outro documento receber `401` ou `403`, o cliente deve consultar novamente o contexto do mesmo `condominium_id`. Somente quando o servidor confirmar a mesma sessão com permissão `document:upload`, o cliente pode repetir o envio uma única vez. A recuperação não pode trocar de condomínio, conceder permissão no cliente, repetir falhas de armazenamento ou ocultar uma negação persistente.
+
 ## 8. Contratos
 
 - `GET /v1/condominiums` retorna `200 { condominiums: [...] }` ou `401` sem sessão.
 - `POST /v1/condominiums` recebe nome, CNPJ, cidade, UF e contato/metadados opcionais; retorna `201` com `condominiumId`, papel, permissões e perfil público do condomínio.
-- CNPJ duplicado retorna `409` sem criar uma nova membership.
+- Se o mesmo CNPJ já estiver autorizado para a sessão, `POST /v1/condominiums` retorna `200` com o contexto existente e `resumedRegistration: true`, sem criar outra membership.
+- CNPJ associado a outro contexto não autorizado retorna `409` sem revelar seus dados e sem criar uma nova membership.
 - Falhas de validação retornam `400`; falhas de sessão retornam `401`.
+- O upload usa cookie de mesma origem explicitamente; após `401` ou `403`, uma nova tentativa só ocorre depois de `GET /v1/condominiums/:condominiumId/context` confirmar `document:upload`.
 - O cliente abre a lista de grupos após login e oferece `Criar meu condomínio` quando a lista está vazia.
 
 ## 9. Requisitos não funcionais

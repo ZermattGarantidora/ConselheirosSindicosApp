@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 
 import type { Pool, PoolClient } from "pg";
 
+import type {
+  ArchivedDocument,
+  DocumentCatalogRepository,
+  RegisteredDocument
+} from "./document-catalog.js";
 import type { DocumentUploadRepository, UploadedDocumentRecord } from "./upload-document.js";
+import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 
 type PoolLike = Pick<Pool, "connect">;
 
@@ -37,7 +43,31 @@ async function rollback(client: PoolClient): Promise<void> {
   }
 }
 
-export function createPostgresDocumentUploadRepository(pool: PoolLike): DocumentUploadRepository {
+type DocumentCatalogRow = Readonly<{
+  condominium_id: string;
+  document_id: string;
+  document_version_id: string;
+  title: string;
+  document_type: RegisteredDocument["documentType"];
+  version_number: number | string;
+  size_bytes: number | string;
+  processing_status: RegisteredDocument["processingStatus"];
+  validity_status: RegisteredDocument["validityStatus"];
+  created_at: Date | string;
+  expected_page_count: number | string | null;
+  processed_page_count: number | string | null;
+  searchable_page_count: number | string | null;
+  unreadable_page_numbers: readonly number[] | null;
+  extraction_completeness: number | string | null;
+  extraction_method: "pdf_text" | "ocr" | null;
+  ocr_quality_score: number | string | null;
+  storage_object_id: string;
+  uploaded_by_current_user: boolean;
+}>;
+
+export function createPostgresDocumentUploadRepository(
+  pool: PoolLike
+): DocumentUploadRepository & DocumentCatalogRepository {
   return {
     async recordUploaded(record: UploadedDocumentRecord): Promise<void> {
       const client = await pool.connect();
@@ -174,6 +204,205 @@ export function createPostgresDocumentUploadRepository(pool: PoolLike): Document
 
         await client.query("COMMIT");
       } catch (error: unknown) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async listAuthorized(
+      context: AuthorizedCondominiumContext
+    ): Promise<readonly RegisteredDocument[]> {
+      const client = await pool.connect();
+
+      try {
+        await client.query("BEGIN");
+        await setRuntimeContext(client, {
+          condominiumId: context.condominiumId,
+          userId: context.userId
+        });
+        const result = await client.query<DocumentCatalogRow>(
+          `
+            SELECT
+              documents.condominium_id,
+              documents.id AS document_id,
+              latest_version.id AS document_version_id,
+              documents.title,
+              documents.document_type,
+              latest_version.version_number,
+              latest_version.size_bytes,
+              latest_version.storage_object_id,
+              version_state.processing_status,
+              version_state.validity_status,
+              version_state.expected_page_count,
+              version_state.processed_page_count,
+              version_state.searchable_page_count,
+              version_state.unreadable_page_numbers,
+              version_state.extraction_completeness,
+              version_state.extraction_method,
+              version_state.ocr_quality_score,
+              latest_version.created_at
+            FROM app.documents AS documents
+            JOIN LATERAL (
+              SELECT id, version_number, size_bytes, created_at, storage_object_id,
+                uploaded_by_user_id = app.current_user_id() AS uploaded_by_current_user
+              FROM app.document_versions
+              WHERE condominium_id = documents.condominium_id
+                AND document_id = documents.id
+              ORDER BY version_number DESC
+              LIMIT 1
+            ) AS latest_version ON true
+            JOIN app.document_version_states AS version_state
+              ON version_state.condominium_id = documents.condominium_id
+             AND version_state.document_version_id = latest_version.id
+            WHERE documents.condominium_id = $1
+              AND documents.status = 'active'
+            ORDER BY latest_version.created_at DESC, documents.title ASC
+          `,
+          [context.condominiumId]
+        );
+        await client.query("COMMIT");
+
+        return Object.freeze(
+          result.rows.map((row) =>
+            Object.freeze({
+              condominiumId: context.condominiumId,
+              documentId: row.document_id,
+              documentVersionId: row.document_version_id,
+              title: row.title,
+              documentType: row.document_type,
+              versionNumber: Number(row.version_number),
+              sizeBytes: Number(row.size_bytes),
+              processingStatus: row.processing_status,
+              validityStatus: row.validity_status,
+              createdAt: new Date(row.created_at).toISOString(),
+              expectedPageCount:
+                row.expected_page_count == null ? null : Number(row.expected_page_count),
+              processedPageCount:
+                row.processed_page_count == null ? null : Number(row.processed_page_count),
+              searchablePageCount:
+                row.searchable_page_count == null ? null : Number(row.searchable_page_count),
+              unreadablePageNumbers: Object.freeze(row.unreadable_page_numbers ?? []),
+              extractionCompleteness:
+                row.extraction_completeness == null ? null : Number(row.extraction_completeness),
+              extractionMethod: row.extraction_method ?? null,
+              ocrQualityScore: row.ocr_quality_score == null ? null : Number(row.ocr_quality_score),
+              storageObjectId: row.storage_object_id,
+              uploadedByCurrentUser: row.uploaded_by_current_user
+            })
+          )
+        );
+      } catch (error: unknown) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async archiveAuthorized(context, documentId) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await setRuntimeContext(client, {
+          condominiumId: context.condominiumId,
+          userId: context.userId
+        });
+        const result = await client.query(
+          `UPDATE app.documents AS documents
+           SET status = 'archived', archived_at = now(), updated_at = now()
+           WHERE documents.condominium_id = $1
+             AND documents.id = $2
+             AND documents.status = 'active'`,
+          [context.condominiumId, documentId]
+        );
+        await client.query("COMMIT");
+        return result.rowCount === 1;
+      } catch (error) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async listArchivedAuthorized(context): Promise<readonly ArchivedDocument[]> {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await setRuntimeContext(client, {
+          condominiumId: context.condominiumId,
+          userId: context.userId
+        });
+        const result = await client.query<{
+          document_id: string;
+          title: string;
+          archived_at: Date | string;
+        }>(
+          `SELECT documents.id AS document_id, documents.title, documents.archived_at
+           FROM app.documents AS documents
+           WHERE documents.condominium_id = $1
+             AND documents.status = 'archived'
+             AND EXISTS (
+               SELECT 1
+               FROM app.document_versions AS versions
+               JOIN app.document_original_contents AS contents
+                 ON contents.condominium_id = versions.condominium_id
+                AND contents.storage_object_id = versions.storage_object_id
+               WHERE versions.condominium_id = documents.condominium_id
+                 AND versions.document_id = documents.id
+             )
+           ORDER BY archived_at DESC`,
+          [context.condominiumId]
+        );
+        await client.query("COMMIT");
+        return Object.freeze(
+          result.rows.map((row) =>
+            Object.freeze({
+              condominiumId: context.condominiumId,
+              documentId: row.document_id,
+              title: row.title,
+              archivedAt: new Date(row.archived_at).toISOString()
+            })
+          )
+        );
+      } catch (error) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async restoreAuthorized(context, documentId) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await setRuntimeContext(client, {
+          condominiumId: context.condominiumId,
+          userId: context.userId
+        });
+        const result = await client.query(
+          `UPDATE app.documents AS documents
+           SET status = 'active', archived_at = NULL, updated_at = now()
+           WHERE documents.condominium_id = $1
+             AND documents.id = $2
+             AND documents.status = 'archived'
+             AND EXISTS (
+               SELECT 1
+               FROM app.document_versions AS versions
+               JOIN app.document_original_contents AS contents
+                 ON contents.condominium_id = versions.condominium_id
+                AND contents.storage_object_id = versions.storage_object_id
+               WHERE versions.condominium_id = documents.condominium_id
+                 AND versions.document_id = documents.id
+             )`,
+          [context.condominiumId, documentId]
+        );
+        await client.query("COMMIT");
+        return result.rowCount === 1;
+      } catch (error) {
         await rollback(client);
         throw error;
       } finally {

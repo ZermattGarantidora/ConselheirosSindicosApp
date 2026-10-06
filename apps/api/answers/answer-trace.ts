@@ -19,6 +19,7 @@ export type AnswerSourceRef = Readonly<{
   documentVersionId: string;
   page: number;
   contentSha256: string;
+  sourceScope?: "condominium" | "legislation";
 }>;
 
 export type AnswerTrace = Readonly<{
@@ -121,7 +122,8 @@ function freezeSourceRefs(retrieval: ScopedRetrievalResult): readonly AnswerSour
         documentId: evidence.documentId,
         documentVersionId: evidence.documentVersionId,
         page: evidence.pageNumber,
-        contentSha256: evidence.contentSha256
+        contentSha256: evidence.contentSha256,
+        sourceScope: evidence.sourceScope ?? "condominium"
       })
     )
   );

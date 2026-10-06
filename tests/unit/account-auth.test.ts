@@ -222,6 +222,170 @@ describe("autenticação real por e-mail e senha", () => {
     await expect(auth.authenticate(created.token)).resolves.toBeUndefined();
   });
 
+  it("retoma o cadastro quando a confirmação da primeira gravação se perde", async () => {
+    let createAttempts = 0;
+    let storedAccount:
+      | {
+          user_id: string;
+          auth_subject: string;
+          email: string;
+          display_name: string;
+          password_hash: string;
+          google_subject: null;
+          status: "active";
+        }
+      | undefined;
+    const pool = {
+      async query<T>(text: string, values: readonly unknown[] = []) {
+        if (text.includes("app.create_account")) {
+          createAttempts += 1;
+          if (createAttempts === 1) {
+            storedAccount = {
+              user_id: String(values[0]),
+              auth_subject: String(values[1]),
+              email: String(values[2]),
+              display_name: String(values[3]),
+              password_hash: String(values[4]),
+              google_subject: null,
+              status: "active"
+            };
+            throw Object.assign(new Error("getaddrinfo ENOTFOUND banco"), {
+              code: "ENOTFOUND"
+            });
+          }
+          throw Object.assign(new Error("duplicate key"), { code: "23505" });
+        }
+        if (text.includes("app.find_account_by_email")) {
+          return { rows: storedAccount === undefined ? [] : ([storedAccount] as T[]) };
+        }
+        if (text.includes("app.create_auth_session")) return { rows: [] as T[] };
+        throw new Error(`Consulta inesperada: ${text}`);
+      }
+    } as unknown as Parameters<typeof createPostgresAccountAuth>[0];
+
+    const auth = createPostgresAccountAuth(pool, { wait: async () => undefined });
+    await expect(
+      auth.register({
+        displayName: "Cadastro Recuperado",
+        email: "recuperado@example.test",
+        password: "senha sintética recuperada"
+      })
+    ).resolves.toMatchObject({ account: { email: "recuperado@example.test" } });
+    expect(createAttempts).toBe(2);
+  });
+
+  it("limita as tentativas temporárias e devolve indisponibilidade clara", async () => {
+    let attempts = 0;
+    const pool = {
+      async query() {
+        attempts += 1;
+        throw new AggregateError(
+          [
+            Object.assign(new Error("Connection terminated due to connection timeout"), {
+              code: "ETIMEDOUT"
+            })
+          ],
+          "conexão temporária"
+        );
+      }
+    } as unknown as Parameters<typeof createPostgresAccountAuth>[0];
+    const accountAuth = createPostgresAccountAuth(pool, {
+      attempts: 3,
+      wait: async () => undefined
+    });
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      accountAuth
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/auth/register",
+      payload: {
+        displayName: "Conta Temporária",
+        email: "temporaria@example.test",
+        password: "senha sintética temporária"
+      }
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({
+      message: "O acesso está temporariamente indisponível. Aguarde um instante e tente novamente."
+    });
+    expect(response.body).not.toContain("connection");
+    expect(response.body).not.toContain("banco");
+    expect(attempts).toBe(3);
+    await app.close();
+  });
+
+  it("preserva o erro de autenticação ao atravessar módulos carregados separadamente", async () => {
+    const delegate = createInMemoryAccountAuth();
+    const accountAuth = {
+      ...delegate,
+      async login() {
+        throw Object.assign(new Error("E-mail ou senha inválidos."), {
+          name: "AccountAuthError",
+          code: "invalid_credentials"
+        });
+      }
+    };
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      accountAuth
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: {
+        email: "modulo-separado@example.test",
+        password: "senha sintética separada"
+      }
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ message: "E-mail ou senha inválidos." });
+    await app.close();
+  });
+
+  it("não repete uma duplicidade real de e-mail", async () => {
+    let createAttempts = 0;
+    const pool = {
+      async query<T>(text: string) {
+        if (text.includes("app.create_account")) {
+          createAttempts += 1;
+          throw Object.assign(new Error("duplicate key"), { code: "23505" });
+        }
+        if (text.includes("app.find_account_by_email")) {
+          return {
+            rows: [
+              {
+                user_id: "00000000-0000-4000-8000-000000000099",
+                auth_subject: "outra-conta",
+                email: "existente@example.test",
+                display_name: "Outra Conta",
+                password_hash: "hash",
+                google_subject: null,
+                status: "active"
+              }
+            ] as T[]
+          };
+        }
+        throw new Error(`Consulta inesperada: ${text}`);
+      }
+    } as unknown as Parameters<typeof createPostgresAccountAuth>[0];
+    const auth = createPostgresAccountAuth(pool, { wait: async () => undefined });
+
+    await expect(
+      auth.register({
+        displayName: "Nova Conta",
+        email: "existente@example.test",
+        password: "senha sintética existente"
+      })
+    ).rejects.toMatchObject({ code: "email_taken" });
+    expect(createAttempts).toBe(1);
+  });
+
   it("expõe as rotas de conta e rejeita a identidade de desenvolvimento no modo real", async () => {
     const app = createApi({
       membershipRepository: createDevelopmentIdentityRepository(),
@@ -270,6 +434,31 @@ describe("autenticação real por e-mail e senha", () => {
     ).resolves.toMatchObject({
       statusCode: 401
     });
+    await app.close();
+  });
+
+  it("mantém a configuração pública quando um cookie antigo não pode ser validado", async () => {
+    const delegate = createInMemoryAccountAuth();
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      accountAuth: {
+        ...delegate,
+        async authenticate() {
+          throw new Error("sessão indisponível");
+        }
+      }
+    });
+    await app.ready();
+    const headers = { cookie: "conselheiro_session=token-antigo" };
+
+    const [health, runtime] = await Promise.all([
+      app.inject({ method: "GET", url: "/health", headers }),
+      app.inject({ method: "GET", url: "/v1/runtime", headers })
+    ]);
+
+    expect(health.statusCode).toBe(200);
+    expect(runtime.statusCode).toBe(200);
+    expect(runtime.json()).toMatchObject({ authMode: "real" });
     await app.close();
   });
 

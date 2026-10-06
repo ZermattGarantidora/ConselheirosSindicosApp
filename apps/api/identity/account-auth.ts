@@ -46,7 +46,8 @@ export type AccountAuthSession = Readonly<{
 
 export class AccountAuthError extends Error {
   public constructor(
-    public readonly code: "invalid_input" | "email_taken" | "invalid_credentials",
+    public readonly code:
+      "invalid_input" | "email_taken" | "invalid_credentials" | "temporarily_unavailable",
     message: string
   ) {
     super(message);

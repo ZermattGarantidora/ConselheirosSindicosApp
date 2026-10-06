@@ -12,7 +12,7 @@ function createFakeClient() {
     if (sql.includes("resolve_user_id")) {
       return { rows: [{ user_id: "11111111-1111-4111-8111-111111111111" }] };
     }
-    if (sql.includes("WITH authorized_chunks")) {
+    if (sql.includes("WITH condominium_chunks")) {
       return {
         rows: [
           {
@@ -24,6 +24,7 @@ function createFakeClient() {
             document_title: "Convenção Alameda",
             document_type: "convention",
             source_kind: "user_upload",
+            source_scope: "condominium",
             page_id: "page-1",
             page_number: "4",
             start_offset: "0",
@@ -87,11 +88,13 @@ describe("índice PostgreSQL de retrieval", () => {
       expect.stringContaining("resolve_user_id"),
       expect.stringContaining("set_config('app.user_id'"),
       expect.stringContaining("set_config('app.condominium_id'"),
-      expect.stringContaining("WITH authorized_chunks"),
+      expect.stringContaining("WITH condominium_chunks"),
       "COMMIT"
     ]);
-    const retrievalQuery = fake.queries.find((query) => query.includes("WITH authorized_chunks"));
+    const retrievalQuery = fake.queries.find((query) => query.includes("WITH condominium_chunks"));
     expect(retrievalQuery).toContain("dc.condominium_id = app.current_condominium_id()");
+    expect(retrievalQuery).toContain("FROM app.legal_source_chunks");
+    expect(retrievalQuery).toContain("SELECT * FROM legislation_chunks");
     expect(retrievalQuery).toContain("dvs.processing_status = 'ready'");
     expect(retrievalQuery).toContain("dvs.validity_status IN ('confirmed', 'not_applicable')");
     expect(retrievalQuery).toContain("search_vector @@ plainto_tsquery");
@@ -111,7 +114,7 @@ describe("índice PostgreSQL de retrieval", () => {
     const fake = createFakeClient();
     fake.client.query = vi.fn(async (sql: string) => {
       fake.queries.push(sql);
-      if (sql.includes("WITH authorized_chunks")) {
+      if (sql.includes("WITH condominium_chunks")) {
         throw new Error("retrieval unavailable");
       }
       if (sql.includes("resolve_user_id")) {

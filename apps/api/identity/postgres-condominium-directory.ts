@@ -47,6 +47,7 @@ export class CondominiumAlreadyExistsError extends Error {
 
 export interface CondominiumDirectory {
   listAuthorized(userId: UserId): Promise<readonly AuthorizedCondominium[]>;
+  findAuthorizedByCnpj(userId: UserId, cnpj: string): Promise<AuthorizedCondominium | undefined>;
   createForUser(userId: UserId, input: CreateCondominiumInput): Promise<AuthorizedCondominium>;
   leaveForUser(userId: UserId, condominiumId: string): Promise<void>;
   deleteForUser(userId: UserId, condominiumId: string): Promise<void>;
@@ -102,6 +103,31 @@ export function createPostgresCondominiumDirectory(pool: PoolLike): CondominiumD
         );
         await client.query("COMMIT");
         return Object.freeze(result.rows.map(toAuthorizedCondominium));
+      } catch (error: unknown) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async findAuthorizedByCnpj(userId, cnpj) {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("SET LOCAL ROLE app_runtime");
+        const result = await client.query<DirectoryRow>(
+          `
+            SELECT *
+            FROM app.list_authorized_condominiums($1)
+            WHERE cnpj = $2
+            LIMIT 1
+          `,
+          [userId, cnpj]
+        );
+        await client.query("COMMIT");
+        const row = result.rows[0];
+        return row === undefined ? undefined : toAuthorizedCondominium(row);
       } catch (error: unknown) {
         await rollback(client);
         throw error;

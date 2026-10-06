@@ -1,7 +1,7 @@
 # Critérios de aceitação — Spec 003
 
 **Status:** aprovado para implementação local
-**Atualizado em:** 2026-09-15
+**Atualizado em:** 2026-09-22
 
 ## AC-301 — Mostrar a entrada demonstrativa
 
@@ -104,3 +104,27 @@
 **Quando** o chat procura evidências
 **Então** o PDF ilegível é sinalizado para revisão e não sustenta a resposta
 **E** os trechos enviados a um condomínio não aparecem na busca de outro.
+
+## AC-315 — Adaptar a navegação ao dispositivo
+
+**Dado** que um condomínio autorizado está aberto
+**Quando** a interface é exibida em uma tela larga
+**Então** o chat ocupa a área principal e a lista de condomínios aparece em um painel lateral menor
+**E** a pessoa pode ocultar e reabrir esse painel sem sair da conversa
+**E** pode trocar o condomínio selecionado pelo painel sem misturar históricos
+
+**Quando** a mesma conversa é exibida em uma tela estreita
+**Então** o painel lateral não ocupa espaço
+**E** a seta de retorno no cabeçalho abre a lista de condomínios em tela inteira.
+
+## AC-316 — Manter os controles do cadastro acessíveis
+
+**Dado** que o cadastro possui conteúdo maior que a altura da janela
+**Quando** a pessoa rola os campos em uma tela larga
+**Então** o painel “4 — Documentos iniciais” permanece visível na coluna lateral
+**E** a barra de ações permanece fixada na parte inferior da janela
+**E** nenhum campo ou aviso fica oculto atrás da barra.
+
+**Quando** o cadastro é usado em uma tela estreita
+**Então** o painel de documentos acompanha o fluxo vertical
+**E** a barra de ações permanece acessível na parte inferior com área segura para toque.

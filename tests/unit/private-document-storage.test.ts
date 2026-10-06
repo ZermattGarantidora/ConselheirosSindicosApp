@@ -31,7 +31,8 @@ describe("storage privado de documentos", () => {
         storage.storeOriginal({
           condominiumId: createCondominiumId("alameda"),
           objectId,
-          content: Buffer.from("%PDF-1.7")
+          content: Buffer.from("%PDF-1.7"),
+          uploadedByUserId: "sindico-demo"
         })
       ).resolves.toEqual({
         storageKey: createPrivateStorageKey(createCondominiumId("alameda"), objectId)
@@ -43,7 +44,11 @@ describe("storage privado de documentos", () => {
         })
       ).resolves.toEqual(Buffer.from("%PDF-1.7"));
       await expect(
-        storage.removeOriginal({ condominiumId: createCondominiumId("alameda"), objectId })
+        storage.removeOriginal({
+          condominiumId: createCondominiumId("alameda"),
+          objectId,
+          uploadedByUserId: "sindico-demo"
+        })
       ).resolves.toBeUndefined();
     } finally {
       await rm(rootDirectory, { recursive: true, force: true });
