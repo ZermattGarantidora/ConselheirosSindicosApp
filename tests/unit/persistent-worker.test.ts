@@ -30,9 +30,7 @@ describe("worker persistido", () => {
   });
 
   it("fecha o pool quando não há job disponível", async () => {
-    await expect(
-      startPersistentWorker("postgresql://synthetic", ".local/synthetic-documents", {})
-    ).resolves.toBe("idle");
+    await expect(startPersistentWorker("postgresql://synthetic", {})).resolves.toBe("idle");
 
     await expect(
       startPersistentWorkerFromEnvironment({

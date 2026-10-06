@@ -4,7 +4,7 @@ import type { AuthorizedCondominiumContext } from "../identity/authorized-condom
 import type { DocumentType } from "./document-model.js";
 import type { PrivateDocumentStorage } from "./private-document-storage.js";
 
-export const maximumPdfUploadBytes = 10 * 1024 * 1024;
+export const maximumPdfUploadBytes = 25 * 1024 * 1024;
 
 export type UploadedDocumentRecord = Readonly<{
   condominiumId: AuthorizedCondominiumContext["condominiumId"];
@@ -100,7 +100,8 @@ export async function uploadDocument(
   const stored = await storage.storeOriginal({
     condominiumId: context.condominiumId,
     objectId: storageObjectId,
-    content: input.content
+    content: input.content,
+    uploadedByUserId: context.userId
   });
   const record: UploadedDocumentRecord = Object.freeze({
     condominiumId: context.condominiumId,
@@ -122,7 +123,8 @@ export async function uploadDocument(
   } catch (error: unknown) {
     await storage.removeOriginal({
       condominiumId: context.condominiumId,
-      objectId: storageObjectId
+      objectId: storageObjectId,
+      uploadedByUserId: context.userId
     });
     throw error;
   }

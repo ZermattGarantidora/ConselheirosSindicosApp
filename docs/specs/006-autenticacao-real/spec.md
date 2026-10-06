@@ -2,7 +2,7 @@
 
 **Status:** aprovada para implementação local
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-09-21
+**Atualizado em:** 2026-09-23
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -19,7 +19,7 @@
 ### Limites respeitados
 
 - A primeira versão usa e-mail e senha com armazenamento transacional no PostgreSQL; não adiciona login social ou provedor externo.
-- O modo sem `DATABASE_URL` continua explicitamente demonstrativo e não cria contas persistentes.
+- O modo real é o padrão. A demonstração local exige `DEMO_MODE=true` e não cria contas persistentes.
 - Verificação de e-mail, recuperação de senha, MFA, rate limiting distribuído e gestão de sessões de dispositivos ficam fora desta fatia e são pré-requisitos para um piloto público.
 - Não cria condomínios automaticamente ao registrar a conta e não altera o isolamento documental existente.
 - Não implementa contabilidade, boletos, portaria, marketplace ou ações externas.
@@ -57,8 +57,9 @@ Síndico profissional ou síndico morador que inicia o uso do conselheiro com da
 - Consulta da sessão atual para restaurar a interface após recarregar a página.
 - Persistência de usuário e sessões no PostgreSQL.
 - Hash de senha com `scrypt`, salt aleatório e comparação em tempo constante.
-- Continuidade do acesso demonstrativo somente no modo local sem banco.
+- Continuidade do acesso demonstrativo somente quando ativado de forma explícita no ambiente local sem banco.
 - Tela de entrada com alternância clara entre entrar e criar conta.
+- Recuperação automática e limitada de falhas temporárias de conexão com o banco durante autenticação.
 
 ## 5. Fora do escopo
 
@@ -71,7 +72,7 @@ Síndico profissional ou síndico morador que inicia o uso do conselheiro com da
 ## 6. Pré-condições
 
 - O ambiente persistente usa PostgreSQL com as migrations aplicadas.
-- A aplicação define `DATABASE_URL` somente fora do modo demonstrativo.
+- A aplicação real exige `DATABASE_URL`; sem ela, o servidor só inicia quando `DEMO_MODE=true` for definido explicitamente.
 - O servidor é acessado por HTTPS em produção para que o cookie possa ser `Secure`.
 
 ## 7. Requisitos funcionais
@@ -108,13 +109,22 @@ A explicação complementar sobre evidência deve fazer parte da composição ed
 
 ### RQ-608 — Falha recuperável na descoberta do ambiente
 
-Se a verificação inicial do ambiente não responder, a entrada não pode permanecer bloqueada indefinidamente. O cliente deve sair do estado de espera após um limite curto e oferecer um caminho de retorno para a apresentação, preservando o acesso demonstrativo local quando aplicável.
+Se a verificação inicial do ambiente não responder, a entrada não pode permanecer bloqueada indefinidamente. O cliente deve sair do estado de espera após um limite curto e oferecer um caminho de retorno para a apresentação. Uma falha de conexão não pode rebaixar silenciosamente um ambiente persistente para o acesso demonstrativo; o modo demonstrativo só pode ser exibido quando a configuração pública do servidor o declarar explicitamente.
+
+### RQ-609 — Modo real por padrão
+
+O servidor deve exigir a configuração persistente com `DATABASE_URL` por padrão. A ausência do banco não pode iniciar automaticamente identidades, condomínios ou documentos sintéticos. A demonstração local só pode ser iniciada por decisão explícita com `DEMO_MODE=true`; fora dessa condição, a inicialização deve falhar com uma mensagem clara de configuração.
+
+### RQ-610 — Recuperar oscilação temporária do banco
+
+Cadastro, login, restauração e encerramento de sessão devem repetir de forma automática e limitada somente as operações que falharem por conexão temporária, DNS, timeout ou encerramento de socket. Erros de entrada, credencial, duplicidade e regras do banco não podem ser repetidos. Operações de criação devem reconhecer o próprio resultado quando a confirmação da primeira tentativa for perdida, evitando informar duplicidade indevida. Se a conexão continuar indisponível, a API deve responder `503` com uma orientação simples para tentar novamente, sem expor detalhes internos.
 
 ## 8. Contratos
 
 - `POST /v1/auth/register` recebe `{ displayName, email, password }` e retorna `201` com o usuário público e a expiração da sessão.
 - `POST /v1/auth/login` recebe `{ email, password }` e retorna `200` com o usuário público e a expiração da sessão.
 - `GET /v1/auth/session` retorna `200` com o usuário público ou `401` sem sessão válida.
+- `GET /v1/runtime` retorna a configuração pública necessária para o cliente distinguir autenticação real, demonstração e restauração de sessão, sem cache.
 - `POST /v1/auth/logout` revoga a sessão atual e retorna `204`.
 - Erros de entrada retornam `400`; credenciais inválidas retornam `401`; e-mail já cadastrado retorna `409` sem confirmar dados além do necessário.
 - Rotas de domínio no modo persistente ignoram `x-development-user-id` e retornam `401` sem sessão válida.

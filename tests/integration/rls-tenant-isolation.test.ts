@@ -1,15 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { Pool, type PoolClient } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 import { createApi } from "../../apps/api/app/create-api.js";
 import { createScopedDocumentProcessor } from "../../apps/api/documents/document-processing.js";
-import { createLocalPrivateDocumentStorage } from "../../apps/api/documents/private-document-storage.js";
+import { createPostgresPrivateDocumentStorage } from "../../apps/api/documents/postgres-private-document-storage.js";
 import { createPostgresDocumentUploadRepository } from "../../apps/api/documents/postgres-document-upload-repository.js";
 import { unavailableOcrAdapter } from "../../apps/api/documents/ocr-quality.js";
 import { uploadDocument } from "../../apps/api/documents/upload-document.js";
@@ -37,7 +33,7 @@ const userId = randomUUID();
 
 async function resetFixtures(client: PoolClient): Promise<void> {
   await client.query(
-    "TRUNCATE app.audit_events, app.model_invocation_evidence, app.model_invocations, app.feedback, app.citations, app.answer_claims, app.answers, app.retrieval_evidence, app.retrieval_runs, app.questions, app.document_chunk_embeddings, app.document_chunks, app.document_pages, app.processing_jobs, app.document_version_states, app.document_versions, app.documents, app.storage_objects, app.memberships, app.condominiums, app.users CASCADE"
+    "TRUNCATE app.audit_events, app.model_invocation_evidence, app.model_invocations, app.feedback, app.citations, app.answer_claims, app.answers, app.retrieval_evidence, app.retrieval_runs, app.questions, app.document_chunk_embeddings, app.document_chunks, app.document_pages, app.processing_jobs, app.document_version_states, app.document_versions, app.documents, app.document_original_contents, app.storage_objects, app.memberships, app.condominiums, app.users CASCADE"
   );
   await client.query("INSERT INTO app.users (id, auth_subject, status) VALUES ($1, $2, 'active')", [
     userId,
@@ -75,6 +71,18 @@ async function asRuntime<T>(
   } finally {
     client.release();
   }
+}
+
+async function processQueuedJob(
+  queue: ReturnType<typeof createPostgresProcessingJobQueue>,
+  processor: ReturnType<typeof createScopedDocumentProcessor>
+): Promise<"processed" | "idle"> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const result = await processOne(queue, processor);
+    if (result === "processed" || attempt === 2) return result;
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
+  }
+  return "idle";
 }
 
 describe("RLS de isolamento por condomínio", () => {
@@ -145,7 +153,6 @@ describe("RLS de isolamento por condomínio", () => {
   });
 
   it("persiste o upload, reivindica o job e publica páginas e chunks no tenant correto", async () => {
-    const rootDirectory = await mkdtemp(join(tmpdir(), "conselheiro-neon-processing-"));
     const content = createSyntheticTextPdf();
     const context: AuthorizedCondominiumContext = {
       condominiumId: createCondominiumId(alamedaId),
@@ -154,22 +161,31 @@ describe("RLS de isolamento por condomínio", () => {
       membershipRevision: "v1",
       permissions: ["document:read", "document:upload"]
     };
-    const storage = createLocalPrivateDocumentStorage(rootDirectory);
+    const storage = createPostgresPrivateDocumentStorage(pool);
 
-    try {
-      const uploaded = await uploadDocument(
-        storage,
-        createPostgresDocumentUploadRepository(pool),
-        context,
-        { title: "Convenção Alameda sintética", documentType: "convention", content }
-      );
+    const uploaded = await uploadDocument(
+      storage,
+      createPostgresDocumentUploadRepository(pool),
+      context,
+      { title: "Convenção Alameda sintética", documentType: "convention", content }
+    );
 
-      const queued = await pool.query<{
-        status: string;
-        processing_status: string;
-        current_processing_job_id: string;
-      }>(
-        `
+    const storedOriginal = await pool.query<{ size_bytes: string }>(
+      `
+        SELECT octet_length(content)::text AS size_bytes
+        FROM app.document_original_contents
+        WHERE condominium_id = $1 AND storage_object_id = $2
+      `,
+      [alamedaId, uploaded.storageObjectId]
+    );
+    expect(storedOriginal.rows).toEqual([{ size_bytes: String(content.length) }]);
+
+    const queued = await pool.query<{
+      status: string;
+      processing_status: string;
+      current_processing_job_id: string;
+    }>(
+      `
           SELECT pj.status, dvs.processing_status, dvs.current_processing_job_id
           FROM app.processing_jobs AS pj
           JOIN app.document_version_states AS dvs
@@ -177,32 +193,32 @@ describe("RLS de isolamento por condomínio", () => {
             AND dvs.document_version_id = pj.document_version_id
           WHERE pj.condominium_id = $1 AND pj.document_version_id = $2
         `,
-        [alamedaId, uploaded.documentVersionId]
-      );
+      [alamedaId, uploaded.documentVersionId]
+    );
 
-      expect(queued.rows).toMatchObject([
-        {
-          status: "queued",
-          processing_status: "uploaded",
-          current_processing_job_id: expect.any(String)
-        }
-      ]);
+    expect(queued.rows).toMatchObject([
+      {
+        status: "queued",
+        processing_status: "uploaded",
+        current_processing_job_id: expect.any(String)
+      }
+    ]);
 
-      const processorRepository = createPostgresDocumentProcessingRepository(pool, storage);
-      const result = await processOne(
-        createPostgresProcessingJobQueue(pool),
-        createScopedDocumentProcessor(processorRepository, unavailableOcrAdapter)
-      );
+    const processorRepository = createPostgresDocumentProcessingRepository(pool, storage);
+    const result = await processQueuedJob(
+      createPostgresProcessingJobQueue(pool),
+      createScopedDocumentProcessor(processorRepository, unavailableOcrAdapter)
+    );
 
-      expect(result).toBe("processed");
-      const processed = await pool.query<{
-        job_status: string;
-        processing_status: string;
-        page_count: string;
-        chunk_count: string;
-        extracted_text: string;
-      }>(
-        `
+    expect(result).toBe("processed");
+    const processed = await pool.query<{
+      job_status: string;
+      processing_status: string;
+      page_count: string;
+      chunk_count: string;
+      extracted_text: string;
+    }>(
+      `
           SELECT
             pj.status AS job_status,
             dvs.processing_status,
@@ -215,28 +231,24 @@ describe("RLS de isolamento por condomínio", () => {
             AND dvs.document_version_id = pj.document_version_id
           WHERE pj.condominium_id = $1 AND pj.document_version_id = $2
         `,
-        [alamedaId, uploaded.documentVersionId]
-      );
+      [alamedaId, uploaded.documentVersionId]
+    );
 
-      expect(processed.rows).toEqual([
-        {
-          job_status: "completed",
-          processing_status: "ready",
-          page_count: "2",
-          chunk_count: "2",
-          extracted_text: "Regra da primeira pagina"
-        }
-      ]);
-    } finally {
-      await rm(rootDirectory, { recursive: true, force: true });
-    }
+    expect(processed.rows).toEqual([
+      {
+        job_status: "completed",
+        processing_status: "ready",
+        page_count: "2",
+        chunk_count: "2",
+        extracted_text: "Regra da primeira pagina"
+      }
+    ]);
   });
 
   it("usa a API persistente e cria a segunda versão do mesmo documento", async () => {
-    const rootDirectory = await mkdtemp(join(tmpdir(), "conselheiro-neon-api-"));
     const app = createApi({
       membershipRepository: createPostgresMembershipRepository(pool),
-      documentStorage: createLocalPrivateDocumentStorage(rootDirectory),
+      documentStorage: createPostgresPrivateDocumentStorage(pool),
       documentUploadRepository: createPostgresDocumentUploadRepository(pool)
     });
     const content = createSyntheticTextPdf();
@@ -276,7 +288,6 @@ describe("RLS de isolamento por condomínio", () => {
       expect(versions.rows.map((row) => Number(row.version_number))).toEqual([1, 2]);
     } finally {
       await app.close();
-      await rm(rootDirectory, { recursive: true, force: true });
     }
   });
 
@@ -378,11 +389,32 @@ describe("RLS de isolamento por condomínio", () => {
       asOf: new Date("2026-09-01T00:00:00.000Z")
     };
 
-    await expect(index.findAuthorizedCandidates(alamedaContext, input)).resolves.toMatchObject([
-      { condominiumId: alamedaId, content: "Regra sintética ALAMEDA" }
-    ]);
-    await expect(index.findAuthorizedCandidates(bosqueContext, input)).resolves.toMatchObject([
-      { condominiumId: bosqueId, content: "Regra sintética BOSQUE" }
-    ]);
+    const alamedaEvidence = await index.findAuthorizedCandidates(alamedaContext, input);
+    const bosqueEvidence = await index.findAuthorizedCandidates(bosqueContext, input);
+
+    expect(alamedaEvidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          condominiumId: alamedaId,
+          content: "Regra sintética ALAMEDA",
+          sourceScope: "condominium"
+        })
+      ])
+    );
+    expect(bosqueEvidence).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          condominiumId: bosqueId,
+          content: "Regra sintética BOSQUE",
+          sourceScope: "condominium"
+        })
+      ])
+    );
+    expect(alamedaEvidence).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ condominiumId: bosqueId })])
+    );
+    expect(bosqueEvidence).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ condominiumId: alamedaId })])
+    );
   });
 });

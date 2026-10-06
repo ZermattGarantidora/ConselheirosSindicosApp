@@ -32,6 +32,11 @@ describe("seleção de condomínio", () => {
       googleAuthEnabled: false,
       authSessionRestore: false
     });
+
+    const runtime = await app.inject({ method: "GET", url: "/v1/runtime" });
+    expect(runtime.statusCode).toBe(200);
+    expect(runtime.headers["cache-control"]).toBe("no-store");
+    expect(runtime.json()).toEqual(response.json());
   });
 
   it("AC-001: devolve o contexto autorizado no servidor", async () => {

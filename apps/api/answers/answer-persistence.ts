@@ -1,5 +1,6 @@
 import type { CondominiumId } from "../core/condominium-scope.js";
 import type { RetrievalEvidence, ScopedRetrievalResult } from "../retrieval/retrieval-contract.js";
+import type { EvidenceSourceScope } from "../retrieval/retrieval-contract.js";
 import type {
   AuthorizedCondominiumContext,
   UserId
@@ -39,6 +40,7 @@ export type RetrievalEvidenceRecord = Readonly<{
   documentId: string;
   documentVersionId: string;
   pageId: string;
+  sourceScope?: EvidenceSourceScope;
   rank: number;
   lexicalScore: number;
   semanticScore: number | null;
@@ -158,6 +160,7 @@ export function retrievalEvidenceRecordFromResult(
         documentId: evidence.documentId,
         documentVersionId: evidence.documentVersionId,
         pageId: evidence.pageId,
+        sourceScope: evidence.sourceScope ?? "condominium",
         rank: evidence.rank,
         lexicalScore: evidence.lexicalScore,
         semanticScore: evidence.semanticScore,

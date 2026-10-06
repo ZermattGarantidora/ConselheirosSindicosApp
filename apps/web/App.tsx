@@ -1,11 +1,21 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useRef,
+  useState
+} from "react";
 
+import { requestDocumentUploadWithAuthorizationRecovery } from "./document-upload-request.js";
 import { splitBoldText } from "./message-format.js";
+import { isSimpleConversationMessage } from "../shared/conversation-intent.js";
 
 type ContextResponse = Readonly<{
   condominiumId: string;
   role: string;
   permissions: readonly string[];
+  resumedRegistration?: boolean;
 }>;
 
 type Citation = Readonly<{
@@ -16,6 +26,7 @@ type Citation = Readonly<{
   title: string;
   page: number;
   excerpt: string;
+  sourceScope?: "condominium" | "legislation";
   startOffset: number;
   endOffset: number;
 }>;
@@ -49,7 +60,10 @@ type View =
   | "condominiums"
   | "create-condominium"
   | "chat"
+  | "profile"
+  | "admin-dashboard"
   | "chat-settings";
+type SettingsTab = "personalization" | "documents" | "preferences" | "management";
 type AiProvider = "gemini" | "local" | "unavailable";
 type CondominiumListItem = Readonly<{ id: string; name: string; detail: string }>;
 type RegistrationForm = Readonly<{
@@ -69,18 +83,113 @@ type RegistrationForm = Readonly<{
   phone: string;
 }>;
 type DocumentMemoryStatus = "ready" | "pending_confirmation" | "needs_review" | "failed";
-type AuthMode = "unknown" | "development" | "real";
+type AuthMode = "unknown" | "development" | "real" | "unavailable";
 type AuthPanel = "login" | "register";
-type AuthUser = Readonly<{ userId: string; email: string; displayName: string }>;
+type AuthUser = Readonly<{
+  userId: string;
+  email: string;
+  displayName: string;
+  isAdmin: boolean;
+}>;
+type AdminDashboard = Readonly<{
+  metrics: Readonly<{
+    activeAccounts: number;
+    newAccountsLast7Days: number;
+    activeUsersLast7Days: number;
+  }>;
+  accounts: readonly Readonly<{
+    displayName: string;
+    email: string;
+  }>[];
+  generatedAt: string;
+  commercialOpportunities: Readonly<{ collectionActive: boolean }>;
+}>;
 type RegistrationFile = Pick<File, "name" | "type" | "size">;
 type ChatSettings = Readonly<{
   showHistory: boolean;
   showEvidenceReminder: boolean;
 }>;
+const settingsTabOrder: readonly SettingsTab[] = [
+  "personalization",
+  "documents",
+  "preferences",
+  "management"
+];
+const settingsTabCopy: Readonly<
+  Record<SettingsTab, Readonly<{ label: string; description: string }>>
+> = {
+  personalization: { label: "Personalização", description: "Identificação e fotos" },
+  documents: { label: "Documentos", description: "Arquivos e memória" },
+  preferences: { label: "Preferências", description: "Conversa" },
+  management: { label: "Gestão", description: "Ações do condomínio" }
+};
+type RegisteredDocument = Readonly<{
+  documentId: string;
+  documentVersionId: string;
+  title: string;
+  documentType: "convention" | "internal_rules" | "meeting_minutes" | "contract" | "other";
+  versionNumber: number;
+  sizeBytes: number;
+  processingStatus: "uploaded" | "processing" | "ready" | "needs_review" | "failed";
+  validityStatus: "pending" | "confirmed" | "disputed" | "superseded" | "not_applicable";
+  createdAt: string;
+  expectedPageCount: number | null;
+  processedPageCount: number | null;
+  searchablePageCount: number | null;
+  unreadablePageNumbers: readonly number[];
+  extractionCompleteness: number | null;
+  extractionMethod: "pdf_text" | "ocr" | null;
+  ocrQualityScore: number | null;
+  uploadedByCurrentUser: boolean;
+}>;
+type ArchivedDocument = Readonly<{
+  documentId: string;
+  title: string;
+  archivedAt: string;
+}>;
+type DocumentPreview = Readonly<{
+  title: string;
+  url: string;
+}>;
+type CondominiumProfile = Readonly<{
+  condominiumId: string;
+  name: string;
+  cnpj: string | null;
+  address: Readonly<{
+    postalCode: string;
+    street: string;
+    number: string;
+    complement: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+  }>;
+  administrationCompany: string;
+  unitCount: number | null;
+  contact: Readonly<{ managerName: string; email: string; phone: string }>;
+  description: string;
+}>;
+type CondominiumProfileDraft = Omit<CondominiumProfile, "unitCount"> &
+  Readonly<{ unitCount: string }>;
+type CondominiumProfilePhoto = Readonly<{
+  photoId: string;
+  mediaType: "image/jpeg" | "image/png" | "image/webp";
+  sizeBytes: number;
+  isCover: boolean;
+  createdAt: string;
+}>;
 
 const defaultChatSettings: ChatSettings = Object.freeze({
   showHistory: true,
   showEvidenceReminder: true
+});
+
+// Identidade provisória para o piloto. Centralizada para permitir uma troca futura sem
+// espalhar novamente o nome público pela interface.
+const provisionalBrand = Object.freeze({
+  productName: "Alvitra",
+  agentName: "Alvitra",
+  mark: "A"
 });
 
 const developmentUserId = "sindico-demo";
@@ -136,6 +245,13 @@ function condominiumSlug(name: string, cnpj: string): string {
   return `${base || "condominio"}-${onlyDigits(cnpj).slice(-6)}`;
 }
 
+function condominiumInitials(name: string): string {
+  const words = name.trim().split(/\s+/u).filter(Boolean);
+  if (words.length === 0) return "CO";
+  if (words.length === 1) return words[0]?.slice(0, 2).toLocaleUpperCase("pt-BR") ?? "CO";
+  return `${words[0]?.[0] ?? ""}${words.at(-1)?.[0] ?? ""}`.toLocaleUpperCase("pt-BR");
+}
+
 function isPdf(file: Pick<File, "type" | "name">): boolean {
   return file.type === "application/pdf" || file.name.toLocaleLowerCase("pt-BR").endsWith(".pdf");
 }
@@ -152,22 +268,59 @@ function inferDocumentType(fileName: string): string {
   return "other";
 }
 
-function modeLabel(mode: PublicAnswer["answerMode"]): string {
+function documentTypeLabel(type: RegisteredDocument["documentType"]): string {
   return {
-    grounded: "Com base nos documentos",
-    abstained: "Sem base suficiente",
-    conflict: "Conflito entre documentos",
-    failed: "Consulta interrompida"
-  }[mode];
+    convention: "Convenção",
+    internal_rules: "Regimento interno",
+    meeting_minutes: "Ata",
+    contract: "Contrato",
+    other: "Outro documento"
+  }[type];
 }
 
-function isConversationalMessage(message: string): boolean {
-  const normalized = message.trim();
-  const documentaryQuestion =
-    /convenção|convencao|regimento|ata\b|assembleia|contrato|cláusula|clausula|documento|regra|norma|página|pagina|quórum|quorum|vigência|vigencia|prazo|vencimento/iu.test(
-      normalized
-    );
-  return normalized.length > 0 && normalized.length <= 1_200 && !documentaryQuestion;
+function processingStatusLabel(status: RegisteredDocument["processingStatus"]): string {
+  return {
+    uploaded: "Recebido",
+    processing: "Processando",
+    ready: "Pronto para consulta",
+    needs_review: "Precisa de revisão",
+    failed: "Falha no processamento"
+  }[status];
+}
+
+function extractionSummaryLabel(document: RegisteredDocument): string {
+  if (document.expectedPageCount === null || document.processedPageCount === null) {
+    return "Leitura ainda não medida";
+  }
+
+  const method = document.extractionMethod === "ocr" ? "OCR" : "texto do PDF";
+  const pages = `${document.processedPageCount} de ${document.expectedPageCount} páginas lidas`;
+  if (document.unreadablePageNumbers.length === 0) return `${pages} · ${method}`;
+  return `${pages} · revisar páginas ${document.unreadablePageNumbers.join(", ")}`;
+}
+
+function validityStatusLabel(status: RegisteredDocument["validityStatus"]): string {
+  return {
+    pending: "Vigência pendente",
+    confirmed: "Vigência confirmada",
+    disputed: "Vigência em conflito",
+    superseded: "Versão substituída",
+    not_applicable: "Sem vigência"
+  }[status];
+}
+
+function formatDocumentSize(sizeBytes: number): string {
+  if (!Number.isFinite(sizeBytes) || sizeBytes < 1) return "Tamanho não informado";
+  if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  return `${(sizeBytes / (1024 * 1024)).toLocaleString("pt-BR", {
+    maximumFractionDigits: 1
+  })} MB`;
+}
+
+function isRelevantServiceDegradation(point: string): boolean {
+  return /(?:extraída localmente dos documentos porque o provedor de IA está temporariamente indisponível|modo documental local)/iu.test(
+    point
+  );
 }
 
 async function readMessage(response: Response, fallback: string): Promise<string> {
@@ -208,15 +361,15 @@ export function registrationValidationErrors(
 
   if (constitutionMinutes === undefined) {
     errors.push("ata de constituição em PDF");
-  } else if (!isPdf(constitutionMinutes) || constitutionMinutes.size > 10 * 1024 * 1024) {
-    errors.push("ata em PDF de até 10 MB");
+  } else if (!isPdf(constitutionMinutes) || constitutionMinutes.size > 25 * 1024 * 1024) {
+    errors.push("ata em PDF de até 25 MB");
   }
 
   const invalidAdditionalDocument = additionalDocuments.find(
-    (file) => !isPdf(file) || file.size > 10 * 1024 * 1024
+    (file) => !isPdf(file) || file.size > 25 * 1024 * 1024
   );
   if (invalidAdditionalDocument !== undefined) {
-    errors.push(`arquivo adicional "${invalidAdditionalDocument.name}" em PDF de até 10 MB`);
+    errors.push(`arquivo adicional "${invalidAdditionalDocument.name}" em PDF de até 25 MB`);
   }
   if (!documentsConfirmed) {
     errors.push("confirmação de que os documentos pertencem a este condomínio");
@@ -241,11 +394,148 @@ export function formatRegistrationFailure(
   return `Não foi possível ${action}: ${normalizedDetail}${sessionHint}`;
 }
 
-function ZermattMark() {
+function BrandMark() {
   return (
-    <span className="zermatt-mark" aria-hidden="true">
-      Z
+    <span className="brand-mark" aria-hidden="true">
+      {provisionalBrand.mark}
     </span>
+  );
+}
+
+function ArrowLeftIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M19 12H5m6-7-7 7 7 7" />
+    </svg>
+  );
+}
+
+function BuildingIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 7h1m4 0h1M9 11h1m4 0h1M9 15h1m4 0h1M10 21v-3h4v3" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.6a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.6a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="m5 12 4 4L19 6" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M12 16V4m-5 5 5-5 5 5M5 20h14" />
+    </svg>
+  );
+}
+
+function PreviewIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M3.5 12s3-5 8.5-5 8.5 5 8.5 5-3 5-8.5 5-8.5-5-8.5-5Z" />
+      <circle cx="12" cy="12" r="2.2" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M4 7h16m-10 4v5m4-5v5M9 7l1-3h4l1 3m3 0-1 13H7L6 7" />
+    </svg>
+  );
+}
+
+function RestoreIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4 4" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v6m0 4h.01" />
+    </svg>
+  );
+}
+
+function DocumentIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M7 3h7l4 4v14H7z" />
+      <path d="M14 3v5h5M10 12h5m-5 4h5" />
+    </svg>
+  );
+}
+
+function ExitIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M10 5H5v14h5m3-4 4-3-4-3m4 3H9" />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M16 20v-1.5A3.5 3.5 0 0 0 12.5 15h-5A3.5 3.5 0 0 0 4 18.5V20" />
+      <circle cx="10" cy="8" r="3" />
+      <path d="M16 5.5a3 3 0 0 1 0 5.8M18 15.3a3.5 3.5 0 0 1 2 3.2V20" />
+    </svg>
+  );
+}
+
+function SparkIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M12 3l1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3Z" />
+      <path d="m19 15 .7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15Z" />
+    </svg>
+  );
+}
+
+function ActivityIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M3 12h4l2.2-5 4.1 10 2.1-5H21" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg className="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
   );
 }
 
@@ -253,6 +543,71 @@ function FormattedText({ text }: Readonly<{ text: string }>) {
   return splitBoldText(text).map((segment, index) =>
     segment.bold ? <strong key={index}>{segment.text}</strong> : segment.text
   );
+}
+
+let chatAudioContext: AudioContext | undefined;
+
+function availableChatAudioContext(): AudioContext | undefined {
+  try {
+    chatAudioContext ??= new AudioContext();
+    if (chatAudioContext.state === "suspended") {
+      void chatAudioContext.resume().catch(() => undefined);
+    }
+    return chatAudioContext;
+  } catch {
+    return undefined;
+  }
+}
+
+function playMessageSentSound(): void {
+  try {
+    const audioContext = availableChatAudioContext();
+    if (audioContext === undefined) return;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const startedAt = audioContext.currentTime;
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(680, startedAt);
+    oscillator.frequency.exponentialRampToValueAtTime(880, startedAt + 0.1);
+    gain.gain.setValueAtTime(0.0001, startedAt);
+    gain.gain.exponentialRampToValueAtTime(0.045, startedAt + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startedAt + 0.11);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(startedAt);
+    oscillator.stop(startedAt + 0.12);
+  } catch {
+    // O áudio é apenas uma confirmação; o envio continua em navegadores sem Web Audio.
+  }
+}
+
+function playAnswerReceivedSound(): void {
+  try {
+    const audioContext = availableChatAudioContext();
+    if (audioContext === undefined) return;
+    const firstNote = audioContext.createOscillator();
+    const secondNote = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const startedAt = audioContext.currentTime;
+
+    firstNote.type = "sine";
+    firstNote.frequency.setValueAtTime(520, startedAt);
+    secondNote.type = "sine";
+    secondNote.frequency.setValueAtTime(720, startedAt + 0.09);
+    gain.gain.setValueAtTime(0.0001, startedAt);
+    gain.gain.exponentialRampToValueAtTime(0.035, startedAt + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startedAt + 0.2);
+    firstNote.connect(gain);
+    secondNote.connect(gain);
+    gain.connect(audioContext.destination);
+    firstNote.start(startedAt);
+    firstNote.stop(startedAt + 0.08);
+    secondNote.start(startedAt + 0.09);
+    secondNote.stop(startedAt + 0.2);
+  } catch {
+    // A resposta continua disponível mesmo quando o navegador bloqueia o áudio.
+  }
 }
 
 export function App() {
@@ -294,49 +649,139 @@ export function App() {
   const [authPassword, setAuthPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
+  const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | undefined>();
+  const [adminDashboardBusy, setAdminDashboardBusy] = useState(false);
+  const [adminDashboardError, setAdminDashboardError] = useState("");
   const [chatSettings, setChatSettings] = useState<ChatSettings>(defaultChatSettings);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("personalization");
+  const [profileReturnView, setProfileReturnView] = useState<"chat" | "condominiums">("chat");
   const [settingsMessage, setSettingsMessage] = useState("");
+  const [settingsMessageIsError, setSettingsMessageIsError] = useState(false);
+  const [condominiumProfile, setCondominiumProfile] = useState<
+    CondominiumProfileDraft | undefined
+  >();
+  const [condominiumProfilePhotos, setCondominiumProfilePhotos] = useState<
+    readonly CondominiumProfilePhoto[]
+  >([]);
+  const [condominiumProfilePhotoUrls, setCondominiumProfilePhotoUrls] = useState<
+    Readonly<Record<string, string>>
+  >({});
+  const [condominiumProfileLoading, setCondominiumProfileLoading] = useState(false);
+  const [condominiumProfileSaving, setCondominiumProfileSaving] = useState(false);
+  const [condominiumProfileUploading, setCondominiumProfileUploading] = useState(false);
+  const [profilePhotoRemoving, setProfilePhotoRemoving] = useState(false);
+  const [condominiumProfileMessage, setCondominiumProfileMessage] = useState("");
+  const [condominiumProfileMessageIsError, setCondominiumProfileMessageIsError] = useState(false);
+  const [profilePhotoRemovalCandidate, setProfilePhotoRemovalCandidate] = useState<
+    CondominiumProfilePhoto | undefined
+  >();
+  const [registeredDocuments, setRegisteredDocuments] = useState<readonly RegisteredDocument[]>([]);
+  const [archivedDocuments, setArchivedDocuments] = useState<readonly ArchivedDocument[]>([]);
+  const [registeredDocumentsBusy, setRegisteredDocumentsBusy] = useState(false);
+  const [registeredDocumentsError, setRegisteredDocumentsError] = useState("");
+  const [documentRemovalCandidate, setDocumentRemovalCandidate] = useState<
+    RegisteredDocument | undefined
+  >();
+  const [documentPreview, setDocumentPreview] = useState<DocumentPreview | undefined>();
+  const [documentPreviewBusy, setDocumentPreviewBusy] = useState(false);
+  const [documentPreviewError, setDocumentPreviewError] = useState("");
+  const [settingsDocumentFiles, setSettingsDocumentFiles] = useState<readonly File[]>([]);
+  const [settingsDocumentsConfirmed, setSettingsDocumentsConfirmed] = useState(false);
+  const [settingsDocumentsUploading, setSettingsDocumentsUploading] = useState(false);
+  const [chatDocumentMessage, setChatDocumentMessage] = useState("");
+  const [chatDocumentMessageIsError, setChatDocumentMessageIsError] = useState(false);
+  const [chatDocumentUploading, setChatDocumentUploading] = useState(false);
+  const [pendingChatDocument, setPendingChatDocument] = useState<File | undefined>();
+  const [sentChatDocumentName, setSentChatDocumentName] = useState("");
   const [leaveManagementOpen, setLeaveManagementOpen] = useState(false);
   const [leaveManagementBusy, setLeaveManagementBusy] = useState(false);
   const [condominiumNotice, setCondominiumNotice] = useState("");
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [busy, setBusy] = useState(false);
   const composerInput = useRef<HTMLTextAreaElement>(null);
+  const chatDocumentInput = useRef<HTMLInputElement>(null);
+  const documentPreviewUrl = useRef<string | undefined>(undefined);
+  const profilePhotoObjectUrls = useRef<readonly string[]>([]);
   const touchStartX = useRef<number | null>(null);
   const isConversationalResponse =
-    answer !== undefined && isConversationalMessage(submittedQuestion);
+    answer !== undefined && isSimpleConversationMessage(submittedQuestion);
+  const answerStatus:
+    Readonly<{ label: string; tone: "attention" | "conflict" | "failed" }> | undefined =
+    answer === undefined || isConversationalResponse
+      ? undefined
+      : answer.answerMode === "conflict"
+        ? { label: "Fontes em conflito", tone: "conflict" }
+        : answer.answerMode === "failed"
+          ? { label: "Consulta interrompida", tone: "failed" }
+          : answer.riskClass === "high"
+            ? { label: "Risco alto", tone: "attention" }
+            : undefined;
+  const showsExceptionalGuidance =
+    answer !== undefined &&
+    !isConversationalResponse &&
+    (answer.answerMode !== "grounded" || answer.riskClass === "high" || answer.specialist.required);
+  const visibleAttentionPoints =
+    answer === undefined || isConversationalResponse
+      ? []
+      : answer.attentionPoints
+          .filter(
+            (point) =>
+              point !== answer.specialist.reason &&
+              (showsExceptionalGuidance || isRelevantServiceDegradation(point))
+          )
+          .slice(0, 1);
+
+  useEffect(
+    () => () => {
+      if (documentPreviewUrl.current !== undefined) URL.revokeObjectURL(documentPreviewUrl.current);
+      profilePhotoObjectUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    },
+    []
+  );
+  const showSuggestedNextStep = showsExceptionalGuidance && answer?.suggestedNextStep !== null;
+  const showSpecialist = answer?.specialist.required === true;
+  const showResponseGuidance =
+    visibleAttentionPoints.length > 0 || showSuggestedNextStep || showSpecialist;
 
   useEffect(() => {
-    void fetch("/health")
+    let runtimeRequestActive = true;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 4_000);
+    void fetch("/v1/runtime", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) return;
+        if (!response.ok) throw new Error("A configuração do ambiente está indisponível.");
         const body = (await response.json()) as Readonly<{
           aiProvider?: unknown;
           authMode?: unknown;
           authSessionRestore?: unknown;
         }>;
+        if (!runtimeRequestActive) return;
         if (body.aiProvider === "gemini" || body.aiProvider === "local") {
           setAiProvider(body.aiProvider);
         }
         if (body.authMode === "real" || body.authMode === "development") {
           setAuthMode(body.authMode);
+        } else {
+          throw new Error("O modo de autenticação retornado é inválido.");
         }
         if (typeof body.authSessionRestore === "boolean") {
           setAuthSessionRestore(body.authSessionRestore);
         }
       })
       .catch(() => {
+        if (!runtimeRequestActive) return;
         setAiProvider("unavailable");
-        setAuthMode("development");
+        setAuthMode("unavailable");
+      })
+      .finally(() => {
+        window.clearTimeout(timeoutId);
       });
+    return () => {
+      runtimeRequestActive = false;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
-
-  useEffect(() => {
-    if (authMode !== "unknown") return;
-    const timeoutId = window.setTimeout(() => {
-      setAuthMode((current) => (current === "unknown" ? "development" : current));
-    }, 4_000);
-    return () => window.clearTimeout(timeoutId);
-  }, [authMode]);
 
   useEffect(() => {
     if (authMode !== "real") return;
@@ -354,6 +799,11 @@ export function App() {
         if (body.user === undefined) return;
         setAuthUser(body.user);
         setDisplayName(body.user.displayName);
+        if (body.user.isAdmin) {
+          setView("admin-dashboard");
+          await loadAdminDashboard();
+          return;
+        }
         await loadAuthorizedCondominiums();
         setMessage("Escolha um condomínio autorizado para abrir a conversa.");
       } catch {
@@ -435,6 +885,11 @@ export function App() {
       setAuthUser(body.user);
       setDisplayName(body.user.displayName);
       setAuthPassword("");
+      if (body.user.isAdmin) {
+        setView("admin-dashboard");
+        await loadAdminDashboard();
+        return;
+      }
       await loadAuthorizedCondominiums();
       setMessage(
         authPanel === "register"
@@ -458,10 +913,38 @@ export function App() {
     setAuthEmail("");
     setAuthPassword("");
     setAuthMessage("");
+    setAdminDashboard(undefined);
+    setAdminDashboardError("");
     setChatSettings(defaultChatSettings);
     setCondominiumNotice("");
+    setRegisteredDocuments([]);
+    setSettingsDocumentFiles([]);
+    setSettingsDocumentsConfirmed(false);
     setAvailableCondominiums([...condominiumCatalog]);
     setView("landing");
+  }
+
+  async function loadAdminDashboard(): Promise<void> {
+    setAdminDashboardBusy(true);
+    setAdminDashboardError("");
+    try {
+      const response = await fetch("/v1/admin/dashboard", { credentials: "same-origin" });
+      if (!response.ok) {
+        throw new Error(
+          await readMessage(response, "Não foi possível carregar os indicadores da Zermatt.")
+        );
+      }
+      const body = (await response.json()) as AdminDashboard;
+      setAdminDashboard(body);
+    } catch (error: unknown) {
+      setAdminDashboardError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os indicadores da Zermatt."
+      );
+    } finally {
+      setAdminDashboardBusy(false);
+    }
   }
 
   function openAuthentication(panel: AuthPanel): void {
@@ -481,6 +964,10 @@ export function App() {
     setFeedback(undefined);
     setConversationError("");
     setSetupNotice(undefined);
+    setChatDocumentMessage("");
+    setChatDocumentMessageIsError(false);
+    setPendingChatDocument(undefined);
+    setSentChatDocumentName("");
   }
 
   function openCondominiumPicker() {
@@ -494,9 +981,50 @@ export function App() {
   }
 
   function openChatSettings(): void {
+    setSettingsTab("personalization");
     setSettingsMessage("");
+    setSettingsMessageIsError(false);
+    setCondominiumProfileMessage("");
+    setCondominiumProfileMessageIsError(false);
+    setCondominiumProfile(undefined);
+    setCondominiumProfilePhotos([]);
+    setCondominiumProfilePhotoUrls({});
+    profilePhotoObjectUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    profilePhotoObjectUrls.current = [];
+    setSettingsDocumentFiles([]);
+    setSettingsDocumentsConfirmed(false);
     setLeaveManagementOpen(false);
     setView("chat-settings");
+    if (context !== undefined) {
+      void loadRegisteredDocuments(context.condominiumId);
+      void loadCondominiumProfile(context.condominiumId);
+    }
+  }
+
+  function handleSettingsTabKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    currentTab: SettingsTab
+  ): void {
+    const currentIndex = settingsTabOrder.indexOf(currentTab);
+    let nextIndex: number | undefined;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % settingsTabOrder.length;
+    if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + settingsTabOrder.length) % settingsTabOrder.length;
+    }
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = settingsTabOrder.length - 1;
+    if (nextIndex === undefined) return;
+
+    const nextTab = settingsTabOrder[nextIndex];
+    if (nextTab === undefined) return;
+    event.preventDefault();
+    setSettingsTab(nextTab);
+    document.getElementById(`settings-tab-${nextTab}`)?.focus();
+  }
+
+  function openProfile(returnView: "chat" | "condominiums"): void {
+    setProfileReturnView(returnView);
+    setView("profile");
   }
 
   function openCondominiumRegistration(returnView: "onboarding" | "condominiums") {
@@ -549,6 +1077,7 @@ export function App() {
 
     setLeaveManagementBusy(true);
     setSettingsMessage("");
+    setSettingsMessageIsError(false);
     const condominiumId = activeContext.condominiumId;
     const endpoint =
       authMode === "real"
@@ -579,6 +1108,7 @@ export function App() {
       setView("condominiums");
     } catch (error: unknown) {
       setLeaveManagementOpen(false);
+      setSettingsMessageIsError(true);
       setSettingsMessage(
         error instanceof Error ? error.message : "Não foi possível apagar o condomínio."
       );
@@ -644,22 +1174,645 @@ export function App() {
     documentType: string,
     title: string
   ): Promise<DocumentMemoryStatus | undefined> {
-    const response = await fetch(`/v1/condominiums/${encodeURIComponent(condominium)}/documents`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/pdf",
-        ...(authMode === "development" ? { "x-development-user-id": developmentUserId } : {}),
-        "x-document-title": encodeURIComponent(title),
-        "x-document-type": documentType,
-        "x-document-validity-confirmed": "true"
-      },
-      body: file
+    const response = await requestDocumentUploadWithAuthorizationRecovery(fetch, {
+      condominiumId: condominium,
+      content: file,
+      title,
+      documentType,
+      authMode: authMode === "development" ? "development" : "real",
+      developmentUserId
     });
     if (!response.ok) {
       throw new Error(await readMessage(response, `Não foi possível salvar ${file.name}.`));
     }
     const body = (await response.json()) as Readonly<{ memoryStatus?: DocumentMemoryStatus }>;
     return body.memoryStatus;
+  }
+
+  async function loadRegisteredDocuments(id: string): Promise<void> {
+    setRegisteredDocumentsBusy(true);
+    setRegisteredDocumentsError("");
+    try {
+      const headers =
+        authMode === "development" ? { "x-development-user-id": developmentUserId } : {};
+      const [response, archivedResponse] = await Promise.all([
+        fetch(`/v1/condominiums/${encodeURIComponent(id)}/documents`, {
+          credentials: "same-origin",
+          headers
+        }),
+        fetch(`/v1/condominiums/${encodeURIComponent(id)}/documents/archived`, {
+          credentials: "same-origin",
+          headers
+        })
+      ]);
+      if (!response.ok) {
+        throw new Error(
+          await readMessage(response, "Não foi possível carregar os documentos registrados.")
+        );
+      }
+      const body = (await response.json()) as Readonly<{
+        documents?: readonly RegisteredDocument[];
+      }>;
+      setRegisteredDocuments(Array.isArray(body.documents) ? body.documents : []);
+      if (archivedResponse.ok) {
+        const archivedBody = (await archivedResponse.json()) as Readonly<{
+          documents?: readonly ArchivedDocument[];
+        }>;
+        setArchivedDocuments(Array.isArray(archivedBody.documents) ? archivedBody.documents : []);
+      } else {
+        setArchivedDocuments([]);
+      }
+    } catch (error: unknown) {
+      setRegisteredDocuments([]);
+      setArchivedDocuments([]);
+      setRegisteredDocumentsError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os documentos registrados."
+      );
+    } finally {
+      setRegisteredDocumentsBusy(false);
+    }
+  }
+
+  function profileRequestHeaders(): Readonly<Record<string, string>> {
+    return authMode === "development" ? { "x-development-user-id": developmentUserId } : {};
+  }
+
+  async function loadCondominiumProfile(id: string): Promise<void> {
+    setCondominiumProfileLoading(true);
+    setCondominiumProfileMessage("");
+    try {
+      const response = await fetch(`/v1/condominiums/${encodeURIComponent(id)}/profile`, {
+        credentials: "same-origin",
+        headers: profileRequestHeaders()
+      });
+      if (!response.ok) {
+        throw new Error(
+          await readMessage(response, "Não foi possível carregar os dados do condomínio.")
+        );
+      }
+      const body = (await response.json()) as Readonly<{
+        profile?: CondominiumProfile;
+        photos?: readonly CondominiumProfilePhoto[];
+      }>;
+      if (body.profile === undefined || context?.condominiumId !== id) return;
+
+      const photos = Array.isArray(body.photos) ? body.photos : [];
+      const urls = await Promise.all(
+        photos.map(async (photo) => {
+          try {
+            const imageResponse = await fetch(
+              `/v1/condominiums/${encodeURIComponent(id)}/profile/photos/${encodeURIComponent(photo.photoId)}`,
+              { credentials: "same-origin", headers: profileRequestHeaders() }
+            );
+            if (!imageResponse.ok) return undefined;
+            return [photo.photoId, URL.createObjectURL(await imageResponse.blob())] as const;
+          } catch {
+            return undefined;
+          }
+        })
+      );
+      const photoUrlEntries = urls.filter((item) => item !== undefined);
+      if (context?.condominiumId !== id) {
+        photoUrlEntries.forEach(([, url]) => URL.revokeObjectURL(url));
+        return;
+      }
+      const nextUrls = Object.fromEntries(photoUrlEntries);
+      profilePhotoObjectUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      profilePhotoObjectUrls.current = Object.values(nextUrls);
+      setCondominiumProfilePhotoUrls(nextUrls);
+      setCondominiumProfile({
+        ...body.profile,
+        unitCount: body.profile.unitCount === null ? "" : String(body.profile.unitCount)
+      });
+      setCondominiumProfilePhotos(photos);
+      const locality = `${body.profile.address.city}/${body.profile.address.state}`;
+      setAvailableCondominiums((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                name: body.profile?.name ?? item.name,
+                detail: body.profile?.address.city
+                  ? `${locality} · Condomínio autorizado`
+                  : item.detail
+              }
+            : item
+        )
+      );
+    } catch (error: unknown) {
+      if (context?.condominiumId !== id) return;
+      setCondominiumProfileMessage(
+        error instanceof Error ? error.message : "Não foi possível carregar os dados do condomínio."
+      );
+      setCondominiumProfileMessageIsError(true);
+    } finally {
+      setCondominiumProfileLoading(false);
+    }
+  }
+
+  async function saveCondominiumProfile(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const activeContext = context;
+    const profile = condominiumProfile;
+    if (activeContext === undefined || profile === undefined || activeContext.role !== "manager")
+      return;
+    setCondominiumProfileSaving(true);
+    setCondominiumProfileMessage("");
+    setCondominiumProfileMessageIsError(false);
+    try {
+      const unitCount = profile.unitCount.trim() === "" ? null : Number(profile.unitCount);
+      const response = await fetch(
+        `/v1/condominiums/${encodeURIComponent(activeContext.condominiumId)}/profile`,
+        {
+          method: "PUT",
+          credentials: "same-origin",
+          headers: { "content-type": "application/json", ...profileRequestHeaders() },
+          body: JSON.stringify({
+            name: profile.name,
+            address: profile.address,
+            administrationCompany: profile.administrationCompany,
+            unitCount,
+            contact: profile.contact,
+            description: profile.description
+          })
+        }
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readMessage(response, "Não foi possível salvar o perfil do condomínio.")
+        );
+      }
+      const body = (await response.json()) as Readonly<{ profile?: CondominiumProfile }>;
+      if (body.profile === undefined) throw new Error("O servidor não confirmou as alterações.");
+      setCondominiumProfile({
+        ...body.profile,
+        unitCount: body.profile.unitCount === null ? "" : String(body.profile.unitCount)
+      });
+      const locality = `${body.profile.address.city}/${body.profile.address.state}`;
+      setAvailableCondominiums((current) =>
+        current.map((item) =>
+          item.id === activeContext.condominiumId
+            ? {
+                ...item,
+                name: body.profile?.name ?? item.name,
+                detail: `${locality} · Condomínio autorizado`
+              }
+            : item
+        )
+      );
+      setCondominiumProfileMessage("Perfil do condomínio atualizado.");
+    } catch (error: unknown) {
+      setCondominiumProfileMessage(
+        error instanceof Error ? error.message : "Não foi possível salvar o perfil do condomínio."
+      );
+      setCondominiumProfileMessageIsError(true);
+    } finally {
+      setCondominiumProfileSaving(false);
+    }
+  }
+
+  async function addCondominiumProfilePhotos(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const activeContext = context;
+    const files = Array.from(event.currentTarget.files ?? []);
+    event.currentTarget.value = "";
+    if (activeContext === undefined || activeContext.role !== "manager" || files.length === 0)
+      return;
+    const remaining = 5 - condominiumProfilePhotos.length;
+    if (files.length > remaining) {
+      setCondominiumProfileMessage(
+        remaining > 0
+          ? `Você pode adicionar mais ${remaining} foto(s).`
+          : "Este condomínio já tem cinco fotos. Remova uma para adicionar outra."
+      );
+      setCondominiumProfileMessageIsError(true);
+      return;
+    }
+
+    setCondominiumProfileUploading(true);
+    setCondominiumProfileMessage("");
+    setCondominiumProfileMessageIsError(false);
+    const failures: string[] = [];
+    let uploaded = 0;
+    try {
+      for (const file of files) {
+        const extension = file.name.split(".").pop()?.toLocaleLowerCase("pt-BR");
+        const mediaType =
+          file.type ||
+          (extension === "jpg" || extension === "jpeg"
+            ? "image/jpeg"
+            : extension === "png"
+              ? "image/png"
+              : extension === "webp"
+                ? "image/webp"
+                : "");
+        if (
+          !new Set(["image/jpeg", "image/png", "image/webp"]).has(mediaType) ||
+          file.size > 5 * 1024 * 1024
+        ) {
+          failures.push(`${file.name}: use JPEG, PNG ou WebP de até 5 MB.`);
+          continue;
+        }
+        try {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          let binary = "";
+          for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+            binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+          }
+          const response = await fetch(
+            `/v1/condominiums/${encodeURIComponent(activeContext.condominiumId)}/profile/photos`,
+            {
+              method: "POST",
+              credentials: "same-origin",
+              headers: { "content-type": "application/json", ...profileRequestHeaders() },
+              body: JSON.stringify({ mediaType, contentBase64: btoa(binary) })
+            }
+          );
+          if (!response.ok) throw new Error(await readMessage(response, "A foto não foi aceita."));
+          uploaded += 1;
+        } catch (error: unknown) {
+          failures.push(
+            `${file.name}: ${error instanceof Error ? error.message : "não foi enviada."}`
+          );
+        }
+      }
+      await loadCondominiumProfile(activeContext.condominiumId);
+      if (failures.length > 0) {
+        setCondominiumProfileMessage(
+          `${uploaded} de ${files.length} foto(s) enviada(s). ${failures.join(" ")}`
+        );
+        setCondominiumProfileMessageIsError(true);
+      } else {
+        setCondominiumProfileMessage(`${uploaded} foto(s) adicionada(s) ao perfil.`);
+      }
+    } finally {
+      setCondominiumProfileUploading(false);
+    }
+  }
+
+  async function setCondominiumProfileCover(photoId: string): Promise<void> {
+    const activeContext = context;
+    if (activeContext === undefined || activeContext.role !== "manager") return;
+    try {
+      const response = await fetch(
+        `/v1/condominiums/${encodeURIComponent(activeContext.condominiumId)}/profile/photos/${encodeURIComponent(photoId)}/cover`,
+        { method: "PUT", credentials: "same-origin", headers: profileRequestHeaders() }
+      );
+      if (!response.ok)
+        throw new Error(await readMessage(response, "Não foi possível escolher a foto de capa."));
+      await loadCondominiumProfile(activeContext.condominiumId);
+      setCondominiumProfileMessage("Foto de capa atualizada.");
+      setCondominiumProfileMessageIsError(false);
+    } catch (error: unknown) {
+      setCondominiumProfileMessage(
+        error instanceof Error ? error.message : "Não foi possível escolher a foto de capa."
+      );
+      setCondominiumProfileMessageIsError(true);
+    }
+  }
+
+  async function deleteCondominiumProfilePhoto(): Promise<void> {
+    const activeContext = context;
+    const candidate = profilePhotoRemovalCandidate;
+    if (activeContext === undefined || candidate === undefined || activeContext.role !== "manager")
+      return;
+    setProfilePhotoRemoving(true);
+    try {
+      const response = await fetch(
+        `/v1/condominiums/${encodeURIComponent(activeContext.condominiumId)}/profile/photos/${encodeURIComponent(candidate.photoId)}`,
+        { method: "DELETE", credentials: "same-origin", headers: profileRequestHeaders() }
+      );
+      if (!response.ok)
+        throw new Error(await readMessage(response, "Não foi possível remover esta foto."));
+      setProfilePhotoRemovalCandidate(undefined);
+      await loadCondominiumProfile(activeContext.condominiumId);
+      setCondominiumProfileMessage("Foto removida do perfil.");
+      setCondominiumProfileMessageIsError(false);
+    } catch (error: unknown) {
+      setCondominiumProfileMessage(
+        error instanceof Error ? error.message : "Não foi possível remover esta foto."
+      );
+      setCondominiumProfileMessageIsError(true);
+    } finally {
+      setProfilePhotoRemoving(false);
+    }
+  }
+
+  async function addSettingsDocuments(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const activeContext = context;
+    if (activeContext === undefined || !activeContext.permissions.includes("document:upload")) {
+      setSettingsMessageIsError(true);
+      setSettingsMessage("Sua conta não possui permissão para adicionar documentos.");
+      return;
+    }
+    if (settingsDocumentFiles.length === 0) {
+      setSettingsMessageIsError(true);
+      setSettingsMessage("Selecione ao menos um PDF para adicionar.");
+      return;
+    }
+    const invalidFiles = settingsDocumentFiles.filter(
+      (file) => !isPdf(file) || file.size > 25 * 1024 * 1024
+    );
+    if (invalidFiles.length > 0) {
+      setSettingsMessageIsError(true);
+      setSettingsMessage(
+        `Revise os arquivos: ${invalidFiles.map((file) => file.name).join(", ")}. Use PDFs de até 25 MB.`
+      );
+      return;
+    }
+    if (!settingsDocumentsConfirmed) {
+      setSettingsMessageIsError(true);
+      setSettingsMessage("Confirme que os documentos pertencem a este condomínio antes de enviar.");
+      return;
+    }
+    const previousMeetingMinutes = settingsDocumentFiles.some(
+      (file) => inferDocumentType(file.name) === "meeting_minutes"
+    )
+      ? registeredDocuments.find((document) => document.documentType === "meeting_minutes")
+      : undefined;
+    const removePreviousMeetingMinutes =
+      previousMeetingMinutes !== undefined &&
+      window.confirm(
+        `Já existe a ata “${previousMeetingMinutes.title}”. Deseja removê-la da memória deste condomínio após enviar a nova ata?`
+      );
+
+    setSettingsDocumentsUploading(true);
+    setSettingsMessage("");
+    setSettingsMessageIsError(false);
+    const results = await Promise.allSettled(
+      settingsDocumentFiles.map((file) =>
+        uploadRegistrationDocument(
+          activeContext.condominiumId,
+          file,
+          inferDocumentType(file.name),
+          file.name.replace(/\.pdf$/iu, "")
+        )
+      )
+    );
+    const failedEntries = results.flatMap((result, index) => {
+      const file = settingsDocumentFiles[index];
+      return result.status === "rejected" && file !== undefined ? [file] : [];
+    });
+    const failedFiles = failedEntries.map((file) => file.name);
+    const savedCount = results.length - failedEntries.length;
+
+    await loadRegisteredDocuments(activeContext.condominiumId);
+    if (removePreviousMeetingMinutes && previousMeetingMinutes !== undefined && savedCount > 0) {
+      void removeRegisteredDocument(previousMeetingMinutes);
+    }
+    if (failedFiles.length === 0) {
+      setSettingsDocumentFiles([]);
+      setSettingsDocumentsConfirmed(false);
+      setSettingsMessage(
+        `${savedCount} ${savedCount === 1 ? "documento foi adicionado" : "documentos foram adicionados"} à memória do condomínio.`
+      );
+    } else if (savedCount > 0) {
+      setSettingsDocumentFiles(failedEntries);
+      setSettingsMessageIsError(true);
+      setSettingsMessage(
+        `${savedCount} ${savedCount === 1 ? "documento foi salvo" : "documentos foram salvos"}, mas não foi possível adicionar: ${failedFiles.join(", ")}.`
+      );
+    } else {
+      setSettingsMessageIsError(true);
+      setSettingsMessage(`Não foi possível adicionar: ${failedFiles.join(", ")}.`);
+    }
+    setSettingsDocumentsUploading(false);
+  }
+
+  function closeDocumentPreview(): void {
+    if (documentPreviewUrl.current !== undefined) {
+      URL.revokeObjectURL(documentPreviewUrl.current);
+      documentPreviewUrl.current = undefined;
+    }
+    setDocumentPreview(undefined);
+    setDocumentPreviewError("");
+  }
+
+  async function viewRegisteredDocument(document: RegisteredDocument): Promise<void> {
+    if (context === undefined) return;
+    closeDocumentPreview();
+    setDocumentPreviewBusy(true);
+    try {
+      const response = await fetch(
+        `/v1/condominiums/${encodeURIComponent(context.condominiumId)}/documents/${encodeURIComponent(document.documentVersionId)}/file`,
+        {
+          credentials: "same-origin",
+          headers: authMode === "development" ? { "x-development-user-id": developmentUserId } : {}
+        }
+      );
+      if (!response.ok) {
+        throw new Error(await readMessage(response, "Não foi possível abrir este PDF."));
+      }
+      const file = await response.blob();
+      if (file.type !== "application/pdf") {
+        throw new Error("O arquivo disponível não é um PDF válido.");
+      }
+      const url = URL.createObjectURL(file);
+      documentPreviewUrl.current = url;
+      setDocumentPreview({ title: document.title, url });
+    } catch (error) {
+      setDocumentPreviewError(
+        error instanceof Error ? error.message : "Não foi possível abrir este PDF."
+      );
+    } finally {
+      setDocumentPreviewBusy(false);
+    }
+  }
+
+  async function removeRegisteredDocument(document: RegisteredDocument): Promise<void> {
+    if (context === undefined) return;
+    setRegisteredDocumentsBusy(true);
+    try {
+      const response = await fetch(
+        `/v1/condominiums/${encodeURIComponent(context.condominiumId)}/documents/${encodeURIComponent(document.documentId)}`,
+        {
+          method: "DELETE",
+          credentials: "same-origin",
+          headers: authMode === "development" ? { "x-development-user-id": developmentUserId } : {}
+        }
+      );
+      if (!response.ok)
+        throw new Error(await readMessage(response, "Não foi possível remover o documento."));
+      setSettingsMessage(
+        `${document.title} foi removido da memória. Você pode recuperá-lo na lixeira por até 30 dias.`
+      );
+      await loadRegisteredDocuments(context.condominiumId);
+    } catch (error) {
+      setSettingsMessageIsError(true);
+      setSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível remover o documento."
+      );
+    } finally {
+      setRegisteredDocumentsBusy(false);
+    }
+  }
+
+  async function restoreRegisteredDocument(document: ArchivedDocument): Promise<void> {
+    if (context === undefined) return;
+    setRegisteredDocumentsBusy(true);
+    try {
+      const response = await fetch(
+        `/v1/condominiums/${encodeURIComponent(context.condominiumId)}/documents/${encodeURIComponent(document.documentId)}/restore`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: authMode === "development" ? { "x-development-user-id": developmentUserId } : {}
+        }
+      );
+      if (!response.ok)
+        throw new Error(await readMessage(response, "Não foi possível recuperar o documento."));
+      setSettingsMessage(`${document.title} foi recuperado e voltou à memória do condomínio.`);
+      await loadRegisteredDocuments(context.condominiumId);
+    } catch (error) {
+      setSettingsMessageIsError(true);
+      setSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível recuperar o documento."
+      );
+    } finally {
+      setRegisteredDocumentsBusy(false);
+    }
+  }
+
+  function selectChatDocument(file: File): void {
+    if (!isPdf(file) || file.size > 25 * 1024 * 1024) {
+      setChatDocumentMessageIsError(true);
+      setChatDocumentMessage("Escolha um PDF de até 25 MB para enviar na conversa.");
+      return;
+    }
+    setPendingChatDocument(file);
+    setChatDocumentMessage("");
+    setChatDocumentMessageIsError(false);
+  }
+
+  function sendComposer(): void {
+    if (pendingChatDocument !== undefined) {
+      void addChatDocument(pendingChatDocument);
+      return;
+    }
+    void askQuestion();
+  }
+
+  async function addChatDocument(file: File): Promise<void> {
+    const activeContext = context;
+    if (activeContext === undefined || !activeContext.permissions.includes("document:upload")) {
+      setChatDocumentMessageIsError(true);
+      setChatDocumentMessage(
+        "Sua conta não possui permissão para enviar documentos neste condomínio."
+      );
+      return;
+    }
+    if (!isPdf(file) || file.size > 25 * 1024 * 1024) {
+      setChatDocumentMessageIsError(true);
+      setChatDocumentMessage("Escolha um PDF de até 25 MB para enviar na conversa.");
+      return;
+    }
+    const previousMeetingMinutes =
+      inferDocumentType(file.name) === "meeting_minutes"
+        ? registeredDocuments.find((document) => document.documentType === "meeting_minutes")
+        : undefined;
+    const removePreviousMeetingMinutes =
+      previousMeetingMinutes !== undefined &&
+      window.confirm(
+        `Já existe a ata “${previousMeetingMinutes.title}”. Deseja removê-la da memória deste condomínio após enviar a nova ata?`
+      );
+
+    setChatDocumentUploading(true);
+    setChatDocumentMessageIsError(false);
+    setChatDocumentMessage(`Enviando ${file.name}…`);
+    try {
+      const response = await requestDocumentUploadWithAuthorizationRecovery(fetch, {
+        condominiumId: activeContext.condominiumId,
+        content: file,
+        title: file.name.replace(/\.pdf$/iu, ""),
+        documentType: "other",
+        authMode: authMode === "development" ? "development" : "real",
+        developmentUserId
+      });
+      if (!response.ok) {
+        throw new Error(await readMessage(response, `Não foi possível enviar ${file.name}.`));
+      }
+      const uploaded = (await response.json()) as Readonly<{ documentVersionId?: unknown }>;
+      const documentVersionId =
+        typeof uploaded.documentVersionId === "string" ? uploaded.documentVersionId : undefined;
+      setPendingChatDocument(undefined);
+      setSentChatDocumentName(file.name);
+      setChatDocumentMessage(
+        `Recebi ${file.name}. Estou lendo e identificando o documento; ele só ficará disponível para respostas quando o processamento terminar.`
+      );
+      if (removePreviousMeetingMinutes && previousMeetingMinutes !== undefined) {
+        void removeRegisteredDocument(previousMeetingMinutes);
+      }
+      void loadRegisteredDocuments(activeContext.condominiumId);
+      if (documentVersionId !== undefined) {
+        window.setTimeout(
+          () =>
+            void announceChatDocumentResult(
+              activeContext.condominiumId,
+              documentVersionId,
+              file.name
+            ),
+          1_500
+        );
+      }
+    } catch (error: unknown) {
+      setChatDocumentMessageIsError(true);
+      setChatDocumentMessage(
+        error instanceof Error ? error.message : `Não foi possível enviar ${file.name}.`
+      );
+    } finally {
+      setChatDocumentUploading(false);
+    }
+  }
+
+  async function announceChatDocumentResult(
+    activeCondominiumId: string,
+    documentVersionId: string,
+    fileName: string
+  ): Promise<void> {
+    try {
+      const response = await fetch(
+        `/v1/condominiums/${encodeURIComponent(activeCondominiumId)}/documents`,
+        {
+          credentials: "same-origin",
+          headers: authMode === "development" ? { "x-development-user-id": developmentUserId } : {}
+        }
+      );
+      if (!response.ok || context?.condominiumId !== activeCondominiumId) return;
+      const body = (await response.json()) as Readonly<{
+        documents?: readonly RegisteredDocument[];
+      }>;
+      const document = body.documents?.find(
+        (candidate) => candidate.documentVersionId === documentVersionId
+      );
+      if (
+        document === undefined ||
+        document.processingStatus === "uploaded" ||
+        document.processingStatus === "processing"
+      ) {
+        window.setTimeout(
+          () => void announceChatDocumentResult(activeCondominiumId, documentVersionId, fileName),
+          2_500
+        );
+        return;
+      }
+      await loadRegisteredDocuments(activeCondominiumId);
+      if (document.processingStatus === "ready") {
+        setChatDocumentMessage(
+          document.documentType === "other"
+            ? `Li ${fileName}, mas não encontrei sinal suficiente para identificar o tipo. Ele já está disponível para consulta.`
+            : `Li ${fileName} e identifiquei como ${documentTypeLabel(document.documentType)}. Ele já está disponível para consulta.`
+        );
+        return;
+      }
+      setChatDocumentMessageIsError(true);
+      setChatDocumentMessage(
+        `Li ${fileName}, mas o arquivo precisa de revisão antes de entrar nas respostas.`
+      );
+    } catch {
+      // A confirmação da leitura é complementar; o catálogo continua sendo a fonte do estado.
+    }
   }
 
   async function createCondominium(event: FormEvent<HTMLFormElement>) {
@@ -693,6 +1846,7 @@ export function App() {
         realAccount ? "/v1/condominiums" : "/v1/development/test-condominiums",
         {
           method: "POST",
+          credentials: "same-origin",
           headers: {
             "content-type": "application/json",
             ...(realAccount ? {} : { "x-development-user-id": developmentUserId })
@@ -760,9 +1914,11 @@ export function App() {
       );
 
       setRegistrationMessage(
-        realAccount
-          ? "Condomínio criado para sua conta. Salvando os documentos…"
-          : "Condomínio criado. Salvando a ata na memória…"
+        createdContext.resumedRegistration === true
+          ? "Cadastro anterior encontrado para sua conta. Retomando o envio dos documentos…"
+          : realAccount
+            ? "Condomínio criado para sua conta. Salvando os documentos…"
+            : "Condomínio criado. Salvando a ata na memória…"
       );
       registrationPhase = "documents";
       const minutesStatus = await uploadRegistrationDocument(
@@ -839,6 +1995,7 @@ export function App() {
     const trimmedQuestion = question.trim();
     if (trimmedQuestion.length === 0 || context === undefined) return;
 
+    playMessageSentSound();
     if (answer !== undefined && submittedQuestion !== "") {
       const previousTurn: ConversationHistoryEntry = {
         questionId: answer.questionId,
@@ -851,6 +2008,7 @@ export function App() {
         previousTurn
       ]);
     }
+    setAnswer(undefined);
     setBusy(true);
     setSubmittedQuestion(trimmedQuestion);
     setQuestion("");
@@ -881,6 +2039,7 @@ export function App() {
         return;
       }
       setAnswer((await response.json()) as PublicAnswer);
+      playAnswerReceivedSound();
     } catch {
       setAnswer(undefined);
       const failure = "Não foi possível conectar ao conselheiro agora.";
@@ -924,8 +2083,8 @@ export function App() {
       <main className="landing-page">
         <header className="landing-header">
           <div className="login-brand">
-            <ZermattMark />
-            <span>Zermatt</span>
+            <BrandMark />
+            <span>{provisionalBrand.productName}</span>
           </div>
           <span className="landing-header-label">CONSELHEIRO DOCUMENTAL</span>
         </header>
@@ -934,8 +2093,9 @@ export function App() {
             <p className="overline">GESTÃO CONDOMINIAL COM MAIS CLAREZA</p>
             <h1 id="landing-title">Encontre a regra certa para tomar a próxima decisão.</h1>
             <p className="landing-lead">
-              O Conselheiro organiza os documentos do seu condomínio e ajuda você a consultar
-              convenções, atas e contratos com respostas fundamentadas e fontes verificáveis.
+              A {provisionalBrand.productName} organiza os documentos do seu condomínio e ajuda você
+              a consultar convenções, atas e contratos com respostas fundamentadas e fontes
+              verificáveis.
             </p>
             <div className="landing-actions">
               <button
@@ -958,22 +2118,32 @@ export function App() {
               <button
                 className="landing-session-button"
                 type="button"
-                onClick={() => setView("condominiums")}
+                onClick={() => {
+                  if (authUser.isAdmin) {
+                    setView("admin-dashboard");
+                    void loadAdminDashboard();
+                    return;
+                  }
+                  setView("condominiums");
+                }}
               >
                 Continuar como {authUser.displayName}
                 <span aria-hidden="true">→</span>
               </button>
             )}
           </div>
-          <section className="landing-evidence" aria-label="Como o Conselheiro ajuda">
+          <section
+            className="landing-evidence"
+            aria-label={`Como a ${provisionalBrand.productName} ajuda`}
+          >
             <p className="landing-evidence-overline">SEM RESPOSTAS NO ESCURO</p>
             <h2>Você vê a resposta e de onde ela veio.</h2>
             <p className="landing-evidence-copy">
-              Pergunte como falaria com alguém da sua equipe. O Conselheiro procura a regra nos
-              documentos e mostra a página e o trecho usados na resposta.
+              Pergunte como falaria com alguém da sua equipe. A {provisionalBrand.productName}
+              procura a regra nos documentos e mostra a página e o trecho usados na resposta.
             </p>
             <p className="landing-evidence-note">
-              Se os documentos não bastarem, ele deixa isso claro.
+              Se os documentos não bastarem, ela deixa isso claro.
             </p>
           </section>
         </section>
@@ -988,8 +2158,8 @@ export function App() {
         <main className="login-page">
           <section className="login-card auth-loading-card" aria-live="polite">
             <div className="login-brand">
-              <ZermattMark />
-              <span>Zermatt</span>
+              <BrandMark />
+              <span>{provisionalBrand.productName}</span>
             </div>
             <p className="overline">CONSELHEIRO DOCUMENTAL</p>
             <h1>Preparando seu acesso.</h1>
@@ -1013,8 +2183,8 @@ export function App() {
         <main className="login-page">
           <section className="login-card" aria-labelledby="demo-access-title">
             <div className="login-brand">
-              <ZermattMark />
-              <span>Zermatt</span>
+              <BrandMark />
+              <span>{provisionalBrand.productName}</span>
             </div>
             <p className="overline">CONSELHEIRO DOCUMENTAL</p>
             <h1 id="demo-access-title">Acesse o ambiente de teste.</h1>
@@ -1056,8 +2226,8 @@ export function App() {
         <main className="login-page">
           <section className="login-card" aria-labelledby="auth-title">
             <div className="login-brand">
-              <ZermattMark />
-              <span>Zermatt</span>
+              <BrandMark />
+              <span>{provisionalBrand.productName}</span>
             </div>
             <p className="overline">CONSELHEIRO DOCUMENTAL</p>
             <h1 id="auth-title">{registering ? "Crie sua conta." : "Bem-vindo de volta."}</h1>
@@ -1141,8 +2311,8 @@ export function App() {
       <main className="login-page">
         <section className="login-card" aria-labelledby="connection-title">
           <div className="login-brand">
-            <ZermattMark />
-            <span>Zermatt</span>
+            <BrandMark />
+            <span>{provisionalBrand.productName}</span>
           </div>
           <p className="overline">CONSELHEIRO DOCUMENTAL</p>
           <h1 id="connection-title">Acesso indisponível.</h1>
@@ -1152,9 +2322,175 @@ export function App() {
           <button className="primary-button" type="button" onClick={() => window.location.reload()}>
             Tentar novamente <span aria-hidden="true">→</span>
           </button>
-          <p className="login-footer">
-            Zermatt Garantidora · tecnologia para uma gestão mais segura
-          </p>
+          <p className="login-footer">Respostas documentais com fontes verificáveis.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (view === "admin-dashboard") {
+    const generatedAt =
+      adminDashboard === undefined
+        ? undefined
+        : new Intl.DateTimeFormat("pt-BR", {
+            dateStyle: "short",
+            timeStyle: "short"
+          }).format(new Date(adminDashboard.generatedAt));
+
+    return (
+      <main className="admin-dashboard-page">
+        <header className="admin-dashboard-header">
+          <div className="admin-dashboard-brand">
+            <BrandMark />
+            <span>
+              <strong>Zermatt</strong>
+              <small>Painel administrativo</small>
+            </span>
+          </div>
+          <button type="button" aria-label="Sair da conta" onClick={() => void logoutAccount()}>
+            <ExitIcon />
+            <span>Sair da conta</span>
+          </button>
+        </header>
+
+        <section className="admin-dashboard-shell" aria-labelledby="admin-dashboard-title">
+          <div className="admin-dashboard-intro">
+            <div>
+              <p>VISÃO DA ZERMATT</p>
+              <h1 id="admin-dashboard-title">Sinais essenciais do produto.</h1>
+              <span>
+                Aquisição e atividade em números agregados para orientar as próximas decisões.
+              </span>
+            </div>
+            <div className="admin-dashboard-account">
+              <span aria-hidden="true">
+                {authUser?.displayName.trim().slice(0, 1).toLocaleUpperCase("pt-BR") || "A"}
+              </span>
+              <div>
+                <strong>{authUser?.displayName ?? "Administrador"}</strong>
+                <small>Acesso administrativo</small>
+              </div>
+            </div>
+          </div>
+
+          {adminDashboardError === "" ? null : (
+            <section className="admin-dashboard-error" role="alert">
+              <div>
+                <strong>Indicadores indisponíveis</strong>
+                <span>{adminDashboardError}</span>
+              </div>
+              <button type="button" onClick={() => void loadAdminDashboard()}>
+                Tentar novamente
+              </button>
+            </section>
+          )}
+
+          <section className="admin-metric-grid" aria-label="Indicadores de aquisição e uso">
+            <article className="admin-metric-card">
+              <span className="admin-metric-icon" aria-hidden="true">
+                <UsersIcon />
+              </span>
+              <p>CONTAS ATIVAS</p>
+              <strong>
+                {adminDashboardBusy ? "—" : (adminDashboard?.metrics.activeAccounts ?? "—")}
+              </strong>
+              <small>Total de pessoas com uma conta disponível.</small>
+            </article>
+            <article className="admin-metric-card">
+              <span className="admin-metric-icon is-green" aria-hidden="true">
+                <SparkIcon />
+              </span>
+              <p>NOVOS CADASTROS</p>
+              <strong>
+                {adminDashboardBusy ? "—" : (adminDashboard?.metrics.newAccountsLast7Days ?? "—")}
+              </strong>
+              <small>Contas criadas nos últimos 7 dias.</small>
+            </article>
+            <article className="admin-metric-card">
+              <span className="admin-metric-icon is-teal" aria-hidden="true">
+                <ActivityIcon />
+              </span>
+              <p>ACESSO RECENTE</p>
+              <strong>
+                {adminDashboardBusy ? "—" : (adminDashboard?.metrics.activeUsersLast7Days ?? "—")}
+              </strong>
+              <small>Pessoas distintas que entraram nos últimos 7 dias.</small>
+            </article>
+          </section>
+
+          <section className="admin-account-directory" aria-labelledby="admin-accounts-title">
+            <header>
+              <div>
+                <p>CONTAS CADASTRADAS</p>
+                <h2 id="admin-accounts-title">Pessoas com acesso ao produto</h2>
+                <span>Nome e e-mail informados na criação da conta.</span>
+              </div>
+              <span aria-live="polite">
+                {adminDashboardBusy
+                  ? "Carregando…"
+                  : `${adminDashboard?.accounts.length ?? 0} ${
+                      adminDashboard?.accounts.length === 1 ? "conta" : "contas"
+                    }`}
+              </span>
+            </header>
+
+            {adminDashboardBusy ? (
+              <div className="admin-account-directory-status" role="status">
+                Carregando contas cadastradas…
+              </div>
+            ) : adminDashboard?.accounts.length ? (
+              <ul>
+                {adminDashboard.accounts.map((account) => (
+                  <li key={account.email}>
+                    <span aria-hidden="true">
+                      {account.displayName.trim().slice(0, 1).toLocaleUpperCase("pt-BR") || "P"}
+                    </span>
+                    <div>
+                      <strong>{account.displayName}</strong>
+                      <small>{account.email}</small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="admin-account-directory-status">Nenhuma conta ativa encontrada.</div>
+            )}
+          </section>
+
+          <div className="admin-dashboard-lower-grid">
+            <section className="admin-dashboard-boundary-card">
+              <span aria-hidden="true">
+                <CheckIcon />
+              </span>
+              <div>
+                <p>DADOS MINIMIZADOS</p>
+                <h2>Somente sinais úteis para a Zermatt.</h2>
+                <span>
+                  Os indicadores usam contagens agregadas. No diretório, aparecem apenas nome e
+                  e-mail para a administração de acesso.
+                </span>
+              </div>
+            </section>
+            <section className="admin-dashboard-opportunity-card">
+              <div>
+                <p>OPORTUNIDADES COMERCIAIS</p>
+                <span>Coleta desativada</span>
+              </div>
+              <h2>Nenhum interesse é inferido.</h2>
+              <p>
+                Oportunidades só aparecerão quando existir um pedido de contato com consentimento
+                explícito e revogável.
+              </p>
+            </section>
+          </div>
+
+          <footer className="admin-dashboard-updated" aria-live="polite">
+            {adminDashboardBusy
+              ? "Atualizando indicadores…"
+              : generatedAt === undefined
+                ? "Indicadores ainda não carregados."
+                : `Atualizado em ${generatedAt}.`}
+          </footer>
         </section>
       </main>
     );
@@ -1165,8 +2501,8 @@ export function App() {
       <main className="onboarding-page">
         <header className="simple-header">
           <div className="login-brand">
-            <ZermattMark />
-            <span>Zermatt</span>
+            <BrandMark />
+            <span>{provisionalBrand.productName}</span>
           </div>
           <button
             type="button"
@@ -1197,7 +2533,7 @@ export function App() {
             <>
               <div className="account-ready-card">
                 <span className="account-ready-icon" aria-hidden="true">
-                  ✓
+                  <CheckIcon />
                 </span>
                 <div>
                   <strong>Conta ativa</strong>
@@ -1219,7 +2555,9 @@ export function App() {
             <>
               <div className="sample-list">
                 <button type="button" onClick={() => selectCondominium("alameda")} disabled={busy}>
-                  <span className="building-icon">▥</span>
+                  <span className="building-icon">
+                    <BuildingIcon />
+                  </span>
                   <span>
                     <strong>Residencial Alameda</strong>
                     <small>Documentos disponíveis</small>
@@ -1227,7 +2565,9 @@ export function App() {
                   <b>→</b>
                 </button>
                 <button type="button" onClick={() => selectCondominium("bosque")} disabled={busy}>
-                  <span className="building-icon">▥</span>
+                  <span className="building-icon">
+                    <BuildingIcon />
+                  </span>
                   <span>
                     <strong>Condomínio Bosque</strong>
                     <small>Segundo condomínio autorizado</small>
@@ -1270,7 +2610,7 @@ export function App() {
             aria-label="Voltar para condomínios"
             onClick={() => setView(registrationReturnView)}
           >
-            ←
+            <ArrowLeftIcon />
           </button>
           <div>
             <strong>Novo condomínio</strong>
@@ -1282,7 +2622,7 @@ export function App() {
         <form className="registration-form" onSubmit={createCondominium} noValidate>
           <section className="registration-intro">
             <span className="registration-building" aria-hidden="true">
-              ▥
+              <BuildingIcon />
             </span>
             <div>
               <p className="overline">NOVO CONTEXTO</p>
@@ -1509,7 +2849,7 @@ export function App() {
                 <span>4</span>
                 <div>
                   <strong>Documentos iniciais</strong>
-                  <small>PDF de até 10 MB por arquivo.</small>
+                  <small>PDF de até 25 MB por arquivo.</small>
                 </div>
               </div>
 
@@ -1526,7 +2866,7 @@ export function App() {
                   }}
                 />
                 <span className="document-icon" aria-hidden="true">
-                  {constitutionMinutes === undefined ? "↑" : "✓"}
+                  {constitutionMinutes === undefined ? <UploadIcon /> : <CheckIcon />}
                 </span>
                 <strong>Ata de assembleia geral de constituição *</strong>
                 <small>
@@ -1547,7 +2887,9 @@ export function App() {
                     setRegistrationMessageIsError(false);
                   }}
                 />
-                <span aria-hidden="true">＋</span>
+                <span aria-hidden="true">
+                  <PlusIcon />
+                </span>
                 Adicionar outros documentos
               </label>
 
@@ -1592,11 +2934,12 @@ export function App() {
               </label>
 
               <div className="memory-explanation">
-                <span aria-hidden="true">C</span>
+                <span aria-hidden="true">{provisionalBrand.mark}</span>
                 <p>
                   <strong>Memória separada por condomínio</strong>
                   <small>
-                    A Cora consulta apenas os documentos salvos no contexto selecionado.
+                    A {provisionalBrand.agentName} consulta apenas os documentos salvos no contexto
+                    selecionado.
                   </small>
                 </p>
               </div>
@@ -1618,11 +2961,16 @@ export function App() {
                 Cancelar
               </button>
               <button className="registration-submit" type="submit" disabled={busy}>
-                {busy
-                  ? "Salvando cadastro…"
-                  : authMode === "real"
-                    ? "Criar condomínio e abrir conversa"
-                    : "Criar condomínio e abrir conversa"}
+                {busy ? (
+                  "Salvando cadastro…"
+                ) : (
+                  <>
+                    <span className="registration-submit-label-desktop">
+                      Criar condomínio e abrir conversa
+                    </span>
+                    <span className="registration-submit-label-mobile">Criar condomínio</span>
+                  </>
+                )}
               </button>
             </div>
           </footer>
@@ -1640,37 +2988,51 @@ export function App() {
     return (
       <main className="mobile-condominiums-page">
         <header className="mobile-condominiums-header">
-          <div>
-            <strong>Condomínios</strong>
-            <small>Seus grupos de conversa</small>
+          <div className="mobile-condominiums-brand">
+            <BrandMark />
+            <div>
+              <strong>{provisionalBrand.productName}</strong>
+              <small>Conselheira documental</small>
+            </div>
           </div>
-          {authMode === "real" ? (
-            <button
-              className="mobile-account-button"
-              type="button"
-              onClick={() => void logoutAccount()}
-            >
-              Voltar ao login
-            </button>
-          ) : (
+          <div className="mobile-condominiums-actions">
             <button
               className="mobile-add-button"
               type="button"
               aria-label="Cadastrar novo condomínio"
               onClick={() => openCondominiumRegistration("condominiums")}
             >
-              +
+              <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
             </button>
-          )}
+            <button
+              className="mobile-account-button"
+              type="button"
+              aria-label="Abrir perfil do gestor"
+              onClick={() => openProfile("condominiums")}
+            >
+              {displayName.trim().slice(0, 1).toLocaleUpperCase("pt-BR") || "G"}
+            </button>
+          </div>
         </header>
         <section className="mobile-condominiums-content">
+          <div className="mobile-condominiums-heading">
+            <div>
+              <p className="overline">SEUS CONTEXTOS</p>
+              <h1>Condomínios</h1>
+            </div>
+            <span>{availableCondominiums.length}</span>
+          </div>
           {condominiumNotice === "" ? null : (
             <p className="mobile-condominiums-notice" role="status">
               {condominiumNotice}
             </p>
           )}
           <label className="mobile-condominiums-search">
-            <span aria-hidden="true">⌕</span>
+            <span aria-hidden="true">
+              <SearchIcon />
+            </span>
             <input
               value={condominiumSearch}
               onChange={(event) => setCondominiumSearch(event.target.value)}
@@ -1690,14 +3052,18 @@ export function App() {
                 type="button"
                 onClick={() => selectCondominium(item.id)}
                 disabled={busy}
+                aria-current={item.id === condominiumId ? "page" : undefined}
               >
                 <span className="mobile-condominium-avatar" aria-hidden="true">
-                  ▥
+                  {condominiumInitials(item.name)}
                 </span>
                 <span className="mobile-condominium-copy">
                   <strong>{item.name}</strong>
                   <small>{item.detail}</small>
                 </span>
+                {item.id === condominiumId ? (
+                  <span className="mobile-condominium-current">Aberto</span>
+                ) : null}
                 <span className="mobile-condominium-arrow" aria-hidden="true">
                   ›
                 </span>
@@ -1706,7 +3072,7 @@ export function App() {
             {visibleCondominiums.length === 0 ? (
               <div className="mobile-condominiums-empty-card">
                 <span className="mobile-condominiums-empty-icon" aria-hidden="true">
-                  ▥
+                  <BuildingIcon />
                 </span>
                 <strong>Nenhum grupo autorizado ainda</strong>
                 <p>
@@ -1730,10 +3096,70 @@ export function App() {
     );
   }
 
+  if (view === "profile") {
+    return (
+      <main className="app-settings-page">
+        <header className="chat-settings-header app-settings-header">
+          <button
+            type="button"
+            className="chat-settings-back"
+            aria-label="Voltar"
+            onClick={() => setView(profileReturnView)}
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M19 12H5m6-7-7 7 7 7" />
+            </svg>
+          </button>
+          <div>
+            <strong>Perfil</strong>
+            <small>Conta e acesso</small>
+          </div>
+        </header>
+
+        <section className="app-settings-content" aria-label="Perfil do gestor">
+          <section className="app-settings-profile-card">
+            <span aria-hidden="true">
+              {displayName.trim().slice(0, 1).toLocaleUpperCase("pt-BR") || "G"}
+            </span>
+            <div>
+              <p>PERFIL ATUAL</p>
+              <h1>{displayName.trim() || "Gestor"}</h1>
+              <small>
+                {authUser?.email ??
+                  (authMode === "real" ? "Conta protegida" : "Ambiente de demonstração")}
+              </small>
+            </div>
+          </section>
+
+          <section className="app-settings-card app-settings-session-card">
+            <div className="app-settings-card-heading">
+              <div>
+                <p>ACESSO</p>
+                <h2>Sessão atual</h2>
+              </div>
+              <span aria-hidden="true">
+                <ExitIcon />
+              </span>
+            </div>
+            <p>
+              {authMode === "real"
+                ? "Encerra o acesso neste dispositivo sem apagar sua conta ou seus condomínios."
+                : "Encerra o acesso à demonstração e volta para a apresentação inicial."}
+            </p>
+            <button type="button" onClick={() => void logoutAccount()}>
+              Sair da conta
+            </button>
+          </section>
+        </section>
+      </main>
+    );
+  }
+
   if (view === "chat-settings") {
     const activeCondominium = availableCondominiums.find(
       (item) => item.id === context?.condominiumId
     );
+    const profileCoverPhoto = condominiumProfilePhotos.find((photo) => photo.isCover);
 
     return (
       <main className="chat-settings-page">
@@ -1749,15 +3175,22 @@ export function App() {
             </svg>
           </button>
           <div>
-            <strong>Configurações do chat</strong>
+            <strong>Configurações do condomínio</strong>
             <small>{activeCondominium?.name ?? context?.condominiumId ?? "Condomínio"}</small>
           </div>
         </header>
 
-        <section className="chat-settings-content" aria-label="Configurações gerais do chat">
+        <section className="chat-settings-content" aria-label="Configurações do condomínio">
           <div className="chat-settings-identity">
-            <span className="chat-settings-identity-icon" aria-hidden="true">
-              ▥
+            <span
+              className={`chat-settings-identity-icon${profileCoverPhoto && condominiumProfilePhotoUrls[profileCoverPhoto.photoId] ? " has-profile-photo" : ""}`}
+              aria-hidden="true"
+            >
+              {profileCoverPhoto && condominiumProfilePhotoUrls[profileCoverPhoto.photoId] ? (
+                <img src={condominiumProfilePhotoUrls[profileCoverPhoto.photoId]} alt="" />
+              ) : (
+                <BuildingIcon />
+              )}
             </span>
             <div>
               <strong>{activeCondominium?.name ?? context?.condominiumId ?? "Condomínio"}</strong>
@@ -1765,102 +3198,922 @@ export function App() {
             </div>
           </div>
 
-          <section className="chat-settings-card">
-            <div className="chat-settings-card-heading">
-              <div>
-                <p className="chat-settings-overline">PREFERÊNCIAS DA CONVERSA</p>
-                <h2>Como o chat aparece</h2>
-              </div>
-              <span aria-hidden="true">⚙</span>
-            </div>
-            <label className="chat-settings-toggle">
-              <span>
-                <strong>Mostrar histórico nesta tela</strong>
-                <small>
-                  Esconde ou exibe as conversas anteriores carregadas para este condomínio.
-                </small>
-              </span>
-              <input
-                type="checkbox"
-                checked={chatSettings.showHistory}
-                onChange={(event) =>
-                  setChatSettings((current) => ({
-                    ...current,
-                    showHistory: event.target.checked
-                  }))
-                }
-              />
-            </label>
-            <label className="chat-settings-toggle">
-              <span>
-                <strong>Lembrete de evidências</strong>
-                <small>
-                  Mostra o aviso de que respostas documentais usam apenas fontes autorizadas.
-                </small>
-              </span>
-              <input
-                type="checkbox"
-                checked={chatSettings.showEvidenceReminder}
-                onChange={(event) =>
-                  setChatSettings((current) => ({
-                    ...current,
-                    showEvidenceReminder: event.target.checked
-                  }))
-                }
-              />
-            </label>
-            <button
-              type="button"
-              className="chat-settings-secondary-button"
-              onClick={() => {
-                resetConversation();
-                setSettingsMessage(
-                  "A conversa visível foi limpa. O histórico salvo não foi apagado."
-                );
-              }}
-            >
-              Limpar conversa visível
-            </button>
-            <small className="chat-settings-footnote">
-              Essas preferências ficam neste dispositivo.
-            </small>
-          </section>
-
-          <section className="chat-settings-card chat-settings-danger-card">
-            <div className="chat-settings-card-heading">
-              <div>
-                <p className="chat-settings-overline">GESTÃO DO CONDOMÍNIO</p>
-                <h2>Sair da gestão e apagar condomínio</h2>
-              </div>
-              <span aria-hidden="true">!</span>
-            </div>
-            <p>
-              Esta ação apaga permanentemente o condomínio selecionado, incluindo documentos,
-              conversas e histórico. Sua conta não será apagada.
-            </p>
-            {context?.role === "manager" ? null : (
-              <p className="chat-settings-footnote">
-                Apenas o síndico responsável pode apagar o condomínio.
-              </p>
-            )}
-            <button
-              type="button"
-              className="chat-settings-leave-button"
-              onClick={() => {
-                setSettingsMessage("");
-                setLeaveManagementOpen(true);
-              }}
-              disabled={leaveManagementBusy || context?.role !== "manager"}
-            >
-              Sair da gestão e apagar condomínio
-            </button>
-          </section>
-
           {settingsMessage === "" ? null : (
-            <p className="chat-settings-message" role="status">
+            <p
+              className={`chat-settings-message${settingsMessageIsError ? " error" : ""}`}
+              role={settingsMessageIsError ? "alert" : "status"}
+            >
               {settingsMessage}
             </p>
           )}
+
+          <div className="chat-settings-tabs" role="tablist" aria-label="Seções das configurações">
+            {settingsTabOrder.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                id={`settings-tab-${tab}`}
+                className={`chat-settings-tab${settingsTab === tab ? " is-active" : ""}`}
+                role="tab"
+                aria-selected={settingsTab === tab}
+                aria-controls={`settings-panel-${tab}`}
+                tabIndex={settingsTab === tab ? 0 : -1}
+                onClick={() => setSettingsTab(tab)}
+                onKeyDown={(event) => handleSettingsTabKeyDown(event, tab)}
+              >
+                <span className="chat-settings-tab-icon" aria-hidden="true">
+                  {tab === "personalization" ? (
+                    <BuildingIcon />
+                  ) : tab === "documents" ? (
+                    <DocumentIcon />
+                  ) : tab === "management" ? (
+                    <AlertIcon />
+                  ) : (
+                    <SettingsIcon />
+                  )}
+                </span>
+                <span className="chat-settings-tab-copy">
+                  <strong>{settingsTabCopy[tab].label}</strong>
+                  <small>{settingsTabCopy[tab].description}</small>
+                </span>
+                {tab === "documents" ? (
+                  <span
+                    className="chat-settings-tab-count"
+                    aria-label={`${registeredDocuments.length} ${registeredDocuments.length === 1 ? "arquivo" : "arquivos"}`}
+                  >
+                    {registeredDocuments.length}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+
+          <section
+            className="chat-settings-card condominium-profile-card"
+            id="settings-panel-personalization"
+            role="tabpanel"
+            aria-labelledby="settings-tab-personalization"
+            hidden={settingsTab !== "personalization"}
+            tabIndex={0}
+          >
+            <div className="chat-settings-card-heading">
+              <div>
+                <p className="chat-settings-overline">PERFIL E IDENTIFICAÇÃO</p>
+                <h2>Personalização do condomínio</h2>
+              </div>
+              <span aria-hidden="true">
+                <BuildingIcon />
+              </span>
+            </div>
+            <p className="condominium-profile-intro">
+              Deixe o espaço de trabalho com a cara do condomínio. Essas informações ajudam na
+              identificação e não substituem os documentos consultados pelo Alvitra.
+            </p>
+
+            {condominiumProfileMessage === "" ? null : (
+              <p
+                className={`chat-settings-message${condominiumProfileMessageIsError ? " error" : ""}`}
+                role={condominiumProfileMessageIsError ? "alert" : "status"}
+              >
+                {condominiumProfileMessage}
+              </p>
+            )}
+
+            {condominiumProfileLoading ? (
+              <p className="document-catalog-state" role="status">
+                Carregando perfil e fotos…
+              </p>
+            ) : condominiumProfile === undefined ? (
+              <div className="document-catalog-state error" role="alert">
+                <p>Não foi possível exibir o perfil deste condomínio.</p>
+                <button
+                  type="button"
+                  className="chat-settings-secondary-button"
+                  onClick={() => {
+                    if (context !== undefined) void loadCondominiumProfile(context.condominiumId);
+                  }}
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : (
+              <>
+                <form className="condominium-profile-form" onSubmit={saveCondominiumProfile}>
+                  <div className="condominium-profile-fields">
+                    <label className="profile-field profile-field-wide">
+                      <span>Nome do condomínio</span>
+                      <input
+                        required
+                        maxLength={120}
+                        value={condominiumProfile.name}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : { ...current, name: event.target.value }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>
+                        CNPJ <small>não pode ser alterado</small>
+                      </span>
+                      <input
+                        value={
+                          condominiumProfile.cnpj
+                            ? formatCnpj(condominiumProfile.cnpj)
+                            : "Não informado"
+                        }
+                        readOnly
+                        aria-readonly="true"
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>Administradora</span>
+                      <input
+                        maxLength={120}
+                        value={condominiumProfile.administrationCompany}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : { ...current, administrationCompany: event.target.value }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>Quantidade de unidades</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100000}
+                        step={1}
+                        value={condominiumProfile.unitCount}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : { ...current, unitCount: event.target.value }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>CEP</span>
+                      <input
+                        maxLength={9}
+                        autoComplete="postal-code"
+                        value={condominiumProfile.address.postalCode}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  address: { ...current.address, postalCode: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field profile-field-wide">
+                      <span>Rua ou avenida</span>
+                      <input
+                        maxLength={120}
+                        autoComplete="address-line1"
+                        value={condominiumProfile.address.street}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  address: { ...current.address, street: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>Número</span>
+                      <input
+                        maxLength={20}
+                        value={condominiumProfile.address.number}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  address: { ...current.address, number: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>Complemento</span>
+                      <input
+                        maxLength={80}
+                        value={condominiumProfile.address.complement}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  address: { ...current.address, complement: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>Bairro</span>
+                      <input
+                        maxLength={80}
+                        autoComplete="address-level3"
+                        value={condominiumProfile.address.neighborhood}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  address: { ...current.address, neighborhood: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>Cidade</span>
+                      <input
+                        required
+                        maxLength={80}
+                        autoComplete="address-level2"
+                        value={condominiumProfile.address.city}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  address: { ...current.address, city: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field profile-field-compact">
+                      <span>UF</span>
+                      <input
+                        required
+                        maxLength={2}
+                        autoComplete="address-level1"
+                        value={condominiumProfile.address.state}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  address: {
+                                    ...current.address,
+                                    state: event.target.value.toUpperCase()
+                                  }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <div className="profile-field-separator profile-field-wide">
+                      <strong>Contato da gestão</strong>
+                      <small>Opcional, para manter os dados do condomínio organizados.</small>
+                    </div>
+                    <label className="profile-field">
+                      <span>Nome do responsável</span>
+                      <input
+                        maxLength={100}
+                        autoComplete="name"
+                        value={condominiumProfile.contact.managerName}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  contact: { ...current.contact, managerName: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>E-mail da gestão</span>
+                      <input
+                        type="email"
+                        maxLength={160}
+                        autoComplete="email"
+                        value={condominiumProfile.contact.email}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  contact: { ...current.contact, email: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field">
+                      <span>Telefone</span>
+                      <input
+                        type="tel"
+                        maxLength={30}
+                        autoComplete="tel"
+                        value={condominiumProfile.contact.phone}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : {
+                                  ...current,
+                                  contact: { ...current.contact, phone: event.target.value }
+                                }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                      />
+                    </label>
+                    <label className="profile-field profile-field-wide">
+                      <span>
+                        Sobre o condomínio <small>até 500 caracteres</small>
+                      </span>
+                      <textarea
+                        rows={3}
+                        maxLength={500}
+                        value={condominiumProfile.description}
+                        onChange={(event) =>
+                          setCondominiumProfile((current) =>
+                            current === undefined
+                              ? current
+                              : { ...current, description: event.target.value }
+                          )
+                        }
+                        disabled={context?.role !== "manager" || condominiumProfileSaving}
+                        placeholder="Uma breve apresentação para ajudar a identificar este condomínio"
+                      />
+                      <small className="profile-character-count">
+                        {condominiumProfile.description.length}/500
+                      </small>
+                    </label>
+                  </div>
+                  {context?.role === "manager" ? (
+                    <button
+                      type="submit"
+                      className="condominium-profile-save"
+                      disabled={condominiumProfileSaving}
+                    >
+                      {condominiumProfileSaving ? "Salvando alterações…" : "Salvar personalização"}
+                    </button>
+                  ) : (
+                    <p className="chat-settings-footnote">
+                      Você pode consultar o perfil; somente o síndico responsável pode alterá-lo.
+                    </p>
+                  )}
+                </form>
+
+                <section className="condominium-profile-photos" aria-label="Fotos do condomínio">
+                  <div className="condominium-profile-photos-heading">
+                    <div>
+                      <strong>Fotos do condomínio</strong>
+                      <small>Escolha uma capa para identificar este espaço.</small>
+                    </div>
+                    <span>{condominiumProfilePhotos.length}/5</span>
+                  </div>
+                  {condominiumProfilePhotos.length === 0 ? (
+                    <div className="profile-photo-empty">
+                      <span aria-hidden="true">
+                        <BuildingIcon />
+                      </span>
+                      <div>
+                        <strong>Nenhuma foto adicionada</strong>
+                        <small>
+                          Uma foto da fachada ou de uma área comum ajuda a reconhecer o condomínio.
+                        </small>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="profile-photo-grid">
+                      {condominiumProfilePhotos.map((photo) => (
+                        <article
+                          className={`profile-photo-tile${photo.isCover ? " is-cover" : ""}`}
+                          key={photo.photoId}
+                        >
+                          {condominiumProfilePhotoUrls[photo.photoId] ? (
+                            <img
+                              src={condominiumProfilePhotoUrls[photo.photoId]}
+                              alt={
+                                photo.isCover ? "Foto de capa do condomínio" : "Foto do condomínio"
+                              }
+                            />
+                          ) : (
+                            <div
+                              className="profile-photo-placeholder"
+                              aria-label="Pré-visualização indisponível"
+                            >
+                              <BuildingIcon />
+                            </div>
+                          )}
+                          {photo.isCover ? (
+                            <span className="profile-photo-cover-badge">Capa</span>
+                          ) : null}
+                          {context?.role === "manager" ? (
+                            <div className="profile-photo-actions">
+                              {!photo.isCover ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void setCondominiumProfileCover(photo.photoId)}
+                                >
+                                  Definir como capa
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="profile-photo-delete"
+                                aria-label="Remover foto do perfil"
+                                onClick={() => setProfilePhotoRemovalCandidate(photo)}
+                              >
+                                <TrashIcon />
+                              </button>
+                            </div>
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                  {context?.role === "manager" ? (
+                    <label
+                      className={`profile-photo-picker${condominiumProfileUploading || condominiumProfilePhotos.length >= 5 ? " disabled" : ""}`}
+                    >
+                      <span aria-hidden="true">
+                        <UploadIcon />
+                      </span>
+                      <div>
+                        <strong>
+                          {condominiumProfileUploading ? "Enviando fotos…" : "Adicionar fotos"}
+                        </strong>
+                        <small>JPEG, PNG ou WebP · até 5 MB por foto</small>
+                      </div>
+                      <em>
+                        {condominiumProfilePhotos.length >= 5 ? "Limite atingido" : "Selecionar"}
+                      </em>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                        multiple
+                        disabled={
+                          condominiumProfileUploading || condominiumProfilePhotos.length >= 5
+                        }
+                        onChange={(event) => void addCondominiumProfilePhotos(event)}
+                      />
+                    </label>
+                  ) : null}
+                  <p className="profile-photo-privacy">
+                    Por privacidade, evite fotos com pessoas, placas de veículos ou outros dados
+                    pessoais desnecessários.
+                  </p>
+                </section>
+              </>
+            )}
+          </section>
+
+          <div
+            className="chat-settings-tab-panel"
+            id="settings-panel-documents"
+            role="tabpanel"
+            aria-labelledby="settings-tab-documents"
+            hidden={settingsTab !== "documents"}
+            tabIndex={0}
+          >
+            <section className="chat-settings-card document-catalog-card">
+              <div className="chat-settings-card-heading">
+                <div>
+                  <p className="chat-settings-overline">DOCUMENTOS DO CONDOMÍNIO</p>
+                  <h2>Documentos registrados</h2>
+                </div>
+                <span aria-hidden="true">
+                  <DocumentIcon />
+                </span>
+              </div>
+              <div className="document-catalog-summary">
+                <p>Arquivos que o Alvitra consulta para responder sobre este condomínio.</p>
+                <span>
+                  {registeredDocuments.length}{" "}
+                  {registeredDocuments.length === 1 ? "arquivo" : "arquivos"}
+                </span>
+              </div>
+
+              {registeredDocumentsBusy ? (
+                <p className="document-catalog-state" role="status">
+                  Carregando documentos…
+                </p>
+              ) : registeredDocumentsError !== "" ? (
+                <div className="document-catalog-state error" role="alert">
+                  <p>{registeredDocumentsError}</p>
+                  <button
+                    type="button"
+                    className="chat-settings-secondary-button"
+                    onClick={() => {
+                      if (context !== undefined)
+                        void loadRegisteredDocuments(context.condominiumId);
+                    }}
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              ) : registeredDocuments.length === 0 ? (
+                <div className="document-catalog-empty">
+                  <span aria-hidden="true">
+                    <DocumentIcon />
+                  </span>
+                  <div>
+                    <strong>Nenhum documento registrado</strong>
+                    <p>Adicione o primeiro PDF para começar a memória deste condomínio.</p>
+                  </div>
+                </div>
+              ) : (
+                <ul className="document-catalog-list" aria-label="Documentos registrados">
+                  {registeredDocuments.map((document) => (
+                    <li key={document.documentVersionId}>
+                      <span className="document-catalog-icon" aria-hidden="true">
+                        <DocumentIcon />
+                      </span>
+                      <div className="document-catalog-copy">
+                        <strong>{document.title}</strong>
+                        <small>
+                          {documentTypeLabel(document.documentType)} · Versão{" "}
+                          {document.versionNumber} · {formatDocumentSize(document.sizeBytes)}
+                        </small>
+                        <div className="document-catalog-statuses">
+                          <span className={`processing-${document.processingStatus}`}>
+                            {processingStatusLabel(document.processingStatus)}
+                          </span>
+                          <span className={`validity-${document.validityStatus}`}>
+                            {validityStatusLabel(document.validityStatus)}
+                          </span>
+                        </div>
+                        <small className="document-extraction-summary">
+                          {extractionSummaryLabel(document)}
+                        </small>
+                      </div>
+                      <div
+                        className="document-catalog-actions"
+                        role="group"
+                        aria-label={`Ações para ${document.title}`}
+                      >
+                        <button
+                          type="button"
+                          className="document-catalog-preview-button"
+                          onClick={() => void viewRegisteredDocument(document)}
+                          disabled={documentPreviewBusy}
+                        >
+                          <PreviewIcon />
+                          <span>Visualizar</span>
+                        </button>
+                        {context?.permissions.includes("document:upload") ? (
+                          <button
+                            type="button"
+                            className="document-catalog-remove-button"
+                            onClick={() => setDocumentRemovalCandidate(document)}
+                            disabled={registeredDocumentsBusy}
+                          >
+                            <TrashIcon />
+                            <span>Mover para lixeira</span>
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {archivedDocuments.length > 0 ? (
+              <section
+                className="chat-settings-card document-catalog-card"
+                aria-label="Lixeira de documentos"
+              >
+                <div className="chat-settings-card-heading">
+                  <div>
+                    <p className="chat-settings-overline">LIXEIRA DE DOCUMENTOS</p>
+                    <h2>Documentos recuperáveis</h2>
+                  </div>
+                  <span aria-hidden="true">
+                    <RestoreIcon />
+                  </span>
+                </div>
+                <div className="document-recovery-notice">
+                  <span aria-hidden="true">
+                    <RestoreIcon />
+                  </span>
+                  <p>
+                    Os PDFs removidos podem ser recuperados por até 30 dias. Depois disso, são
+                    apagados permanentemente.
+                  </p>
+                </div>
+                <ul className="document-catalog-list" aria-label="Documentos recuperáveis">
+                  {archivedDocuments.map((document) => (
+                    <li key={document.documentId}>
+                      <span className="document-catalog-icon" aria-hidden="true">
+                        <DocumentIcon />
+                      </span>
+                      <div className="document-catalog-copy">
+                        <strong>{document.title}</strong>
+                        <small>
+                          Removido em {new Date(document.archivedAt).toLocaleDateString("pt-BR")} ·
+                          recuperação disponível até{" "}
+                          {new Date(
+                            new Date(document.archivedAt).getTime() + 30 * 24 * 60 * 60 * 1000
+                          ).toLocaleDateString("pt-BR")}
+                        </small>
+                      </div>
+                      <div
+                        className="document-catalog-actions"
+                        role="group"
+                        aria-label={`Ações para ${document.title}`}
+                      >
+                        <button
+                          type="button"
+                          className="document-catalog-restore-button"
+                          onClick={() => void restoreRegisteredDocument(document)}
+                          disabled={registeredDocumentsBusy}
+                        >
+                          <RestoreIcon />
+                          <span>Recuperar documento</span>
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            <form
+              className="chat-settings-card settings-document-upload"
+              onSubmit={addSettingsDocuments}
+            >
+              <div className="chat-settings-card-heading">
+                <div>
+                  <p className="chat-settings-overline">ADICIONAR À MEMÓRIA</p>
+                  <h2>Adicionar documentos</h2>
+                </div>
+                <span aria-hidden="true">
+                  <UploadIcon />
+                </span>
+              </div>
+              <p className="settings-document-upload-intro">
+                Envie convenções, regimentos, atas ou contratos. Cada PDF pode ter até 25 MB.
+              </p>
+              <label
+                className={`settings-document-picker${
+                  context?.permissions.includes("document:upload") ? "" : " disabled"
+                }`}
+              >
+                <span aria-hidden="true">
+                  <UploadIcon />
+                </span>
+                <div>
+                  <strong>Escolher documentos</strong>
+                  <small>PDF · até 25 MB por arquivo · vários arquivos de uma vez</small>
+                </div>
+                <em>Selecionar</em>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  multiple
+                  disabled={
+                    settingsDocumentsUploading || !context?.permissions.includes("document:upload")
+                  }
+                  onChange={(event) => {
+                    const selected = Array.from(event.currentTarget.files ?? []);
+                    setSettingsDocumentFiles((current) => [...current, ...selected]);
+                    setSettingsMessage("");
+                    setSettingsMessageIsError(false);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+
+              {settingsDocumentFiles.length === 0 ? null : (
+                <div className="settings-selected-documents-panel">
+                  <div className="settings-selected-documents-heading">
+                    <strong>Prontos para adicionar</strong>
+                    <span>{settingsDocumentFiles.length}</span>
+                  </div>
+                  <ul className="settings-selected-documents" aria-label="Arquivos selecionados">
+                    {settingsDocumentFiles.map((file, index) => (
+                      <li key={`${file.name}-${file.size}-${index}`}>
+                        <span aria-hidden="true">
+                          <DocumentIcon />
+                        </span>
+                        <div>
+                          <strong>{file.name}</strong>
+                          <small>{formatDocumentSize(file.size)} · pronto para envio</small>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={`Remover ${file.name} da seleção`}
+                          onClick={() =>
+                            setSettingsDocumentFiles((current) =>
+                              current.filter((_, fileIndex) => fileIndex !== index)
+                            )
+                          }
+                          disabled={settingsDocumentsUploading}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <label className="settings-document-confirmation">
+                <input
+                  type="checkbox"
+                  checked={settingsDocumentsConfirmed}
+                  onChange={(event) => setSettingsDocumentsConfirmed(event.target.checked)}
+                  disabled={
+                    settingsDocumentsUploading || !context?.permissions.includes("document:upload")
+                  }
+                />
+                <span>
+                  <strong>Confirmar antes de adicionar</strong>
+                  <small>
+                    Estes documentos pertencem a este condomínio e podem fundamentar as respostas.
+                  </small>
+                </span>
+              </label>
+
+              {context?.permissions.includes("document:upload") ? null : (
+                <p className="chat-settings-footnote">
+                  Sua conta pode consultar os documentos, mas não adicionar novos arquivos.
+                </p>
+              )}
+              <button
+                type="submit"
+                className="settings-document-submit"
+                disabled={
+                  settingsDocumentsUploading ||
+                  !context?.permissions.includes("document:upload") ||
+                  settingsDocumentFiles.length === 0 ||
+                  !settingsDocumentsConfirmed
+                }
+              >
+                <UploadIcon />
+                {settingsDocumentsUploading
+                  ? "Adicionando…"
+                  : settingsDocumentFiles.length === 0
+                    ? "Escolha os documentos"
+                    : `Adicionar ${settingsDocumentFiles.length} ${
+                        settingsDocumentFiles.length === 1 ? "documento" : "documentos"
+                      } à memória`}
+              </button>
+            </form>
+          </div>
+
+          <div
+            className="chat-settings-tab-panel"
+            id="settings-panel-preferences"
+            role="tabpanel"
+            aria-labelledby="settings-tab-preferences"
+            hidden={settingsTab !== "preferences"}
+            tabIndex={0}
+          >
+            <section className="chat-settings-card">
+              <div className="chat-settings-card-heading">
+                <div>
+                  <p className="chat-settings-overline">PREFERÊNCIAS DA CONVERSA</p>
+                  <h2>Como o chat aparece</h2>
+                </div>
+                <span aria-hidden="true">
+                  <SettingsIcon />
+                </span>
+              </div>
+              <label className="chat-settings-toggle">
+                <span>
+                  <strong>Mostrar histórico nesta tela</strong>
+                  <small>
+                    Esconde ou exibe as conversas anteriores carregadas para este condomínio.
+                  </small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={chatSettings.showHistory}
+                  onChange={(event) =>
+                    setChatSettings((current) => ({
+                      ...current,
+                      showHistory: event.target.checked
+                    }))
+                  }
+                />
+              </label>
+              <label className="chat-settings-toggle">
+                <span>
+                  <strong>Lembrete de evidências</strong>
+                  <small>
+                    Mostra o aviso de que respostas documentais usam apenas fontes autorizadas.
+                  </small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={chatSettings.showEvidenceReminder}
+                  onChange={(event) =>
+                    setChatSettings((current) => ({
+                      ...current,
+                      showEvidenceReminder: event.target.checked
+                    }))
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                className="chat-settings-secondary-button"
+                onClick={() => {
+                  resetConversation();
+                  setSettingsMessageIsError(false);
+                  setSettingsMessage(
+                    "A conversa visível foi limpa. O histórico salvo não foi apagado."
+                  );
+                }}
+              >
+                Limpar conversa visível
+              </button>
+              <small className="chat-settings-footnote">
+                Essas preferências ficam neste dispositivo.
+              </small>
+            </section>
+          </div>
+
+          <div
+            className="chat-settings-tab-panel"
+            id="settings-panel-management"
+            role="tabpanel"
+            aria-labelledby="settings-tab-management"
+            hidden={settingsTab !== "management"}
+            tabIndex={0}
+          >
+            <section className="chat-settings-card chat-settings-danger-card">
+              <div className="chat-settings-card-heading">
+                <div>
+                  <p className="chat-settings-overline">GESTÃO DO CONDOMÍNIO</p>
+                  <h2>Sair da gestão e apagar condomínio</h2>
+                </div>
+                <span aria-hidden="true">
+                  <AlertIcon />
+                </span>
+              </div>
+              <p>
+                Esta ação apaga permanentemente o condomínio selecionado, incluindo documentos,
+                conversas e histórico. Sua conta não será apagada.
+              </p>
+              {context?.role === "manager" ? null : (
+                <p className="chat-settings-footnote">
+                  Apenas o síndico responsável pode apagar o condomínio.
+                </p>
+              )}
+              <button
+                type="button"
+                className="chat-settings-leave-button"
+                onClick={() => {
+                  setSettingsMessage("");
+                  setSettingsMessageIsError(false);
+                  setLeaveManagementOpen(true);
+                }}
+                disabled={leaveManagementBusy || context?.role !== "manager"}
+              >
+                Sair da gestão e apagar condomínio
+              </button>
+            </section>
+          </div>
         </section>
 
         {leaveManagementOpen ? (
@@ -1898,15 +4151,150 @@ export function App() {
             </section>
           </div>
         ) : null}
+
+        {profilePhotoRemovalCandidate ? (
+          <div className="chat-settings-overlay" role="presentation">
+            <section
+              className="chat-settings-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="remove-profile-photo-title"
+            >
+              <p className="chat-settings-overline">FOTO DO CONDOMÍNIO</p>
+              <h2 id="remove-profile-photo-title">Remover esta foto?</h2>
+              <p>
+                A foto será removida do perfil.{" "}
+                {profilePhotoRemovalCandidate.isCover
+                  ? "Se houver outra imagem, ela passará a ser a capa."
+                  : "Esta ação não altera as demais fotos."}
+              </p>
+              <div className="chat-settings-dialog-actions">
+                <button
+                  type="button"
+                  className="chat-settings-secondary-button"
+                  onClick={() => setProfilePhotoRemovalCandidate(undefined)}
+                  disabled={profilePhotoRemoving}
+                >
+                  Manter foto
+                </button>
+                <button
+                  type="button"
+                  className="chat-settings-leave-button"
+                  onClick={() => void deleteCondominiumProfilePhoto()}
+                  disabled={profilePhotoRemoving}
+                >
+                  {profilePhotoRemoving ? "Removendo…" : "Remover foto"}
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {documentPreviewBusy || documentPreview !== undefined || documentPreviewError !== "" ? (
+          <div className="chat-settings-overlay" role="presentation">
+            <section
+              className="document-preview-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="document-preview-title"
+            >
+              <header>
+                <div>
+                  <p className="chat-settings-overline">VISUALIZAÇÃO SEGURA</p>
+                  <h2 id="document-preview-title">
+                    {documentPreview?.title ?? "Abrindo documento"}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Fechar visualização"
+                  onClick={closeDocumentPreview}
+                >
+                  ×
+                </button>
+              </header>
+              {documentPreviewBusy ? (
+                <p className="document-preview-state" role="status">
+                  Carregando PDF…
+                </p>
+              ) : documentPreviewError !== "" ? (
+                <div className="document-preview-state error" role="alert">
+                  <p>{documentPreviewError}</p>
+                  <button
+                    type="button"
+                    className="chat-settings-secondary-button"
+                    onClick={closeDocumentPreview}
+                  >
+                    Fechar
+                  </button>
+                </div>
+              ) : documentPreview !== undefined ? (
+                <iframe title={`PDF: ${documentPreview.title}`} src={documentPreview.url} />
+              ) : null}
+            </section>
+          </div>
+        ) : null}
+
+        {documentRemovalCandidate !== undefined ? (
+          <div className="chat-settings-overlay" role="presentation">
+            <section
+              className="document-removal-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="document-removal-title"
+              aria-describedby="document-removal-description"
+            >
+              <span className="document-removal-dialog-icon" aria-hidden="true">
+                <TrashIcon />
+              </span>
+              <p className="chat-settings-overline">GERENCIAR MEMÓRIA DOCUMENTAL</p>
+              <h2 id="document-removal-title">Mover para a lixeira?</h2>
+              <p id="document-removal-description">
+                <strong>{documentRemovalCandidate.title}</strong> deixará de ser usado nas respostas
+                agora. Você poderá recuperá-lo por até 30 dias antes da exclusão permanente.
+              </p>
+              <div className="document-removal-dialog-actions">
+                <button
+                  type="button"
+                  className="chat-settings-secondary-button"
+                  onClick={() => setDocumentRemovalCandidate(undefined)}
+                  disabled={registeredDocumentsBusy}
+                >
+                  Manter documento
+                </button>
+                <button
+                  type="button"
+                  className="document-removal-confirm-button"
+                  onClick={() => {
+                    const document = documentRemovalCandidate;
+                    setDocumentRemovalCandidate(undefined);
+                    void removeRegisteredDocument(document);
+                  }}
+                  disabled={registeredDocumentsBusy}
+                >
+                  <TrashIcon />
+                  Mover para lixeira
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </main>
     );
   }
 
   const visibleConversationHistory = chatSettings.showHistory ? conversationHistory : [];
+  const activeCondominium = availableCondominiums.find(
+    (item) => item.id === context?.condominiumId
+  );
+  const normalizedSidebarSearch = condominiumSearch.trim().toLocaleLowerCase("pt-BR");
+  const sidebarCondominiums = availableCondominiums.filter((item) =>
+    `${item.name} ${item.detail}`.toLocaleLowerCase("pt-BR").includes(normalizedSidebarSearch)
+  );
 
   return (
     <main
-      className="chat-page"
+      className={`chat-page${desktopSidebarOpen ? "" : " sidebar-collapsed"}`}
       onTouchStart={(event) => {
         const touch = event.changedTouches[0];
         if (touch !== undefined) touchStartX.current = touch.clientX;
@@ -1920,291 +4308,471 @@ export function App() {
         }
       }}
     >
-      <header className="chat-header">
-        <button
-          className="mobile-chat-back"
-          type="button"
-          aria-label="Voltar para condomínios"
-          onClick={openCondominiumPicker}
-        >
+      <aside className="desktop-sidebar" aria-label="Lista de condomínios">
+        <header className="desktop-sidebar-header">
+          <div className="login-brand">
+            <BrandMark />
+            <span>{provisionalBrand.productName}</span>
+          </div>
+          <button
+            className="desktop-sidebar-close"
+            type="button"
+            aria-label="Ocultar lista de condomínios"
+            onClick={() => setDesktopSidebarOpen(false)}
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M14 6l-6 6 6 6" />
+              <path d="M19 5v14" />
+            </svg>
+          </button>
+        </header>
+
+        <div className="desktop-sidebar-heading">
+          <div>
+            <p>CONVERSAS</p>
+            <h1>Condomínios</h1>
+          </div>
+          <button
+            type="button"
+            aria-label="Cadastrar novo condomínio"
+            onClick={() => openCondominiumRegistration("condominiums")}
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        </div>
+
+        <label className="desktop-sidebar-search">
           <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-            <path d="M19 12H5m6-7-7 7 7 7" />
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m16 16 4 4" />
           </svg>
-        </button>
-        <div className="login-brand inverse">
-          <ZermattMark />
-          <span>Zermatt</span>
-        </div>
-        <div className="cora-presence">
-          <span className="presence-avatar">C</span>
-          <div>
-            <strong>Cora</strong>
-            <small>
-              <i />{" "}
-              {aiProvider === "gemini"
-                ? "Gemini conectado"
-                : aiProvider === "local"
-                  ? "Modo local — Gemini não conectado"
-                  : "Verificando conexão"}
-            </small>
-          </div>
-        </div>
-        <div className="active-context">
-          <span aria-hidden="true">▥</span>
-          <div>
-            <strong>
-              {availableCondominiums.find((item) => item.id === context?.condominiumId)?.name ??
-                context?.condominiumId}
-            </strong>
-            <small>
-              {aiProvider === "gemini"
-                ? "Gemini conectado"
-                : aiProvider === "local"
-                  ? "Modo local"
-                  : "Verificando conexão"}
-            </small>
-          </div>
-        </div>
-        <button
-          className="chat-settings-button"
-          type="button"
-          aria-label="Configurações do chat"
-          onClick={openChatSettings}
-        >
-          <span aria-hidden="true">⚙</span>
-          <span>Configurações</span>
-        </button>
-        <button type="button" onClick={openCondominiumPicker}>
-          Trocar condomínio
-        </button>
-      </header>
-      <section className="chat-main" aria-label="Conversa documental">
-        {chatSettings.showEvidenceReminder &&
-        submittedQuestion !== "" &&
-        !isConversationalMessage(submittedQuestion) ? (
-          <div className="security-notice">
-            ✓ A resposta só pode usar evidências do condomínio selecionado.
-          </div>
-        ) : null}
-        <div className="messages" aria-live="polite">
-          {visibleConversationHistory.map((entry) => (
-            <div className="history-turn" key={entry.answer.answerId}>
-              <div className="user-message">
-                <p>{entry.question}</p>
-              </div>
-              <article className="assistant-message history-answer">
-                <div className="answer-meta">
-                  <strong>Cora</strong>
-                </div>
-                <p className="answer-copy">
-                  <FormattedText text={entry.answer.answer} />
-                </p>
-              </article>
-            </div>
-          ))}
-          {visibleConversationHistory.length === 0 &&
-          submittedQuestion === "" &&
-          answer === undefined ? (
-            <>
-              <p className="conversation-date">HOJE</p>
-              {setupNotice === undefined ? null : (
-                <div className="assistant-message setup-notice">
-                  <span aria-hidden="true">✓</span>
-                  <p>{setupNotice}</p>
-                </div>
-              )}
-              <div className="assistant-message welcome-message">
-                <strong>Cora</strong>
-                <p>Olá, {displayName.trim() || "gestor"}! Eu sou sua conselheira documental.</p>
-              </div>
-              <div className="assistant-message guide-message">
-                <p>
-                  Posso consultar regras, atas e contratos deste condomínio. Escreva o que você
-                  precisa conferir e eu mostrarei a fonte usada.
-                </p>
-              </div>
-              <div className="suggested-questions" aria-label="Perguntas sugeridas">
-                <span>Experimente perguntar:</span>
-                {suggestedQuestions.map((suggestion) => (
-                  <button key={suggestion} type="button" onClick={() => setQuestion(suggestion)}>
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : null}
-          {submittedQuestion === "" ? null : (
-            <div className="user-message">
-              <p>{submittedQuestion}</p>
-            </div>
-          )}
-          {busy && submittedQuestion !== "" ? (
-            <div className="assistant-message loading">
-              <span className="loading-avatar">C</span>
-              <div>
-                <strong>Cora está preparando uma resposta</strong>
-                <small>
-                  Consultando fontes autorizadas <b>● ● ●</b>
-                </small>
-              </div>
-            </div>
-          ) : null}
-          {conversationError === "" ? null : (
-            <div className="assistant-message response-message" role="alert">
-              <div className="answer-meta">
-                <strong>Cora</strong>
-                <span className="answer-mode failed">FALHA TEMPORÁRIA</span>
-              </div>
-              <p className="answer-copy">{conversationError}</p>
-              <p>Tente novamente. Sua pergunta continua visível na conversa.</p>
-            </div>
-          )}
-          {answer === undefined ? null : (
-            <>
-              <article className="assistant-message response-message">
-                <div className="answer-meta">
-                  <strong>Cora</strong>
-                  {isConversationalResponse ? null : (
-                    <>
-                      <span className={`answer-mode ${answer.answerMode}`}>
-                        {modeLabel(answer.answerMode)}
-                      </span>
-                      <span className={`risk ${answer.riskClass}`}>
-                        {answer.riskClass === "high"
-                          ? "ALTO RISCO"
-                          : answer.riskClass === "medium"
-                            ? "ATENÇÃO"
-                            : "RISCO BAIXO"}
-                      </span>
-                    </>
-                  )}
-                </div>
-                <p className="answer-copy">
-                  <FormattedText text={answer.answer} />
-                </p>
-              </article>
-              {answer.attentionPoints.length === 0 ? null : (
-                <section className="assistant-message detail-message attention-box">
-                  <strong>Pontos de atenção</strong>
-                  <ul>
-                    {answer.attentionPoints.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-              {isConversationalResponse || answer.suggestedNextStep === null ? null : (
-                <section className="assistant-message detail-message next-step">
-                  <strong>PRÓXIMO PASSO</strong>
-                  <p>{answer.suggestedNextStep}</p>
-                </section>
-              )}
-              {answer.specialist.required ? (
-                <section className="assistant-message detail-message specialist-box">
-                  <strong>Valide com {answer.specialist.type ?? "um especialista"}</strong>
-                  <p>{answer.specialist.reason}</p>
-                </section>
+          <input
+            value={condominiumSearch}
+            onChange={(event) => setCondominiumSearch(event.target.value)}
+            placeholder="Buscar condomínio"
+            aria-label="Buscar condomínio"
+          />
+        </label>
+
+        <nav className="desktop-condominium-list" aria-label="Condomínios autorizados">
+          {sidebarCondominiums.map((item) => (
+            <button
+              key={item.id}
+              className={item.id === context?.condominiumId ? "active" : ""}
+              type="button"
+              onClick={() => void selectCondominium(item.id)}
+              disabled={busy}
+              aria-current={item.id === context?.condominiumId ? "page" : undefined}
+            >
+              <span className="desktop-condominium-avatar" aria-hidden="true">
+                {condominiumInitials(item.name)}
+              </span>
+              <span className="desktop-condominium-copy">
+                <strong>{item.name}</strong>
+                <small>{item.detail}</small>
+              </span>
+              {item.id === context?.condominiumId ? (
+                <span className="desktop-active-dot" aria-label="Condomínio aberto" />
               ) : null}
-              {isConversationalResponse ? null : (
-                <section className="assistant-message detail-message sources">
-                  <div>
-                    <strong>Fontes da resposta</strong>
-                    <small>{answer.citations.length} trecho(s) verificável(is)</small>
+            </button>
+          ))}
+          {sidebarCondominiums.length === 0 ? (
+            <div className="desktop-sidebar-empty">
+              <strong>Nenhum condomínio encontrado</strong>
+              <small>Tente buscar por outro nome.</small>
+            </div>
+          ) : null}
+        </nav>
+
+        <footer className="desktop-sidebar-profile">
+          <button
+            type="button"
+            aria-label="Abrir perfil do gestor"
+            onClick={() => openProfile("chat")}
+          >
+            <span aria-hidden="true">
+              {displayName.trim().slice(0, 1).toLocaleUpperCase("pt-BR") || "G"}
+            </span>
+            <span>
+              <strong>{displayName.trim() || "Gestor"}</strong>
+              <small>{authMode === "real" ? "Conta protegida" : "Ambiente de demonstração"}</small>
+            </span>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </button>
+        </footer>
+      </aside>
+
+      <section className="chat-shell">
+        <header className="chat-header">
+          <button
+            className="mobile-chat-back"
+            type="button"
+            aria-label="Voltar para condomínios"
+            onClick={openCondominiumPicker}
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M19 12H5m6-7-7 7 7 7" />
+            </svg>
+          </button>
+          <button
+            className="desktop-sidebar-open"
+            type="button"
+            aria-label="Mostrar lista de condomínios"
+            onClick={() => setDesktopSidebarOpen(true)}
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M10 6l6 6-6 6" />
+              <path d="M5 5v14" />
+            </svg>
+            <span>Condomínios</span>
+          </button>
+          <div className="login-brand inverse">
+            <BrandMark />
+            <span>{provisionalBrand.productName}</span>
+          </div>
+          <div className="agent-presence">
+            <span className="presence-avatar">{provisionalBrand.mark}</span>
+            <div>
+              <strong>{provisionalBrand.agentName}</strong>
+              <small>
+                <i />{" "}
+                {aiProvider === "gemini"
+                  ? "Gemini conectado"
+                  : aiProvider === "local"
+                    ? "Modo local — Gemini não conectado"
+                    : "Verificando conexão"}
+              </small>
+            </div>
+          </div>
+          <div className="active-context">
+            <span aria-hidden="true">
+              {condominiumInitials(
+                activeCondominium?.name ?? context?.condominiumId ?? "Condomínio"
+              )}
+            </span>
+            <div>
+              <strong>{activeCondominium?.name ?? context?.condominiumId}</strong>
+              <small>Memória documental ativa</small>
+            </div>
+          </div>
+          <button
+            className="chat-settings-button"
+            type="button"
+            aria-label="Configurações do condomínio"
+            onClick={openChatSettings}
+          >
+            <span aria-hidden="true">
+              <SettingsIcon />
+            </span>
+            <span>Configurações</span>
+          </button>
+        </header>
+        <section className="chat-main" aria-label="Conversa documental">
+          {chatSettings.showEvidenceReminder &&
+          submittedQuestion !== "" &&
+          !isSimpleConversationMessage(submittedQuestion) ? (
+            <div className="security-notice">
+              ✓ A Alvitra consulta os documentos primeiro e separa orientação geral de regra
+              confirmada.
+            </div>
+          ) : null}
+          <div className="messages" aria-live="polite">
+            {visibleConversationHistory.map((entry) => (
+              <div className="history-turn" key={entry.answer.answerId}>
+                <div className="user-message">
+                  <p>{entry.question}</p>
+                </div>
+                <article className="assistant-message history-answer">
+                  <div className="answer-meta">
+                    <strong>{provisionalBrand.agentName}</strong>
                   </div>
-                  {answer.citations.length === 0 ? (
-                    <p>Nenhuma fonte é exibida quando falta base documental.</p>
-                  ) : (
-                    answer.citations.map((citation) => (
+                  <p className="answer-copy">
+                    <FormattedText text={entry.answer.answer} />
+                  </p>
+                </article>
+              </div>
+            ))}
+            {visibleConversationHistory.length === 0 &&
+            submittedQuestion === "" &&
+            answer === undefined ? (
+              <>
+                <p className="conversation-date">HOJE</p>
+                {setupNotice === undefined ? null : (
+                  <div className="assistant-message setup-notice">
+                    <span aria-hidden="true">
+                      <CheckIcon />
+                    </span>
+                    <p>{setupNotice}</p>
+                  </div>
+                )}
+                <div className="assistant-message welcome-message">
+                  <strong>{provisionalBrand.agentName}</strong>
+                  <p>Olá, {displayName.trim() || "gestor"}! Eu sou sua conselheira documental.</p>
+                </div>
+                <div className="assistant-message guide-message">
+                  <p>
+                    Posso consultar regras, atas e contratos deste condomínio. Escreva o que você
+                    precisa conferir e eu mostrarei a fonte usada.
+                  </p>
+                </div>
+                <div className="suggested-questions" aria-label="Perguntas sugeridas">
+                  <span>Experimente perguntar:</span>
+                  {suggestedQuestions.map((suggestion) => (
+                    <button key={suggestion} type="button" onClick={() => setQuestion(suggestion)}>
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            {sentChatDocumentName === "" ? null : (
+              <div className="user-message sent-document-message">
+                <span aria-hidden="true">
+                  <DocumentIcon />
+                </span>
+                <div>
+                  <strong>Documento enviado</strong>
+                  <p>{sentChatDocumentName}</p>
+                </div>
+              </div>
+            )}
+            {chatDocumentMessage === "" ? null : (
+              <div
+                className={`assistant-message document-upload-notice${
+                  chatDocumentMessageIsError ? " is-error" : ""
+                }`}
+                role={chatDocumentMessageIsError ? "alert" : "status"}
+              >
+                <span aria-hidden="true">
+                  <DocumentIcon />
+                </span>
+                <p>{chatDocumentMessage}</p>
+              </div>
+            )}
+            {submittedQuestion === "" ? null : (
+              <div className="user-message">
+                <p>{submittedQuestion}</p>
+              </div>
+            )}
+            {busy && submittedQuestion !== "" ? (
+              <div className="assistant-message loading">
+                <span className="loading-avatar">{provisionalBrand.mark}</span>
+                <div>
+                  <strong>{provisionalBrand.agentName} está preparando uma resposta</strong>
+                  <small>
+                    Consultando fontes autorizadas <b>● ● ●</b>
+                  </small>
+                </div>
+              </div>
+            ) : null}
+            {conversationError === "" ? null : (
+              <div className="assistant-message response-message" role="alert">
+                <div className="answer-meta">
+                  <strong>{provisionalBrand.agentName}</strong>
+                  <span className="answer-status failed">Falha temporária</span>
+                </div>
+                <p className="answer-copy">{conversationError}</p>
+                <p>Tente novamente. Sua pergunta continua visível na conversa.</p>
+              </div>
+            )}
+            {answer === undefined ? null : (
+              <>
+                <article className="assistant-message response-message">
+                  <div className="answer-meta">
+                    <strong>{provisionalBrand.agentName}</strong>
+                    {answerStatus === undefined ? null : (
+                      <span className={`answer-status ${answerStatus.tone}`}>
+                        {answerStatus.label}
+                      </span>
+                    )}
+                  </div>
+                  <p className="answer-copy">
+                    <FormattedText text={answer.answer} />
+                  </p>
+                  {showResponseGuidance ? (
+                    <div className="answer-guidance">
+                      {visibleAttentionPoints.map((point) => (
+                        <p className="answer-attention" key={point}>
+                          <strong>Atenção:</strong> <FormattedText text={point} />
+                        </p>
+                      ))}
+                      {showSuggestedNextStep ? (
+                        <p className="answer-next-step">
+                          <strong>Próximo passo:</strong>{" "}
+                          <FormattedText text={answer.suggestedNextStep ?? ""} />
+                        </p>
+                      ) : null}
+                      {showSpecialist ? (
+                        <p className="answer-specialist">
+                          <strong>Valide com {answer.specialist.type ?? "um especialista"}:</strong>{" "}
+                          <FormattedText text={answer.specialist.reason ?? ""} />
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </article>
+                {isConversationalResponse || answer.citations.length === 0 ? null : (
+                  <section className="assistant-message detail-message sources">
+                    <div>
+                      <strong>Fontes da resposta</strong>
+                      <small>{answer.citations.length} trecho(s) verificável(is)</small>
+                    </div>
+                    {answer.citations.map((citation) => (
                       <button
                         type="button"
                         key={citation.id}
                         onClick={() => setSelectedCitation(citation)}
                       >
-                        <span>▤</span>
+                        <span>
+                          <DocumentIcon />
+                        </span>
                         <div>
                           <strong>{citation.title}</strong>
-                          <small>Página {citation.page} · abrir trecho</small>
+                          <small>
+                            {citation.sourceScope === "legislation"
+                              ? "Legislação oficial"
+                              : "Documento do condomínio"}{" "}
+                            · página {citation.page} · abrir trecho
+                          </small>
                         </div>
                         <b>›</b>
                       </button>
-                    ))
-                  )}
-                </section>
-              )}
-              {selectedCitation === undefined ? null : (
-                <section className="assistant-message source-viewer">
-                  <div>
-                    <p className="overline">FONTE ABERTA</p>
-                    <h3>{selectedCitation.title}</h3>
-                  </div>
-                  <button type="button" onClick={() => setSelectedCitation(undefined)}>
-                    Fechar
-                  </button>
-                  <p>
-                    Versão {selectedCitation.documentVersionId} · página {selectedCitation.page}
-                  </p>
-                  <blockquote>{selectedCitation.excerpt}</blockquote>
-                </section>
-              )}
-              {isConversationalResponse ? null : (
-                <div className="feedback detail-message">
-                  <span>Esta resposta ajudou?</span>
-                  {(["correct", "incorrect", "incomplete", "outdated"] as const).map(
-                    (classification) => (
-                      <button
-                        type="button"
-                        key={classification}
-                        className={feedback === classification ? "selected" : ""}
-                        onClick={() => submitFeedback(classification)}
-                        disabled={busy}
-                      >
-                        {
+                    ))}
+                  </section>
+                )}
+                {selectedCitation === undefined ? null : (
+                  <section className="assistant-message source-viewer">
+                    <div>
+                      <p className="overline">FONTE ABERTA</p>
+                      <h3>{selectedCitation.title}</h3>
+                    </div>
+                    <button type="button" onClick={() => setSelectedCitation(undefined)}>
+                      Fechar
+                    </button>
+                    <p>
+                      Versão {selectedCitation.documentVersionId} · página {selectedCitation.page}
+                    </p>
+                    <blockquote>{selectedCitation.excerpt}</blockquote>
+                  </section>
+                )}
+                {isConversationalResponse ? null : (
+                  <div className="feedback detail-message">
+                    <span>Esta resposta ajudou?</span>
+                    {(["correct", "incorrect", "incomplete", "outdated"] as const).map(
+                      (classification) => (
+                        <button
+                          type="button"
+                          key={classification}
+                          className={feedback === classification ? "selected" : ""}
+                          onClick={() => submitFeedback(classification)}
+                          disabled={busy}
+                        >
                           {
-                            correct: "Correta",
-                            incorrect: "Incorreta",
-                            incomplete: "Incompleta",
-                            outdated: "Desatualizada"
-                          }[classification]
-                        }
-                      </button>
-                    )
-                  )}
-                </div>
-              )}
-            </>
+                            {
+                              correct: "Correta",
+                              incorrect: "Incorreta",
+                              incomplete: "Incompleta",
+                              outdated: "Desatualizada"
+                            }[classification]
+                          }
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+        <footer className="composer">
+          {pendingChatDocument === undefined ? (
+            <span className="composer-hint">Pergunte à {provisionalBrand.agentName}</span>
+          ) : (
+            <div className="composer-attachment">
+              <span aria-hidden="true">
+                <DocumentIcon />
+              </span>
+              <strong>{pendingChatDocument.name}</strong>
+              <small>Pronto para enviar pela seta</small>
+              <button
+                type="button"
+                aria-label={`Remover ${pendingChatDocument.name}`}
+                onClick={() => setPendingChatDocument(undefined)}
+              >
+                ×
+              </button>
+            </div>
           )}
-        </div>
-      </section>
-      <footer className="composer">
-        <span className="composer-hint">Pergunte à Cora</span>
-        <textarea
-          ref={composerInput}
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !window.matchMedia("(max-width: 760px)").matches
-            ) {
-              event.preventDefault();
-              if (!busy && question.trim().length > 0) void askQuestion();
+          <input
+            ref={chatDocumentInput}
+            className="composer-document-input"
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              if (file !== undefined) selectChatDocument(file);
+            }}
+          />
+          <button
+            className="composer-upload-button"
+            type="button"
+            onClick={() => chatDocumentInput.current?.click()}
+            disabled={
+              chatDocumentUploading || busy || !context?.permissions.includes("document:upload")
             }
-          }}
-          placeholder="Ex.: O que a convenção diz sobre animais?"
-          aria-label="Escreva sua pergunta"
-          rows={1}
-          maxLength={4000}
-        />
-        <button
-          type="button"
-          onClick={askQuestion}
-          disabled={busy || question.trim().length === 0}
-          aria-label="Enviar pergunta"
-        >
-          ↑
-        </button>
-      </footer>
+            aria-label="Enviar documento em PDF"
+            title="Enviar documento em PDF"
+          >
+            <UploadIcon />
+          </button>
+          <textarea
+            ref={composerInput}
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                pendingChatDocument === undefined &&
+                !window.matchMedia("(max-width: 760px)").matches
+              ) {
+                event.preventDefault();
+                if (!busy && question.trim().length > 0) void askQuestion();
+              }
+            }}
+            placeholder="Ex.: O que a convenção diz sobre animais?"
+            aria-label="Escreva sua pergunta"
+            rows={1}
+            maxLength={4000}
+          />
+          <button
+            className="composer-send-button"
+            type="button"
+            onClick={sendComposer}
+            disabled={
+              busy ||
+              chatDocumentUploading ||
+              (pendingChatDocument === undefined && question.trim().length === 0)
+            }
+            aria-label={
+              pendingChatDocument === undefined ? "Enviar pergunta" : "Enviar documento selecionado"
+            }
+            title={
+              pendingChatDocument === undefined ? "Enviar pergunta" : "Enviar documento pela seta"
+            }
+          >
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="m5 12 14-7-4.5 14-3-5.5L5 12Z" />
+              <path d="m11.5 13.5 3.5-3.5" />
+            </svg>
+          </button>
+        </footer>
+      </section>
     </main>
   );
 }

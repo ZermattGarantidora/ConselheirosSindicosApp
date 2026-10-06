@@ -8,18 +8,19 @@ export type PrivateStorageObject = Readonly<{
   condominiumId: CondominiumId;
   objectId: string;
   content: Buffer;
+  uploadedByUserId: string;
 }>;
 
 export interface PrivateDocumentStorage {
   storeOriginal(input: PrivateStorageObject): Promise<Readonly<{ storageKey: string }>>;
   removeOriginal(
-    input: Readonly<{ condominiumId: CondominiumId; objectId: string }>
+    input: Readonly<{ condominiumId: CondominiumId; objectId: string; uploadedByUserId: string }>
   ): Promise<void>;
 }
 
 export interface PrivateDocumentReader {
   readOriginal(
-    input: Readonly<{ condominiumId: CondominiumId; objectId: string }>
+    input: Readonly<{ condominiumId: CondominiumId; objectId: string; userId?: string }>
   ): Promise<Buffer>;
 }
 

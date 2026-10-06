@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   AnswerGatewayUnavailableError,
@@ -90,7 +90,22 @@ describe("gateway de respostas", () => {
     expect(result.output.citations[0]?.startOffset).toBeGreaterThan(0);
   });
 
-  it("falha fechado quando todos os trechos são instruções e acolhe somente cumprimento sem fonte", async () => {
+  it("preserva frases seguras complementares da mesma página", async () => {
+    const gateway = createLocalSyntheticAnswerGateway();
+    const result = await gateway.generate(
+      input("Como funciona a rescisão?", "grounded_answer", [
+        evidence(
+          "A rescisão imotivada exige aviso prévio de noventa dias. O descumprimento gera multa de vinte por cento das parcelas restantes, limitada a três mensalidades."
+        )
+      ])
+    );
+
+    expect(result.output.answer).toContain("aviso prévio de noventa dias");
+    expect(result.output.answer).toContain("multa de vinte por cento das parcelas restantes");
+    expect(result.output.citations[0]?.excerpt).toContain("três mensalidades");
+  });
+
+  it("falha fechado quando todos os trechos são instruções e acolhe conversas simples sem fonte", async () => {
     const gateway = createLocalSyntheticAnswerGateway();
 
     await expect(
@@ -102,6 +117,32 @@ describe("gateway de respostas", () => {
     ).rejects.toBeInstanceOf(AnswerGatewayUnavailableError);
     const greeting = await gateway.generate(input("Olá", "grounded_answer", []));
     expect(greeting.output).toMatchObject({ answerMode: "abstained", citations: [] });
+    const capability = await gateway.generate(
+      input("Como ele conseguiria me ajudar?", "grounded_answer", [])
+    );
+    expect(capability.output).toMatchObject({
+      answerMode: "abstained",
+      citations: [],
+      attentionPoints: [],
+      suggestedNextStep: null
+    });
+    expect(capability.output.answer).toContain(
+      "consultar convenções, regimentos, atas e contratos"
+    );
+  });
+
+  it("não apresenta uma saudação pronta como orientação quando faltam fontes e modelo", async () => {
+    const result = await createLocalSyntheticAnswerGateway().generate(
+      input("Qual regra vale para este caso?", "grounded_answer", [])
+    );
+
+    expect(result.output).toMatchObject({
+      answerMode: "abstained",
+      citations: [],
+      suggestedNextStep: expect.stringContaining("documento que trata diretamente do assunto")
+    });
+    expect(result.output.answer).toContain("não há um modelo generativo conectado");
+    expect(result.output.answer).not.toContain("Olá!");
   });
 
   it("expõe os dois lados de um conflito documental", async () => {
@@ -173,11 +214,28 @@ describe("gateway de respostas", () => {
     );
 
     expect(result.output).toMatchObject({ answerMode: "grounded" });
-    expect(result.output.attentionPoints.join(" ")).toContain("extraída localmente");
+    expect(result.output.attentionPoints.join(" ")).toContain("Modo documental local");
     expect(result.telemetry).toMatchObject({
       providerKey: "local",
       routingReason: expect.stringContaining("fallback documental local")
     });
+  });
+
+  it("não inventa orientação geral local quando o provedor está indisponível", async () => {
+    const fallbackGenerate = vi.fn();
+    const gateway = createFallbackAnswerGateway(
+      {
+        async generate() {
+          throw new AnswerGatewayUnavailableError("limite temporário");
+        }
+      },
+      { generate: fallbackGenerate }
+    );
+
+    await expect(gateway.generate(input("Como devo agir?", "grounded_answer", []))).rejects.toThrow(
+      "limite temporário"
+    );
+    expect(fallbackGenerate).not.toHaveBeenCalled();
   });
 
   it("prioriza o trecho que declara o fato em vez de repetir uma pergunta do documento", async () => {
@@ -199,6 +257,23 @@ describe("gateway de respostas", () => {
     expect(result.output.citations.map((citation) => citation.evidenceId)).toEqual([
       "official-name"
     ]);
+  });
+
+  it("transforma tabela recuperada em uma frase completa sem copiar fragmentos", async () => {
+    const result = await createLocalSyntheticAnswerGateway().generate(
+      input("Qual é o valor da cota ordinária?", "grounded_answer", [
+        evidence(
+          "ional R$ 1.800,00 Pequenas despesas não previstas Total R$ 25.600,00 Valor mensal aprovado Contribuição Valor por unidade Vencimento Vigência Cota ordinária R$ 1.600,00 Dia 10 de cada mês Outubro a dezembro de 2026 Cota inicial de implantação R$ 500,00 20 de outubro de 2026 Parcela única"
+        )
+      ])
+    );
+
+    expect(result.output).toMatchObject({
+      answerMode: "grounded",
+      answer: "O valor informado para “cota ordinária” é R$ 1.600,00."
+    });
+    expect(result.output.answer).not.toContain("ional R$ 1.800,00");
+    expect(result.output.citations).toHaveLength(1);
   });
 
   it("não mascara erro de programação do provedor primário com fallback", async () => {
@@ -269,7 +344,8 @@ describe("gateway de respostas", () => {
       riskClass: "high"
     });
 
-    expect(simple.output.citations).toHaveLength(1);
+    expect(simple.output).toMatchObject({ answerMode: "abstained", citations: [] });
+    expect(simple.output.answer).toContain("resposta completa");
     expect(highRisk.output.specialist).toMatchObject({ required: true, type: "advogado" });
   });
 

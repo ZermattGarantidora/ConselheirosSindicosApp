@@ -19,7 +19,7 @@ Para o ambiente persistente, o monólito implementará uma primeira autenticaç�
 - funções `SECURITY DEFINER` do PostgreSQL para operações de identidade que não devem furar RLS por acesso direto às tabelas;
 - rotas protegidas que resolvem o usuário pela sessão, sem aceitar o cabeçalho de identidade de desenvolvimento.
 
-O modo sem `DATABASE_URL` permanece sintético e explicitamente demonstrativo. Verificação de e-mail, recuperação de senha, MFA, rate limiting distribuído e login social são requisitos posteriores antes de um piloto público.
+O modo real é o padrão e exige `DATABASE_URL`. A ausência dessa configuração interrompe a inicialização em vez de abrir dados sintéticos. A demonstração local permanece disponível somente quando `DEMO_MODE=true` for definido explicitamente e não houver banco configurado. Verificação de e-mail, recuperação de senha, MFA, rate limiting distribuído e login social são requisitos posteriores antes de um piloto público.
 
 ## Consequências
 

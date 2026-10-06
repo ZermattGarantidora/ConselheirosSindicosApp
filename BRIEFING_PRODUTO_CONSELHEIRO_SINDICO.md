@@ -59,7 +59,7 @@ Exemplos:
 
 As respostas devem:
 
-1. usar somente documentos autorizados;
+1. consultar a legislação oficial compartilhada como base principal e usar somente documentos autorizados do condomínio como contexto complementar;
 2. mostrar documento, página e trecho que sustentam a resposta;
 3. separar fatos do condomínio, interpretação e recomendação;
 4. declarar quando não houver evidência suficiente;
@@ -116,6 +116,7 @@ Benefícios esperados:
 9. Feedback do usuário: correto, incorreto, incompleto ou desatualizado.
 10. Registro das fontes e do raciocínio operacional apresentado ao usuário.
 11. Caminho comercial separado e opcional para que o usuário solicite conhecer ou simular os serviços da Zermatt, sempre com confirmação explícita.
+12. Análise assistida de balancetes e preparação de rascunho de prestação de contas, com valores recalculados por código, evidências por página e revisão humana obrigatória.
 
 ### Prioridade 2 — após validação
 
@@ -126,6 +127,18 @@ Benefícios esperados:
 - permissões para conselho e equipe;
 - integração com e-mail, calendário e sistemas de administradoras;
 - painel multi-condomínio para síndicos profissionais.
+
+### Próxima fatia autorizada do MVP
+
+“Despesas e balancetes” foi antecipado por decisão explícita de produto em 2026-09-24. A fatia
+permite analisar PDFs financeiros, confirmar competência e dados extraídos, recalcular totais,
+explicar divergências e preparar um rascunho de prestação de contas. Ela não aprova contas, não
+realiza auditoria, não executa conciliação bancária sem todos os extratos e não movimenta dinheiro.
+
+Antes dela, o produto deve concluir a leitura integral de PDFs: contabilizar todas as páginas,
+preservar a estrutura útil do texto e impedir que arquivos com páginas vazias, ilegíveis ou não
+processadas sejam apresentados como prontos. O estado e a qualidade de cada página devem ficar
+visíveis para o usuário.
 
 ### Não construir inicialmente
 
@@ -155,6 +168,7 @@ Toda sugestão proativa deve mostrar por que o alerta foi criado, quais dados fo
 
 ### Essenciais para o MVP
 
+- legislação brasileira oficial, compartilhada, versionada e separada dos dados dos condomínios, iniciando pela Constituição Federal;
 - convenção condominial e alterações;
 - regimento interno;
 - atas de assembleias;
@@ -163,10 +177,10 @@ Toda sugestão proativa deve mostrar por que o alerta foi criado, quais dados fo
 - cronogramas e relatórios de manutenção;
 - cadastro básico de fornecedores;
 - lista de pendências informada pelo síndico.
+- balancetes e demonstrativos financeiros enviados pelo síndico para análise assistida, sempre com procedência, competência e revisão humana.
 
 ### Posteriores
 
-- despesas e balancetes;
 - apólices e sinistros;
 - chamados e ocorrências;
 - laudos, certificados e garantias;
@@ -180,6 +194,7 @@ Os documentos precisam ter versão, vigência e procedência. Um documento mais 
 
 O diferencial não pode ser apenas permitir perguntas. O produto deve oferecer:
 
+- base de legislação oficial compartilhada, com origem e versão verificáveis, consultada antes dos documentos internos nas perguntas substantivas;
 - separação segura entre condomínios;
 - memória persistente, estruturada e controlável;
 - respostas com fontes precisas;
@@ -268,6 +283,7 @@ Uma aplicação web com:
 - extração de datas e pendências;
 - feedback sobre as respostas;
 - painel básico de documentos e obrigações.
+- análise de balancete com números principais, cálculos reproduzíveis, evidências e rascunho imprimível de prestação de contas pendente de revisão.
 - acesso separado e opcional para solicitar informações ou uma simulação dos serviços da Zermatt.
 
 Não automatizar ações externas no MVP. O objetivo inicial é provar que as respostas são confiáveis, economizam tempo e geram uso recorrente.
@@ -277,7 +293,7 @@ Não automatizar ações externas no MVP. O objetivo inicial é provar que as re
 - Arquitetura preparada para trocar ou combinar provedores de IA.
 - Modelo econômico para classificação, extração e redação simples.
 - Modelo mais capaz para interpretação de documentos e decisões complexas.
-- Recuperação de contexto por condomínio, documento, versão, data e nível de permissão.
+- Recuperação combinada da legislação oficial compartilhada e do contexto autorizado por condomínio, documento, versão, data e nível de permissão.
 - Respostas geradas somente após localizar evidências suficientes.
 - OCR com indicador de qualidade para documentos escaneados.
 - Avaliação automatizada e humana de precisão, citação, cobertura e alucinação.
@@ -285,6 +301,7 @@ Não automatizar ações externas no MVP. O objetivo inicial é provar que as re
 ### Arquitetura orientada a custo
 
 - Não enviar todos os documentos a cada pergunta; recuperar somente páginas e trechos relevantes.
+- Não delegar aritmética financeira ao modelo: valores monetários devem ser normalizados em centavos e os cálculos devem ser reproduzidos por código determinístico.
 - Usar cache de prompts, resultados de OCR, resumos, embeddings e conteúdos recorrentes.
 - Processar documentos uma vez e reutilizar texto, metadados, datas e entidades extraídas.
 - Usar modelos pequenos para classificação, roteamento, extração, títulos, comunicados simples e identificação inicial de datas.
@@ -327,7 +344,12 @@ O modelo vencedor pode variar por tarefa. A arquitetura deve aceitar um roteamen
 
 Não escolher o provedor apenas pelo preço dos tokens. O preço é fundamental, mas existe um piso inegociável de qualidade, privacidade e segurança. Avaliar qualidade em português, fidelidade às fontes, proteção de dados, disponibilidade, latência e estabilidade comercial.
 
-## 16. Plano de validação antes do produto completo
+## 16. Validação contínua durante a construção
+
+Por decisão explícita de produto em 2026-09-24, a conclusão de um piloto formal não é pré-condição
+para continuar desenvolvendo o aplicativo. O produto avança em fatias verticais completas, testadas
+pelo usuário durante a construção. Os passos abaixo permanecem como formas recomendadas de
+aprendizado e podem ocorrer em paralelo, sem bloquear a próxima funcionalidade aprovada.
 
 1. Entrevistar de 15 a 25 síndicos profissionais e moradores.
 2. Solicitar documentos anonimizados de 5 a 10 condomínios.
@@ -335,7 +357,7 @@ Não escolher o provedor apenas pelo preço dos tokens. O preço é fundamental,
 4. Criar um protótipo assistido: o usuário envia pergunta e documentos; a equipe usa IA e revisa a resposta manualmente.
 5. Medir tempo atual versus tempo com o protótipo.
 6. Avaliar as respostas às cegas com síndicos e especialistas.
-7. Cobrar por um piloto, ainda que pequeno, para validar disposição de pagamento.
+7. Testar cobrança e disposição de pagamento quando o fluxo comercial estiver pronto.
 8. Observar uso durante quatro a oito semanas, não apenas intenção declarada.
 9. Medir se usuários satisfeitos solicitam voluntariamente conhecer a Zermatt e se a presença da oferta comercial afeta sua percepção de confiança.
 
@@ -466,9 +488,19 @@ Esse núcleo testa as premissas mais importantes:
 - o uso se repete;
 - existe disposição de pagamento.
 
-Somente depois disso adicionar automações, integrações e módulos operacionais.
+Adicionar os próximos módulos em fatias completas e seguras, com testes e revisão a cada entrega;
+um piloto formal não bloqueia essa sequência.
 
-Depois que o núcleo documental demonstrar utilidade e confiança, o piloto deve testar um caminho comercial mínimo, separado da conversa da IA, pelo qual o síndico possa solicitar voluntariamente informações ou uma simulação da Zermatt. Esse fluxo não deve alterar a resposta, usar documentos para prospecção oculta nem iniciar contato sem confirmação explícita.
+Por decisão explícita de produto em 2026-09-24, a análise assistida de balancetes passa a ser a
+próxima capacidade vertical depois do reforço de leitura integral dos PDFs. Ela deve reutilizar
+upload, OCR, isolamento e citações, validar utilidade com dados sintéticos e permanecer sujeita à
+revisão humana. Contabilidade completa, conciliação sem extratos, aprovação de contas e ações
+financeiras externas continuam fora do escopo.
+
+Quando estiver pronto, um caminho comercial mínimo e separado da conversa da IA pode ser testado
+durante o uso contínuo do aplicativo, sem depender de um piloto formal. O síndico deve solicitar
+voluntariamente informações ou uma simulação; esse fluxo não pode alterar a resposta, usar
+documentos para prospecção oculta nem iniciar contato sem confirmação explícita.
 
 ## 22. Instrução resumida para o Codex
 

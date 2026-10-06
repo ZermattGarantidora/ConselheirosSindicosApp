@@ -57,7 +57,7 @@ export function createDevelopmentDocumentMemory(
               documentVersionId: record.documentVersionId,
               documentVersionNumber: 1,
               documentTitle: record.title,
-              documentType: record.documentType,
+              documentType: outcome.documentIdentification?.documentType ?? record.documentType,
               sourceKind: "user_upload" as const,
               pageId: page.id,
               pageNumber: page.pageNumber,

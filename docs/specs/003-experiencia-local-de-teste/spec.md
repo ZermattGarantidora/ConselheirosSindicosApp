@@ -2,12 +2,12 @@
 
 **Status:** aprovada para implementação local
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-09-15
+**Atualizado em:** 2026-09-22
 
 ## 0. Alinhamento com a visão do projeto
 
 | Dimensão da visão | Seções do briefing | Como esta spec contribui |
-| --- | --- | --- |
+| --------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Problema e hipótese   | §§1, 2, 9 e 11     | Permite percorrer a entrada, cadastrar o contexto, enviar documentos essenciais e chegar à primeira pergunta com menos fricção em um ambiente sintético.   |
 | Público               | §3                 | Representa a entrada de um síndico profissional sem afirmar que já existe autenticação de produção.                                                        |
 | Proposta de valor     | §§5 e 10           | Mantém a conversa natural, o contexto por condomínio e a verificação de fontes como centro da experiência.                                                 |
@@ -56,6 +56,7 @@ Síndico profissional que experimenta o protótipo local antes de qualquer pilot
 - Envio obrigatório da ata de assembleia geral de constituição do condomínio e envio opcional de outros PDFs.
 - Extração local imediata de PDFs textuais enviados pelo cadastro para disponibilizá-los na memória documental do chat durante a execução da API.
 - Lista móvel pesquisável para trocar de condomínio sem misturar conversas entre contextos.
+- Navegação responsiva inspirada em mensageiros: conversa em tela inteira no mobile e lista lateral recolhível no desktop.
 - Endpoint de criação restrito ao processo que usa o repositório de identidade de desenvolvimento.
 - Associação de gestor exclusivamente à identidade de desenvolvimento, em memória e durante a execução local.
 - Estilo visual azul e branco alinhado à presença pública da Zermatt Garantidora.
@@ -118,6 +119,14 @@ O cadastro deve exigir um PDF identificado como ata de assembleia geral de const
 
 No adaptador de desenvolvimento, PDFs textuais aceitos e confirmados pelo usuário devem ser extraídos, divididos por página e adicionados ao índice em memória do condomínio. Documento ilegível ou sem texto deve permanecer salvo para revisão e não pode ser usado como evidência. Nenhum trecho pode ser recuperado por outro condomínio.
 
+### RQ-312 — Navegação responsiva entre contextos
+
+Em telas estreitas, a conversa deve ocupar toda a largura e manter uma seta de retorno clara para a lista pesquisável de condomínios. Em telas largas, a conversa deve ocupar a maior parte da janela e a lista de condomínios deve aparecer em um painel lateral menor, com seleção do contexto atual e controle acessível para ocultar ou reabrir o painel. A mudança de apresentação não pode carregar mensagens nem dados de outro condomínio.
+
+### RQ-313 — Controles persistentes no cadastro
+
+Durante a rolagem do cadastro em telas largas, o painel “Documentos iniciais” deve permanecer visível na coluna lateral e a barra com as ações “Cancelar” e “Criar condomínio e abrir conversa” deve permanecer fixada na parte inferior da janela. O formulário deve reservar espaço para que a barra não cubra campos, documentos ou mensagens de validação. Em telas estreitas, a barra continua fixa e o painel de documentos permanece no fluxo vertical do formulário.
+
 ## 8. Contratos
 
 Em modo de desenvolvimento, `POST /v1/development/test-condominiums` aceita o identificador e um perfil sintético com `name`, `cnpj`, `address`, `contact`, `administrationCompany` e `unitCount`. O endpoint normaliza o CNPJ, retorna identificador, perfil e permissões, responde `409` quando a mesma identidade já criou aquele identificador e não existe fora do modo de desenvolvimento.
@@ -127,6 +136,7 @@ Em modo de desenvolvimento, `POST /v1/development/test-condominiums` aceita o id
 ## 9. Requisitos não funcionais
 
 - A tela deve funcionar por teclado nos controles principais.
+- Controles interativos devem manter alvo confortável para toque, foco visível e rótulo acessível tanto no layout móvel quanto no desktop.
 - Nenhuma credencial ou dado real deve ser solicitado ou registrado pelo fluxo demonstrativo; a interface deve orientar o uso exclusivo de informações e PDFs sintéticos.
 - A criação em memória termina junto com o processo local da API.
 

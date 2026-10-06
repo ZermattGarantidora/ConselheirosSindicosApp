@@ -46,5 +46,15 @@ describe("contrato HTTP de saúde", () => {
         }
       }
     });
+    expect(contract).toMatchObject({
+      paths: {
+        "/v1/runtime": {
+          get: {
+            operationId: "getRuntimeInformation",
+            responses: { "200": { description: "Configuração pública do cliente" } }
+          }
+        }
+      }
+    });
   });
 });

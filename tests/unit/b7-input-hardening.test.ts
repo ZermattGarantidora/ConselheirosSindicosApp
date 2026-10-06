@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createApi } from "../../apps/api/app/create-api.js";
 import { createLocalExtractiveGateway } from "../../apps/api/answers/local-extractive-gateway.js";
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 import {
@@ -14,6 +15,8 @@ import {
   uploadDocument
 } from "../../apps/api/documents/upload-document.js";
 import type { AuthorizedCondominiumContext } from "../../apps/api/identity/authorized-condominium-context.js";
+import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
+import { createInMemoryTenantWorkLimiter } from "../../apps/api/operations/tenant-work-limiter.js";
 
 const context: AuthorizedCondominiumContext = {
   condominiumId: createCondominiumId("alameda"),
@@ -70,6 +73,82 @@ describe("endurecimento sintético de entradas da B7", () => {
     ).rejects.toBeInstanceOf(InvalidDocumentUploadError);
 
     expect(fixture.stored).toEqual([]);
+  });
+
+  it("recusa upload acima da cota antes de armazenar um segundo original", async () => {
+    const stored: string[] = [];
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      documentStorage: {
+        async storeOriginal({ objectId }) {
+          stored.push(objectId);
+          return { storageKey: `opaque/${objectId}` };
+        },
+        async removeOriginal() {}
+      },
+      documentUploadRepository: { async recordUploaded() {} },
+      tenantWorkLimiter: createInMemoryTenantWorkLimiter({
+        document_upload: { maximumOperations: 1, windowMilliseconds: 60_000 }
+      })
+    });
+    const request = {
+      method: "POST" as const,
+      url: "/v1/condominiums/alameda/documents",
+      headers: {
+        "content-type": "application/pdf",
+        "x-development-user-id": "sindico-demo",
+        "x-document-title": "Documento sintético",
+        "x-document-type": "convention"
+      },
+      payload: Buffer.from("%PDF-1.7")
+    };
+
+    try {
+      expect((await app.inject(request)).statusCode).toBe(202);
+      const limited = await app.inject(request);
+
+      expect(limited.statusCode).toBe(429);
+      expect(limited.headers["retry-after"]).toBeDefined();
+      expect(limited.json()).toEqual({ message: "Tente novamente em instantes." });
+      expect(stored).toHaveLength(1);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("aceita o upload e não deixa uma falha assíncrona derrubar a requisição", async () => {
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      documentStorage: {
+        async storeOriginal({ objectId }) {
+          return { storageKey: `opaque/${objectId}` };
+        },
+        async removeOriginal() {}
+      },
+      documentUploadRepository: { async recordUploaded() {} },
+      async processPendingDocuments() {
+        throw new Error("falha sintética do worker");
+      }
+    });
+
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/condominiums/alameda/documents",
+        headers: {
+          "content-type": "application/pdf",
+          "x-development-user-id": "sindico-demo",
+          "x-document-title": "Documento sintético",
+          "x-document-type": "convention"
+        },
+        payload: Buffer.from("%PDF-1.7")
+      });
+
+      expect(response.statusCode).toBe(202);
+      await Promise.resolve();
+    } finally {
+      await app.close();
+    }
   });
 
   it("falha fechado ao processar PDF sintético malformado", async () => {

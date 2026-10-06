@@ -20,6 +20,7 @@ type RetrievalRow = Readonly<{
   document_title: string;
   document_type: RetrievableChunk["documentType"];
   source_kind: RetrievableChunk["sourceKind"];
+  source_scope: "condominium" | "legislation";
   page_id: string;
   page_number: number | string;
   start_offset: number | string;
@@ -76,6 +77,7 @@ function mapRow(row: RetrievalRow): RetrievableChunk {
     documentTitle: row.document_title,
     documentType: row.document_type,
     sourceKind: row.source_kind,
+    sourceScope: row.source_scope,
     pageId: row.page_id,
     pageNumber: Number(row.page_number),
     startOffset: Number(row.start_offset),
@@ -125,7 +127,7 @@ export function createPostgresScopedRetrievalIndex(
         await setRuntimeContext(client, context);
         const result = await client.query<RetrievalRow>(
           `
-            WITH authorized_chunks AS (
+            WITH condominium_chunks AS (
               SELECT
                 dc.id AS chunk_id,
                 dc.condominium_id,
@@ -142,6 +144,7 @@ export function createPostgresScopedRetrievalIndex(
                 d.title AS document_title,
                 d.document_type,
                 dv.source_kind,
+                'condominium'::text AS source_scope,
                 dv.version_number,
                 dvs.processing_status,
                 dvs.validity_status,
@@ -179,6 +182,51 @@ export function createPostgresScopedRetrievalIndex(
                 AND (dvs.valid_from IS NULL OR dvs.valid_from <= $3::timestamptz)
                 AND (dvs.valid_until IS NULL OR dvs.valid_until > $3::timestamptz)
                 AND d.status = 'active'
+            ), legislation_chunks AS (
+              SELECT
+                chunk.id AS chunk_id,
+                app.current_condominium_id() AS condominium_id,
+                version.id AS document_version_id,
+                page.id AS page_id,
+                chunk.start_offset,
+                chunk.end_offset,
+                chunk.content,
+                chunk.content_sha256,
+                page.page_number,
+                page.extraction_method,
+                page.quality_score,
+                source.id AS document_id,
+                source.title AS document_title,
+                'other'::text AS document_type,
+                'administrator_import'::text AS source_kind,
+                'legislation'::text AS source_scope,
+                version.version_number,
+                'ready'::text AS processing_status,
+                'confirmed'::text AS validity_status,
+                NULL::timestamptz AS valid_from,
+                NULL::timestamptz AS valid_until,
+                chunk.search_vector,
+                ts_rank_cd(
+                  chunk.search_vector,
+                  plainto_tsquery('portuguese', $1)
+                ) AS lexical_score,
+                1 - (chunk.embedding <=> $5::vector) AS semantic_score
+              FROM app.legal_source_chunks AS chunk
+              JOIN app.legal_source_pages AS page
+                ON page.legal_source_version_id = chunk.legal_source_version_id
+                AND page.id = chunk.legal_source_page_id
+              JOIN app.legal_source_versions AS version
+                ON version.id = chunk.legal_source_version_id
+              JOIN app.legal_sources AS source
+                ON source.id = version.legal_source_id
+              WHERE source.status = 'active'
+                AND version.is_current
+                AND page.quality_score >= $4
+                AND chunk.embedding_profile = $6
+            ), authorized_chunks AS (
+              SELECT * FROM legislation_chunks
+              UNION ALL
+              SELECT * FROM condominium_chunks
             ), lexical_candidates AS (
               SELECT *
               FROM authorized_chunks
@@ -219,6 +267,7 @@ export function createPostgresScopedRetrievalIndex(
               document_title,
               document_type,
               source_kind,
+              source_scope,
               page_id,
               page_number,
               start_offset,
@@ -235,6 +284,7 @@ export function createPostgresScopedRetrievalIndex(
             FROM deduplicated_candidates
             ORDER BY lexical_score DESC,
               semantic_score DESC NULLS LAST,
+              source_scope DESC,
               version_number DESC,
               page_number ASC,
               chunk_id ASC

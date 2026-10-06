@@ -105,7 +105,7 @@ cases:
         - que animais são permitidos
         - que animais são proibidos
       suggested_missing_source:
-        - regimento ou convenção com regra sobre animais
+        - documento que trata diretamente do assunto
 
   - id: EVAL-007
     title: Conhecimento geral não vira regra local
@@ -315,7 +315,7 @@ cases:
           page: 3
 
   - id: EVAL-019
-    title: Indisponibilidade do retrieval falha com segurança
+    title: Indisponibilidade do retrieval degrada para orientação geral
     priority: P0
     operation: ask
     actor: user_alameda
@@ -324,8 +324,11 @@ cases:
       retrieval: unavailable
     input: Quando termina o contrato dos elevadores?
     expected:
-      answer_mode: failed
+      answer_mode: abstained
       citations: []
+      must_include_semantics:
+        - não foi possível consultar os documentos
+        - orientação geral
       must_not_claim:
         - data de vencimento como resposta processada com sucesso
 

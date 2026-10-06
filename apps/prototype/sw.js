@@ -1,4 +1,4 @@
-const CACHE_NAME = "cora-prototype-shell-v2";
+const CACHE_NAME = "alvitra-prototype-shell-v3";
 const SHELL_ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest"];
 const SHELL_PATHS = new Set(SHELL_ASSETS.map((asset) => new URL(asset, self.location).pathname));
 

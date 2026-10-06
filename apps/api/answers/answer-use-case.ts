@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 
+import { isSimpleConversationMessage } from "../../shared/conversation-intent.js";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 import type {
   RetrievalSearchInput,
@@ -146,8 +147,7 @@ function abstainedPayload(
   const lowQuality = result.candidateCount > 0 && result.evidence.length === 0;
   const attentionPoints = lowQuality
     ? [
-        "O reconhecimento do documento é incerto ou os trechos recuperados não atingiram o piso de qualidade.",
-        "Confira o original ou corrija o OCR antes de usar a informação."
+        "O reconhecimento do documento é incerto ou os trechos recuperados não atingiram o piso de qualidade. Confira o original ou corrija o OCR antes de usar a informação."
       ]
     : ["Não encontrei evidência documental suficiente para afirmar uma regra do condomínio."];
 
@@ -172,30 +172,6 @@ function abstainedPayload(
 function isProtectedContextRequest(question: string): boolean {
   return /frase-canário|código interno|outro condomínio|ignore\s+as\s+permissões|reveal?\s+document/iu.test(
     question
-  );
-}
-
-function isDocumentaryQuestion(question: string): boolean {
-  const normalized = question.trim();
-  const explicitlyDocumentary =
-    /convenção|convencao|regimento|ata\b|assembleia|contrato|cláusula|clausula|documento|regra|norma|página|pagina|quórum|quorum|vigência|vigencia|prazo|vencimento/iu.test(
-      normalized
-    );
-  const factualQuestion =
-    /^(?:qual|quais|quem|quant[oa]s?|quando|em\s+que|até\s+quando|ate\s+quando)\b/iu.test(
-      normalized
-    );
-
-  return explicitlyDocumentary || factualQuestion;
-}
-
-function isConversationalMessage(question: string): boolean {
-  const normalized = question.trim();
-  return (
-    normalized.length > 0 &&
-    normalized.length <= 1_200 &&
-    !isDocumentaryQuestion(normalized) &&
-    !isProtectedContextRequest(normalized)
   );
 }
 
@@ -240,6 +216,61 @@ function expectedMode(task: AnswerPromptTask, conversationOnly = false): AnswerM
     return "abstained";
   }
   return task === "document_conflict" ? "conflict" : "grounded";
+}
+
+function acceptsGeneratedMode(task: AnswerPromptTask, mode: AnswerMode): boolean {
+  if (task === "document_conflict") {
+    return mode === "conflict";
+  }
+  return mode === "grounded" || mode === "abstained";
+}
+
+function documentaryLimitation(
+  result: ScopedRetrievalResult | undefined,
+  retrievalFailureCode: string | null
+): string {
+  if (retrievalFailureCode !== null || result === undefined) {
+    return "Não foi possível consultar os documentos do condomínio nesta tentativa. A resposta abaixo é uma orientação geral.";
+  }
+  if (result.candidateCount > 0 && result.evidence.length === 0) {
+    return "O reconhecimento do documento é incerto ou os trechos encontrados não têm qualidade suficiente para confirmar a resposta. Confira o original ou corrija o OCR. A orientação abaixo é geral e não substitui a conferência do documento.";
+  }
+  if (result.evidence.length > 0) {
+    return "Os trechos encontrados não sustentam uma resposta documental segura. A orientação abaixo é geral e não confirma uma regra do condomínio.";
+  }
+  return "Não encontrei essa informação nos documentos do condomínio. A resposta abaixo é uma orientação geral.";
+}
+
+function isRelevantServiceDegradation(point: string): boolean {
+  return /(?:extraída localmente dos documentos porque o provedor de IA está temporariamente indisponível|modo documental local)/iu.test(
+    point
+  );
+}
+
+function keepOnlyEssentialGuidance(
+  payload: AnswerPayload,
+  assessment: RiskAssessment
+): AnswerPayload {
+  const specialistReason = payload.specialist.reason?.trim() ?? "";
+  const distinctAttentionPoints = payload.attentionPoints.filter(
+    (point) => point.trim() !== "" && point.trim() !== specialistReason
+  );
+  const degradationNotice = distinctAttentionPoints.find(isRelevantServiceDegradation);
+  const requiresExceptionalGuidance =
+    payload.answerMode !== "grounded" ||
+    assessment.riskClass === "high" ||
+    payload.specialist.required;
+  const attentionPoints = requiresExceptionalGuidance
+    ? distinctAttentionPoints.slice(0, 1)
+    : degradationNotice === undefined
+      ? []
+      : [degradationNotice];
+
+  return freezeAnswerPayload({
+    ...payload,
+    attentionPoints: Object.freeze(attentionPoints),
+    suggestedNextStep: requiresExceptionalGuidance ? payload.suggestedNextStep : null
+  });
 }
 
 function policyTelemetry(
@@ -450,6 +481,54 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
   const maximumOutputTokens = options.maximumOutputTokens ?? defaultMaximumOutputTokens;
   const maximumCostMicrounits = options.maximumCostMicrounits ?? defaultMaximumCostMicrounits;
 
+  async function generateGeneralGuidance(
+    question: string,
+    assessment: RiskAssessment,
+    limitation: string,
+    routingReason: string,
+    includeDocumentaryLimitation = true
+  ): Promise<
+    Readonly<{
+      payload: AnswerPayload;
+      telemetry: AnswerGatewayTelemetry;
+      claims: readonly AnswerClaim[];
+    }>
+  > {
+    const gatewayInput = {
+      question,
+      task: "grounded_answer" as const,
+      riskClass: assessment.riskClass,
+      evidence: Object.freeze([]),
+      budget: Object.freeze({ maximumOutputTokens, maximumCostMicrounits })
+    };
+    const generated = await options.gateway.generate(gatewayInput);
+    const enforced = enforceHighRiskSpecialist(generated.output, assessment);
+    if (enforced.answerMode !== expectedMode(gatewayInput.task, true)) {
+      throw new InvalidAnswerValidationError(
+        "O gateway retornou um modo incompatível para orientação geral."
+      );
+    }
+    const validated = validateGeneratedAnswer(enforced, gatewayInput.evidence);
+    const attentionPoints = includeDocumentaryLimitation
+      ? Object.freeze([
+          limitation,
+          ...validated.attentionPoints.filter((point) => point !== limitation).slice(0, 1)
+        ])
+      : Object.freeze([]);
+    return Object.freeze({
+      payload: freezeAnswerPayload({
+        answer: validated.answer,
+        answerMode: "abstained",
+        citations: Object.freeze([]),
+        attentionPoints,
+        suggestedNextStep: includeDocumentaryLimitation ? validated.suggestedNextStep : null,
+        specialist: validated.specialist
+      }),
+      telemetry: Object.freeze({ ...generated.telemetry, routingReason }),
+      claims: makeClaims(idFactory, validated.claims, validated)
+    });
+  }
+
   return Object.freeze({
     async ask(context, input): Promise<AnswerRecord> {
       const { question, requestId, idempotencyKey } = validateQuestion(input);
@@ -476,11 +555,13 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         startedAt
       );
       const assessment = classifyQuestionRisk(question);
+      const protectedContextRequest = isProtectedContextRequest(question);
+      const simpleConversation = isSimpleConversationMessage(question);
       let retrievalResult: ScopedRetrievalResult | undefined;
       let retrievalFailureCode: string | null = null;
       let retrievalFinishedAt = startedAt;
 
-      if (isProtectedContextRequest(question)) {
+      if (protectedContextRequest || simpleConversation) {
         retrievalResult = emptyRetrievalResult(question);
         retrievalFinishedAt = now();
       } else {
@@ -499,64 +580,65 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
       let payload: AnswerPayload;
       let telemetry: AnswerGatewayTelemetry;
       let claims: readonly AnswerClaim[];
+      let invocationEvidenceIds: readonly string[] = Object.freeze([]);
 
       if (retrievalResult === undefined) {
-        payload = failedPayload("A busca documental está indisponível no momento.", assessment);
-        telemetry = policyTelemetry(
-          question,
-          assessment,
-          "failed",
-          "retrieval indisponível; geração bloqueada",
-          retrievalFailureCode
-        );
-        claims = Object.freeze([]);
+        try {
+          const guidance = await generateGeneralGuidance(
+            question,
+            assessment,
+            documentaryLimitation(retrievalResult, retrievalFailureCode),
+            "busca documental indisponível; orientação geral sem fontes"
+          );
+          payload = guidance.payload;
+          telemetry = guidance.telemetry;
+          claims = guidance.claims;
+        } catch {
+          payload = failedPayload("A busca documental está indisponível no momento.", assessment);
+          telemetry = policyTelemetry(
+            question,
+            assessment,
+            "failed",
+            "busca e orientação geral indisponíveis",
+            retrievalFailureCode
+          );
+          claims = Object.freeze([]);
+        }
       } else if (retrievalResult.sufficiency.status !== "sufficient") {
-        if (!isConversationalMessage(question)) {
+        if (protectedContextRequest) {
           payload = abstainedPayload(retrievalResult, assessment, question);
           telemetry = policyTelemetry(
             question,
             assessment,
             "skipped",
-            "evidência insuficiente; geração não executada",
+            "solicitação de contexto protegido; geração bloqueada",
             null
           );
           claims = Object.freeze([]);
         } else {
-          const gatewayInput = {
-            question,
-            task: "grounded_answer" as const,
-            riskClass: assessment.riskClass,
-            evidence: Object.freeze([]),
-            budget: Object.freeze({ maximumOutputTokens, maximumCostMicrounits })
-          };
           try {
-            const generated = await options.gateway.generate(gatewayInput);
-            const enforced = enforceHighRiskSpecialist(generated.output, assessment);
-            if (enforced.answerMode !== expectedMode(gatewayInput.task, true)) {
-              throw new Error("O gateway retornou um modo incompatível para conversa sem fonte.");
-            }
-            const validated = validateGeneratedAnswer(enforced, gatewayInput.evidence);
-            payload = freezeAnswerPayload(validated);
-            claims = makeClaims(idFactory, validated.claims, validated);
-            telemetry = generated.telemetry;
+            const guidance = await generateGeneralGuidance(
+              question,
+              assessment,
+              documentaryLimitation(retrievalResult, null),
+              simpleConversation
+                ? "conversa simples sem busca documental"
+                : "evidência insuficiente; orientação geral sem fontes",
+              !simpleConversation
+            );
+            payload = guidance.payload;
+            telemetry = guidance.telemetry;
+            claims = guidance.claims;
           } catch (error: unknown) {
             const reason =
               error instanceof Error ? error.message : "A Gemini não respondeu à solicitação.";
-            payload = freezeAnswerPayload({
-              answer: "Não consegui obter a orientação da Gemini nesta tentativa.",
-              answerMode: "abstained",
-              citations: Object.freeze([]),
-              attentionPoints: Object.freeze([reason]),
-              suggestedNextStep:
-                "Confira a conexão da Gemini e tente novamente em alguns instantes.",
-              specialist: specialistFromAssessment(assessment)
-            });
+            payload = failedPayload(reason, assessment);
             telemetry = policyTelemetry(
               question,
               assessment,
               "failed",
-              "conversa inicial indisponível; resposta documental preservada",
-              "conversation_unavailable"
+              "orientação geral indisponível",
+              "general_guidance_unavailable"
             );
             claims = Object.freeze([]);
           }
@@ -571,40 +653,82 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
           evidence: retrievalResult.evidence,
           budget: Object.freeze({ maximumOutputTokens, maximumCostMicrounits })
         } as const;
+        invocationEvidenceIds = Object.freeze(retrievalResult.evidence.map((item) => item.id));
 
         try {
           const generated = await options.gateway.generate(gatewayInput);
           const enforced = enforceHighRiskSpecialist(generated.output, assessment);
-          if (enforced.answerMode !== expectedMode(task)) {
-            throw new Error("O gateway retornou um modo incompatível com a decisão de roteamento.");
+          if (!acceptsGeneratedMode(task, enforced.answerMode)) {
+            throw new InvalidAnswerValidationError(
+              "O gateway retornou um modo incompatível com a decisão de roteamento."
+            );
           }
           const validated = validateGeneratedAnswer(enforced, retrievalResult.evidence);
-          payload = freezeAnswerPayload(validated);
+          payload =
+            validated.answerMode === "abstained"
+              ? freezeAnswerPayload({
+                  answer: validated.answer,
+                  answerMode: "abstained",
+                  citations: Object.freeze([]),
+                  attentionPoints: Object.freeze([
+                    documentaryLimitation(retrievalResult, null),
+                    ...validated.attentionPoints
+                  ]),
+                  suggestedNextStep: validated.suggestedNextStep,
+                  specialist: validated.specialist
+                })
+              : freezeAnswerPayload(validated);
           claims = makeClaims(idFactory, validated.claims, validated);
           telemetry = generated.telemetry;
         } catch (error: unknown) {
-          const failureReason =
-            error instanceof AnswerGatewayUnavailableError
-              ? error.message
-              : error instanceof InvalidAnswerValidationError
-                ? "A resposta gerada não passou pela validação de segurança."
+          if (error instanceof InvalidAnswerValidationError) {
+            try {
+              const guidance = await generateGeneralGuidance(
+                question,
+                assessment,
+                documentaryLimitation(retrievalResult, null),
+                "validação documental reprovada; orientação geral sem fontes"
+              );
+              payload = guidance.payload;
+              telemetry = guidance.telemetry;
+              claims = guidance.claims;
+              invocationEvidenceIds = Object.freeze([]);
+            } catch (guidanceError: unknown) {
+              const failureReason =
+                guidanceError instanceof Error
+                  ? guidanceError.message
+                  : "Não foi possível concluir a geração com segurança.";
+              payload = failedPayload(failureReason, assessment);
+              telemetry = policyTelemetry(
+                question,
+                assessment,
+                "failed",
+                "validação documental e orientação geral falharam",
+                "answer_validation_failed"
+              );
+              claims = Object.freeze([]);
+            }
+          } else {
+            const failureReason =
+              error instanceof AnswerGatewayUnavailableError
+                ? error.message
                 : "Não foi possível concluir a geração com segurança.";
-          payload = failedPayload(failureReason, assessment);
-          telemetry = policyTelemetry(
-            question,
-            assessment,
-            "failed",
-            "geração ou validação pós-geração falhou",
-            error instanceof AnswerGatewayUnavailableError
-              ? "answer_gateway_unavailable"
-              : error instanceof InvalidAnswerValidationError
-                ? "answer_validation_failed"
+            payload = failedPayload(failureReason, assessment);
+            telemetry = policyTelemetry(
+              question,
+              assessment,
+              "failed",
+              "geração documental falhou",
+              error instanceof AnswerGatewayUnavailableError
+                ? "answer_gateway_unavailable"
                 : "answer_generation_failed"
-          );
-          claims = Object.freeze([]);
+            );
+            claims = Object.freeze([]);
+          }
         }
       }
 
+      payload = keepOnlyEssentialGuidance(payload, assessment);
       const finishedAt = now();
       const answer = createAnswerRecord(
         context,
@@ -638,7 +762,7 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         retrievalRunId,
         answerId,
         telemetry,
-        evidence.map((item) => item.id),
+        invocationEvidenceIds,
         finishedAt
       );
       const answerEventType = answer.answerMode === "failed" ? "answer_failed" : "answer_created";

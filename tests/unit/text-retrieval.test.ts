@@ -30,6 +30,7 @@ function candidate(
     documentTitle: overrides.documentTitle ?? "Convenção sintética",
     documentType: overrides.documentType ?? "convention",
     sourceKind: overrides.sourceKind ?? "user_upload",
+    ...(overrides.sourceScope === undefined ? {} : { sourceScope: overrides.sourceScope }),
     pageId: overrides.pageId ?? "page-1",
     pageNumber: overrides.pageNumber ?? 1,
     startOffset: overrides.startOffset ?? 0,
@@ -149,6 +150,34 @@ describe("retrieval textual escopado", () => {
       { id: "semantic-only", lexicalScore: 0, semanticScore: 0.9 }
     ]);
     expect(result.sufficiency.status).toBe("sufficient");
+  });
+
+  it("prioriza a legislação quando a relevância é equivalente", async () => {
+    const retriever = createScopedTextRetriever({
+      async findAuthorizedCandidates() {
+        return [
+          candidate({
+            id: "a-internal-rule",
+            documentTitle: "Fonte aplicável",
+            content: "A propriedade deve cumprir sua função social.",
+            semanticScore: 0.8,
+            sourceScope: "condominium"
+          }),
+          candidate({
+            id: "z-constitution",
+            documentTitle: "Fonte aplicável",
+            content: "A propriedade deve cumprir sua função social.",
+            semanticScore: 0.8,
+            sourceScope: "legislation"
+          })
+        ];
+      }
+    });
+
+    const result = await retriever.search(context, { query: "função social da propriedade" });
+
+    expect(result.evidence.map((item) => item.id)).toEqual(["z-constitution", "a-internal-rule"]);
+    expect(result.evidence[0]?.sourceScope).toBe("legislation");
   });
 
   it("não consulta o índice sem permissão de leitura", async () => {

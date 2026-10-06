@@ -8,7 +8,9 @@ describe("classificação de risco documental", () => {
   it.each([
     ["Posso retirar uma parede estrutural?", "high", "engenheiro"],
     ["Como contestar uma multa?", "high", "advogado"],
+    ["O que a lei diz sobre perturbação do sossego?", "high", "advogado"],
     ["Um vidro da área comum quebrou com a ventania.", "high", "responsável técnico"],
+    ["A ventania quebrou uma janela da área comum.", "high", "responsável técnico"],
     ["Qual obrigação tributária existe?", "high", "contador"],
     ["Houve um sinistro na apólice?", "high", "seguradora"],
     ["Como cumprir a LGPD com dados pessoais?", "high", "especialista em proteção de dados"]

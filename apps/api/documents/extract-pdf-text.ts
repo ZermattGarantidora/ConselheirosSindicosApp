@@ -24,21 +24,24 @@ export class PdfTextExtractionError extends Error {
 }
 
 function normalizePageText(items: readonly unknown[]): string {
-  return items
-    .flatMap((item) => {
-      if (
-        typeof item === "object" &&
-        item !== null &&
-        "str" in item &&
-        typeof item.str === "string"
-      ) {
-        return item.str;
-      }
+  let text = "";
 
-      return [];
-    })
-    .join(" ")
-    .replaceAll(/\s+/g, " ")
+  for (const item of items) {
+    if (
+      typeof item === "object" &&
+      item !== null &&
+      "str" in item &&
+      typeof item.str === "string"
+    ) {
+      text += item.str.replaceAll(/[ \t\f\v]+/g, " ");
+      text += "hasEOL" in item && item.hasEOL === true ? "\n" : " ";
+    }
+  }
+
+  return text
+    .replaceAll(/ *\n */g, "\n")
+    .replaceAll(/\n{3,}/g, "\n\n")
+    .replaceAll(/ {2,}/g, " ")
     .trim();
 }
 

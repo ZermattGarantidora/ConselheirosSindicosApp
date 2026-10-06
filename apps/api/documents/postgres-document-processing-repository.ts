@@ -210,13 +210,17 @@ export function createPostgresDocumentProcessingRepository(
             ]
           );
 
-          for (const chunk of chunkPage({
-            condominiumId: input.condominiumId,
-            documentVersionId: input.documentVersionId,
-            documentPageId,
-            pageNumber: page.pageNumber,
-            extractedText: page.extractedText
-          })) {
+          const chunks =
+            input.outcome.status === "completed"
+              ? chunkPage({
+                  condominiumId: input.condominiumId,
+                  documentVersionId: input.documentVersionId,
+                  documentPageId,
+                  pageNumber: page.pageNumber,
+                  extractedText: page.extractedText
+                })
+              : [];
+          for (const chunk of chunks) {
             const documentChunkId = randomUUID();
             await client.query(
               `
@@ -282,11 +286,37 @@ export function createPostgresDocumentProcessingRepository(
         }
 
         const finalStatus = input.outcome.state.processingStatus;
+        const summary = input.outcome.extractionSummary;
+        if (input.outcome.documentIdentification?.identified === true) {
+          await client.query(
+            `
+              UPDATE app.documents
+              SET document_type = $3, updated_at = now()
+              WHERE condominium_id = $1
+                AND id = (
+                  SELECT document_id
+                  FROM app.document_versions
+                  WHERE condominium_id = $1 AND id = $2
+                )
+            `,
+            [
+              input.condominiumId,
+              input.documentVersionId,
+              input.outcome.documentIdentification.documentType
+            ]
+          );
+        }
         const updatedState = await client.query(
           `
             UPDATE app.document_version_states
             SET processing_status = $4,
                 ocr_quality_score = $5,
+                expected_page_count = $6,
+                processed_page_count = $7,
+                searchable_page_count = $8,
+                unreadable_page_numbers = $9,
+                extraction_completeness = $10,
+                extraction_method = $11,
                 current_processing_job_id = NULL,
                 updated_at = now()
             WHERE condominium_id = $1
@@ -301,7 +331,13 @@ export function createPostgresDocumentProcessingRepository(
             input.documentVersionId,
             input.jobId,
             finalStatus,
-            input.outcome.state.ocrQualityScore
+            input.outcome.state.ocrQualityScore,
+            summary.expectedPageCount,
+            summary.processedPageCount,
+            summary.searchablePageCount,
+            summary.unreadablePageNumbers,
+            summary.extractionCompleteness,
+            summary.extractionMethod
           ]
         );
         if (updatedState.rowCount !== 1) {

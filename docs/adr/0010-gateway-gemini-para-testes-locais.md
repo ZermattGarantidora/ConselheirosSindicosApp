@@ -1,5 +1,7 @@
 # ADR 0010 — Gateway Gemini para testes locais
 
+> O detalhe de transporte pela API Interactions foi substituído pela ADR 0015. As demais decisões deste registro permanecem válidas.
+
 - **Status:** Aceito
 - **Data:** 2026-09-14
 

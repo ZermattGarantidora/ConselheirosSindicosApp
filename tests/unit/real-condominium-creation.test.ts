@@ -10,6 +10,7 @@ import type {
   AuthorizedCondominium,
   CondominiumDirectory
 } from "../../apps/api/identity/postgres-condominium-directory.js";
+import { CondominiumAlreadyExistsError } from "../../apps/api/identity/postgres-condominium-directory.js";
 
 const authorized: AuthorizedCondominium = {
   condominiumId: "11111111-1111-4111-8111-111111111111",
@@ -20,12 +21,14 @@ const authorized: AuthorizedCondominium = {
 
 function directoryFixture(): CondominiumDirectory & {
   listAuthorized: ReturnType<typeof vi.fn>;
+  findAuthorizedByCnpj: ReturnType<typeof vi.fn>;
   createForUser: ReturnType<typeof vi.fn>;
   leaveForUser: ReturnType<typeof vi.fn>;
   deleteForUser: ReturnType<typeof vi.fn>;
 } {
   return {
     listAuthorized: vi.fn(async () => [authorized]),
+    findAuthorizedByCnpj: vi.fn(async () => undefined),
     createForUser: vi.fn(async () => authorized),
     leaveForUser: vi.fn(async () => undefined),
     deleteForUser: vi.fn(async () => undefined)
@@ -82,6 +85,136 @@ describe("criação real de condomínio", () => {
     expect(directory.listAuthorized).toHaveBeenCalledOnce();
     expect(directory.createForUser).toHaveBeenCalledOnce();
 
+    await app.close();
+  });
+
+  it("retoma o cadastro já autorizado quando a criação anterior parou antes dos documentos", async () => {
+    const directory = directoryFixture();
+    directory.createForUser.mockRejectedValueOnce(new CondominiumAlreadyExistsError());
+    directory.findAuthorizedByCnpj.mockResolvedValueOnce(authorized);
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      accountAuth: createInMemoryAccountAuth(),
+      condominiumDirectory: directory
+    });
+    await app.ready();
+
+    const registration = await app.inject({
+      method: "POST",
+      url: "/v1/auth/register",
+      payload: {
+        displayName: "Síndico de Retomada",
+        email: "sindico-retomada@example.test",
+        password: "senha sintética forte"
+      }
+    });
+    const cookie = String(registration.headers["set-cookie"]).split(";")[0];
+    const userId = registration.json().user.userId as string;
+    const resumed = await app.inject({
+      method: "POST",
+      url: "/v1/condominiums",
+      headers: { cookie },
+      payload: {
+        name: "Residencial Horizonte",
+        cnpj: "12.345.678/0001-99",
+        address: { city: "São Paulo", state: "SP" },
+        contact: {}
+      }
+    });
+
+    expect(resumed.statusCode).toBe(200);
+    expect(resumed.json()).toMatchObject({
+      condominiumId: authorized.condominiumId,
+      resumedRegistration: true
+    });
+    expect(directory.findAuthorizedByCnpj).toHaveBeenCalledWith(userId, "12345678000199");
+    await app.close();
+  });
+
+  it("retoma automaticamente um cadastro já confirmado quando a primeira resposta falha", async () => {
+    const directory = directoryFixture();
+    directory.createForUser.mockRejectedValueOnce(
+      new Error("conexão encerrada após a confirmação")
+    );
+    directory.findAuthorizedByCnpj.mockResolvedValueOnce(authorized);
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      accountAuth: createInMemoryAccountAuth(),
+      condominiumDirectory: directory
+    });
+    await app.ready();
+
+    const registration = await app.inject({
+      method: "POST",
+      url: "/v1/auth/register",
+      payload: {
+        displayName: "Síndico de Recuperação Automática",
+        email: "sindico-recuperacao@example.test",
+        password: "senha sintética forte"
+      }
+    });
+    const cookie = String(registration.headers["set-cookie"]).split(";")[0];
+    const userId = registration.json().user.userId as string;
+
+    const resumed = await app.inject({
+      method: "POST",
+      url: "/v1/condominiums",
+      headers: { cookie },
+      payload: {
+        name: "Residencial Horizonte",
+        cnpj: "12.345.678/0001-99",
+        address: { city: "São Paulo", state: "SP" },
+        contact: {}
+      }
+    });
+
+    expect(resumed.statusCode).toBe(200);
+    expect(resumed.json()).toMatchObject({
+      condominiumId: authorized.condominiumId,
+      resumedRegistration: true
+    });
+    expect(directory.createForUser).toHaveBeenCalledOnce();
+    expect(directory.findAuthorizedByCnpj).toHaveBeenCalledWith(userId, "12345678000199");
+    await app.close();
+  });
+
+  it("mantém a duplicidade genérica quando o CNPJ não pertence à conta", async () => {
+    const directory = directoryFixture();
+    directory.createForUser.mockRejectedValueOnce(new CondominiumAlreadyExistsError());
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      accountAuth: createInMemoryAccountAuth(),
+      condominiumDirectory: directory
+    });
+    await app.ready();
+
+    const registration = await app.inject({
+      method: "POST",
+      url: "/v1/auth/register",
+      payload: {
+        displayName: "Síndico sem acesso",
+        email: "sindico-sem-acesso@example.test",
+        password: "senha sintética forte"
+      }
+    });
+    const cookie = String(registration.headers["set-cookie"]).split(";")[0];
+    const duplicate = await app.inject({
+      method: "POST",
+      url: "/v1/condominiums",
+      headers: { cookie },
+      payload: {
+        name: "Outro nome",
+        cnpj: "12.345.678/0001-99",
+        address: { city: "São Paulo", state: "SP" },
+        contact: {}
+      }
+    });
+
+    expect(duplicate.statusCode).toBe(409);
+    expect(duplicate.json()).toEqual({
+      message: "Já existe um condomínio cadastrado com este CNPJ."
+    });
+    expect(JSON.stringify(duplicate.json())).not.toContain(authorized.condominiumId);
     await app.close();
   });
 

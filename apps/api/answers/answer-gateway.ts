@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { classifySimpleConversation } from "../../shared/conversation-intent.js";
 import type { RetrievalEvidence } from "../retrieval/retrieval-contract.js";
 import {
   answerPipelineVersion,
@@ -71,13 +72,17 @@ export function createFallbackAnswerGateway(
           throw error;
         }
 
+        if (input.evidence.length === 0) {
+          throw error;
+        }
+
         const result = await fallback.generate(input);
         return Object.freeze({
           output: Object.freeze({
             ...result.output,
             attentionPoints: Object.freeze([
               ...result.output.attentionPoints,
-              "A resposta foi extraída localmente dos documentos porque o provedor de IA está temporariamente indisponível."
+              "Modo documental local: confira a informação na fonte abaixo."
             ])
           }),
           telemetry: Object.freeze({
@@ -199,15 +204,18 @@ function safeExcerpt(
 }> | null {
   const sentences = sentenceCandidates(evidence.content);
   const safeSentences = sentences.filter((sentence) => !isInstructionLike(sentence));
-  const candidate = [...safeSentences].sort(
-    (left, right) =>
-      relevantTerms(question).filter((term) =>
-        termMatchesContent(term, right.toLocaleLowerCase("pt-BR"))
-      ).length -
-        relevantTerms(question).filter((term) =>
-          termMatchesContent(term, left.toLocaleLowerCase("pt-BR"))
-        ).length || left.length - right.length
-  )[0];
+  const candidate =
+    safeSentences.length === sentences.length
+      ? evidence.content.trim()
+      : [...safeSentences].sort(
+          (left, right) =>
+            relevantTerms(question).filter((term) =>
+              termMatchesContent(term, right.toLocaleLowerCase("pt-BR"))
+            ).length -
+              relevantTerms(question).filter((term) =>
+                termMatchesContent(term, left.toLocaleLowerCase("pt-BR"))
+              ).length || left.length - right.length
+        )[0];
   if (candidate === undefined || candidate.length === 0) {
     return null;
   }
@@ -235,9 +243,99 @@ function citationFor(evidence: RetrievalEvidence, question: string): GeneratedCi
     title: evidence.documentTitle,
     page: evidence.pageNumber,
     excerpt: excerpt.text,
+    sourceScope: evidence.sourceScope ?? "condominium",
     startOffset: excerpt.startOffset,
     endOffset: excerpt.endOffset
   });
+}
+
+const fallbackSubjectStopWords = new Set([
+  "aprovado",
+  "aprovada",
+  "contratado",
+  "contratada",
+  "data",
+  "documento",
+  "condomínio",
+  "informado",
+  "informada",
+  "prazo",
+  "valor",
+  "vence",
+  "vencimento",
+  "vigência",
+  "até"
+]);
+
+function fallbackSubject(question: string): string {
+  return relevantTerms(question)
+    .filter((term) => !fallbackSubjectStopWords.has(term))
+    .join(" ");
+}
+
+function focusPositions(question: string, content: string): readonly number[] {
+  const normalizedContent = content.toLocaleLowerCase("pt-BR");
+  const positions = relevantTerms(question)
+    .filter((term) => !fallbackSubjectStopWords.has(term))
+    .flatMap((term) => {
+      const exactPosition = normalizedContent.indexOf(term);
+      if (exactPosition >= 0) return [exactPosition];
+      const prefix = term.slice(0, Math.min(7, term.length));
+      const prefixPosition = prefix.length >= 6 ? normalizedContent.indexOf(prefix) : -1;
+      return prefixPosition >= 0 ? [prefixPosition] : [];
+    });
+  return Object.freeze(positions);
+}
+
+function closestValue(question: string, content: string, expression: RegExp): string | undefined {
+  const matches = [...content.matchAll(expression)];
+  if (matches.length === 0) return undefined;
+  const positions = focusPositions(question, content);
+  if (positions.length === 0) return matches[0]?.[0]?.trim();
+  return [...matches]
+    .sort((left, right) => {
+      const leftIndex = left.index ?? 0;
+      const rightIndex = right.index ?? 0;
+      const leftDistance = Math.min(...positions.map((position) => Math.abs(leftIndex - position)));
+      const rightDistance = Math.min(
+        ...positions.map((position) => Math.abs(rightIndex - position))
+      );
+      return leftDistance - rightDistance;
+    })[0]?.[0]
+    ?.trim();
+}
+
+function structuredFallbackAnswer(question: string, excerpt: string): string | undefined {
+  const subject = fallbackSubject(question);
+  const quotedSubject = subject.length > 0 ? ` para “${subject}”` : "";
+  if (/\b(?:valor|quanto|cota|taxa|or[cç]amento|contribui)/iu.test(question)) {
+    const amount = closestValue(question, excerpt, /R\$\s*\d{1,3}(?:\.\d{3})*(?:,\d{2})?/gu);
+    if (amount !== undefined) return `O valor informado${quotedSubject} é ${amount}.`;
+  }
+  if (/\b(?:quando|data|prazo|at[eé]|vence|vencimento|vig[eê]ncia|contrat)/iu.test(question)) {
+    const date = closestValue(
+      question,
+      excerpt,
+      /\b(?:\d{1,2}\/\d{1,2}\/\d{4}|\d{1,2}\s+de\s+(?:janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+\d{4}|(?:janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+a\s+(?:janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+de\s+\d{4})\b/giu
+    );
+    if (date !== undefined) return `A data informada${quotedSubject} é ${date}.`;
+  }
+  return undefined;
+}
+
+function conciseFallbackAnswer(
+  question: string,
+  citations: readonly GeneratedCitation[]
+): string | null {
+  const excerpt = citations[0]?.excerpt.trim();
+  if (excerpt === undefined || excerpt.length === 0) return null;
+  const looksLikeCompleteProse =
+    excerpt.length <= 360 &&
+    /^(?:[\p{Lu}\d“"(]|\[)/u.test(excerpt) &&
+    /[.!?]$/u.test(excerpt) &&
+    !/\bValor por unidade\b.*\bVencimento\b.*\bVig[eê]ncia\b/iu.test(excerpt);
+  if (looksLikeCompleteProse) return excerpt;
+  return structuredFallbackAnswer(question, excerpt) ?? null;
 }
 
 function specialistForRisk(
@@ -354,15 +452,34 @@ function groundedAnswer(
       .map((item) => citationFor(item, question))
       .filter((citation): citation is GeneratedCitation => citation !== null)
   );
-  const excerpts = citations.map((citation) => citation.excerpt).join(" ");
+  if (citations.length === 0) {
+    throw new AnswerGatewayUnavailableError(
+      "Não há trecho seguro para sustentar a resposta gerada."
+    );
+  }
   const specialist = specialistForRisk(riskClass, inferSpecialistFromEvidence(riskClass, question));
   const structuralRisk = /parede|estrutura|fachada|obra estrutural|intervenção/iu.test(question);
   const historicalYear = /\b(20\d{2})\b/u.exec(question)?.[1];
   const historicalNote =
     historicalYear === undefined ? "" : ` A resposta se refere a ${historicalYear}.`;
+  const conciseAnswer = conciseFallbackAnswer(question, citations);
+  if (conciseAnswer === null) {
+    return Object.freeze({
+      answer:
+        "Não consegui transformar o trecho recuperado em uma resposta completa sem correr o risco de distorcer o documento.",
+      answerMode: "abstained" as const,
+      citations: Object.freeze([]),
+      attentionPoints: Object.freeze([
+        "O trecho encontrado está fragmentado e precisa ser conferido no documento original."
+      ]),
+      suggestedNextStep: "Abra a fonte e repita a pergunta com o assunto mais específico.",
+      specialist,
+      claims: Object.freeze([])
+    });
+  }
   const answer = structuralRisk
-    ? `${excerpts} A documentação técnica e as aprovações aplicáveis devem ser obtidas antes de qualquer intervenção; a citação não representa autorização definitiva para executar a obra.${historicalNote}`
-    : `${excerpts}${specialist.required ? " A informação documental não substitui a validação do especialista para o caso concreto." : ""}${historicalNote}`;
+    ? `${conciseAnswer} A documentação técnica e as aprovações aplicáveis devem ser obtidas antes de qualquer intervenção; a citação não representa autorização definitiva para executar a obra.${historicalNote}`
+    : `${conciseAnswer}${specialist.required ? " A informação documental não substitui a validação do especialista para o caso concreto." : ""}${historicalNote}`;
 
   return Object.freeze({
     answer,
@@ -373,7 +490,7 @@ function groundedAnswer(
     ),
     suggestedNextStep: specialist.required
       ? "Separe os documentos citados e valide o caso concreto com o especialista indicado."
-      : "Confira as citações e registre o próximo passo aplicável ao condomínio.",
+      : null,
     specialist,
     claims: Object.freeze([
       Object.freeze({
@@ -392,13 +509,23 @@ export function createLocalSyntheticAnswerGateway(
   return Object.freeze({
     async generate(input: AnswerGatewayInput): Promise<AnswerGatewayResult> {
       if (input.evidence.length === 0) {
+        const conversationIntent = classifySimpleConversation(input.question);
+        const isSimpleConversation = conversationIntent !== null;
         const answer = Object.freeze({
           answer:
-            "Olá! Sou a Cora, sua conselheira documental. Posso ajudar a consultar regras, atas e contratos quando você escolher um assunto.",
+            conversationIntent === "greeting"
+              ? "Olá! Sou a Alvitra, sua conselheira documental."
+              : conversationIntent === "capability"
+                ? "Posso consultar convenções, regimentos, atas e contratos do condomínio, explicar o que encontrei e indicar quando vale validar com um especialista."
+                : "Não encontrei base documental para confirmar essa informação. Neste ambiente local, não há um modelo generativo conectado para formular uma orientação geral específica.",
           answerMode: "abstained" as const,
           citations: Object.freeze([]),
-          attentionPoints: Object.freeze([]),
-          suggestedNextStep: "Pergunte sobre uma regra, ata ou contrato do condomínio.",
+          attentionPoints: Object.freeze(
+            isSimpleConversation ? [] : ["Esta resposta não confirma uma regra do condomínio."]
+          ),
+          suggestedNextStep: isSimpleConversation
+            ? null
+            : "Confira ou envie o documento que trata diretamente do assunto e tente novamente.",
           specialist: Object.freeze({ required: false, type: null, reason: null }),
           claims: Object.freeze([])
         });
@@ -414,7 +541,11 @@ export function createLocalSyntheticAnswerGateway(
             pipelineVersion: answerPipelineVersion,
             taskType: input.task,
             riskClass: input.riskClass,
-            routingReason: "cumprimento sem alegação documental",
+            routingReason: isSimpleConversation
+              ? conversationIntent === "greeting"
+                ? "cumprimento sem alegação documental"
+                : "pergunta geral sobre as capacidades da Alvitra"
+              : "ambiente sintético sem modelo generativo e sem evidência documental",
             status: "completed" as const,
             inputTokens: tokenEstimate(prompt),
             outputTokens: tokenEstimate(serializedOutput),

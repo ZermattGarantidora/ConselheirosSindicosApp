@@ -106,16 +106,31 @@ export function createPostgresDocumentSourceReader(pool: PoolLike): DocumentSour
           content: string;
         }>(
           `
-            SELECT d.id AS document_id, dv.id AS document_version_id, d.title,
-              dp.page_number AS page, dp.extracted_text AS content
-            FROM app.document_pages AS dp
-            JOIN app.document_versions AS dv
-              ON dv.condominium_id = dp.condominium_id AND dv.id = dp.document_version_id
-            JOIN app.documents AS d
-              ON d.condominium_id = dv.condominium_id AND d.id = dv.document_id
-            WHERE dp.condominium_id = app.current_condominium_id()
-              AND d.id = $1 AND dv.id = $2 AND dp.page_number = $3
-              AND d.status = 'active'
+            SELECT *
+            FROM (
+              SELECT d.id AS document_id, dv.id AS document_version_id, d.title,
+                dp.page_number AS page, dp.extracted_text AS content
+              FROM app.document_pages AS dp
+              JOIN app.document_versions AS dv
+                ON dv.condominium_id = dp.condominium_id AND dv.id = dp.document_version_id
+              JOIN app.documents AS d
+                ON d.condominium_id = dv.condominium_id AND d.id = dv.document_id
+              WHERE dp.condominium_id = app.current_condominium_id()
+                AND d.id = $1 AND dv.id = $2 AND dp.page_number = $3
+                AND d.status = 'active'
+
+              UNION ALL
+
+              SELECT source.id AS document_id, version.id AS document_version_id,
+                source.title, page.page_number AS page, page.extracted_text AS content
+              FROM app.legal_source_pages AS page
+              JOIN app.legal_source_versions AS version
+                ON version.id = page.legal_source_version_id
+              JOIN app.legal_sources AS source
+                ON source.id = version.legal_source_id
+              WHERE source.id = $1 AND version.id = $2 AND page.page_number = $3
+                AND source.status = 'active' AND version.is_current
+            ) AS authorized_source
             LIMIT 1
           `,
           [input.documentId, input.documentVersionId, input.page]

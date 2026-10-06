@@ -2,7 +2,7 @@
 
 **Status:** rascunho para revisão
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-09-21
+**Atualizado em:** 2026-09-24
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -52,7 +52,7 @@ Síndico em ambiente de demonstração, avaliando uma consulta documental sem us
 ## 4. Escopo
 
 - Gateway Gemini selecionado quando `GEMINI_API_KEY` estiver definida no processo do servidor ou no arquivo local `.env.local`, ignorado pelo Git.
-- Chamada REST somente pelo backend, com `store: false` e limite de saída configurado. Consultas documentais usam saída JSON estruturada; orientações condominiais sem evidência usam texto conversacional envolvido no contrato seguro local, sem fontes ou afirmações documentais.
+- Chamada REST `generateContent` somente pelo backend, sem memória remota, cache explícito ou histórico de conversa, e com limite de saída configurado. Consultas documentais usam saída JSON estruturada; orientações condominiais sem evidência usam texto conversacional envolvido no contrato seguro local, sem fontes ou afirmações documentais.
 - Prompt limitado à pergunta e evidências recuperadas para o condomínio autorizado.
 - Validação existente de citações, risco e conflito continua obrigatória.
 - Sem chave, o gateway sintético local continua disponível.
@@ -83,11 +83,15 @@ O gateway recebe exclusivamente `question` e `evidence` já retornadas pelo retr
 
 A saída deve conter resposta, modo, citações, ressalvas, próximo passo, especialista e afirmações. Uma citação só é aceita se corresponder a `evidenceId`, documento, versão, página, trecho e offsets da evidência recuperada.
 
-Quando não há evidência, a Cora pode orientar sobre a rotina condominial em linguagem conversacional. Esse caminho não pode trazer citações, afirmações de regras locais ou fatos documentais; a interface não apresenta fontes vazias como se uma busca tivesse ocorrido.
+Quando não há evidência suficiente, a Cora deve formular uma orientação geral útil para a pergunta em linguagem conversacional. Esse caminho não pode trazer citações, afirmações de regras locais ou fatos documentais; a interface identifica que a orientação não foi confirmada nos documentos. Em perguntas que exigem um fato específico do condomínio, a orientação explica a limitação e o caminho de validação sem inventar a resposta.
+
+Toda pergunta sobre o condomínio consulta primeiro a memória documental, exceto cumprimentos simples. Quando a evidência responde à pergunta, a Gemini redige uma resposta natural baseada nela e informa os `evidenceId` usados. Um trecho tangencial não pode transformar recomendações gerais em afirmações documentais: se a evidência não sustentar a conclusão, a saída deve ser `abstained`, sem citações, com orientação geral separada.
 
 ### RQ-404 — Falha segura
 
-Falha de rede, resposta incompleta, JSON inválido, excedente de limite ou validação reprovada produz resposta segura de falha, nunca afirmação sem fonte.
+Falha de rede, resposta incompleta, JSON inválido, excedente de limite ou validação reprovada nunca produz afirmação documental sem fonte. Quando a validação documental reprovar a saída e a Gemini continuar disponível, o caso de uso pode fazer uma nova tentativa sem evidências para entregar somente orientação geral. Falha técnica é exibida apenas se essa tentativa também não puder ser concluída com segurança.
+
+O transporte deve repetir até três tentativas totais para timeout, falha de rede, resposta vazia ou inválida, HTTP 408, 429 e 5xx, usando espera curta e orçamento total de tempo. HTTP 400, 401 e 403 são falhas permanentes e não devem ser repetidos. Somente depois de esgotar as tentativas transitórias o gateway pode sinalizar indisponibilidade ao fallback documental local.
 
 ### RQ-405 — Telemetria mínima
 
@@ -95,11 +99,11 @@ Persistir somente modelo, contagem de tokens, latência, hash de entrada/saída 
 
 ## 8. Contratos
 
-`GEMINI_API_KEY` e `GEMINI_MODEL` são entradas do processo do servidor. O gateway devolve o contrato `GeneratedAnswer` já existente. O endpoint público permanece inalterado; erros do gateway se tornam `answerMode: failed` pelo caso de uso.
+`GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_MAX_ATTEMPTS`, `GEMINI_RETRY_BASE_DELAY_MS` e `GEMINI_TIMEOUT_MS` são entradas do processo do servidor. O gateway devolve o contrato `GeneratedAnswer` já existente. O endpoint público permanece inalterado; erros do gateway se tornam `answerMode: failed` pelo caso de uso.
 
 ## 9. Requisitos não funcionais
 
-- Timeout padrão de 30 segundos.
+- Orçamento total padrão de 30 segundos para todas as tentativas da solicitação.
 - Nenhuma chamada externa nos testes automatizados.
 - A chave não aparece em telemetria ou resposta HTTP.
 

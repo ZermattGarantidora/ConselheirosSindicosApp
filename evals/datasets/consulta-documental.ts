@@ -125,7 +125,7 @@ export const evaluationCases: readonly EvaluationCase[] = Object.freeze([
       answerMode: "abstained",
       citations: [],
       mustNotClaim: ["que animais são permitidos", "que animais são proibidos"],
-      suggestedMissingSource: ["regimento ou convenção com regra sobre animais"]
+      suggestedMissingSource: ["documento que trata diretamente do assunto"]
     }
   },
   {
@@ -324,7 +324,7 @@ export const evaluationCases: readonly EvaluationCase[] = Object.freeze([
   },
   {
     id: "EVAL-019",
-    title: "Indisponibilidade do retrieval falha com segurança",
+    title: "Indisponibilidade do retrieval degrada para orientação geral",
     priority: "P0",
     operation: "ask",
     actor: "user_alameda",
@@ -332,8 +332,9 @@ export const evaluationCases: readonly EvaluationCase[] = Object.freeze([
     systemState: { retrieval: "unavailable" },
     input: "Quando termina o contrato dos elevadores?",
     expected: {
-      answerMode: "failed",
+      answerMode: "abstained",
       citations: [],
+      mustIncludeSemantics: ["não foi possível consultar os documentos", "orientação geral"],
       mustNotClaim: ["data de vencimento como resposta processada com sucesso"]
     }
   },

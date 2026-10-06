@@ -5,6 +5,7 @@ import { createLocalSyntheticAnswerGateway } from "../../apps/api/answers/answer
 import { createAnswerUseCase } from "../../apps/api/answers/answer-use-case.js";
 import { createInMemoryAnswerPersistence } from "../../apps/api/answers/in-memory-answer-persistence.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
+import { createInMemoryTenantWorkLimiter } from "../../apps/api/operations/tenant-work-limiter.js";
 import type { AnswerUseCase } from "../../apps/api/answers/answer-use-case.js";
 import { createScopedTextRetriever } from "../../apps/api/retrieval/text-retrieval.js";
 import type { ScopedRetrievalIndex } from "../../apps/api/retrieval/retrieval-contract.js";
@@ -90,6 +91,43 @@ describe("API de perguntas e feedback", () => {
       expect(repeated.statusCode).toBe(200);
       expect(repeated.json().answerId).toBe(first.json().answerId);
       expect(persistence.listInteractions()).toHaveLength(1);
+    });
+  });
+
+  it("interrompe consultas que excedem a cota sem expor detalhes internos", async () => {
+    const source = createEvidence({ content: "A regra sintética permite o uso da área comum." });
+    const answerUseCase = createAnswerUseCase({
+      retriever: createScopedTextRetriever({
+        async findAuthorizedCandidates() {
+          return [source];
+        }
+      }),
+      gateway: createLocalSyntheticAnswerGateway(() => 1),
+      persistence: createInMemoryAnswerPersistence(),
+      now: fixedNow
+    });
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      answerUseCase,
+      now: fixedNow,
+      tenantWorkLimiter: createInMemoryTenantWorkLimiter({
+        document_question: { maximumOperations: 1, windowMilliseconds: 60_000 }
+      })
+    });
+
+    return closeAfter(app, async () => {
+      const request = {
+        method: "POST" as const,
+        url: "/v1/condominiums/alameda/questions",
+        headers: { "x-development-user-id": "sindico-demo" },
+        payload: { question: "Qual é a regra?" }
+      };
+      expect((await app.inject(request)).statusCode).toBe(200);
+      const limited = await app.inject(request);
+
+      expect(limited.statusCode).toBe(429);
+      expect(limited.headers["retry-after"]).toBe("60");
+      expect(limited.json()).toEqual({ message: "Tente novamente em instantes." });
     });
   });
 

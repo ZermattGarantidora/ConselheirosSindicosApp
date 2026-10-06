@@ -51,6 +51,7 @@ type SourceRow = Readonly<{
   document_version_id: string;
   page_number: number | string;
   content_sha256: string;
+  source_scope: "condominium" | "legislation";
 }>;
 
 type FeedbackRow = Readonly<{
@@ -111,7 +112,8 @@ function mapSources(rows: readonly SourceRow[]): readonly AnswerSourceRef[] {
         documentId: row.document_id,
         documentVersionId: row.document_version_id,
         page: Number(row.page_number),
-        contentSha256: row.content_sha256
+        contentSha256: row.content_sha256,
+        sourceScope: row.source_scope ?? "condominium"
       })
     )
   );
@@ -180,7 +182,7 @@ async function loadSources(client: PoolClient, answerId: string): Promise<readon
   const result = await client.query<SourceRow>(
     `
       SELECT document_chunk_id AS chunk_id, document_id, document_version_id,
-        page_number, content_sha256
+        page_number, content_sha256, source_scope
       FROM app.answer_trace_sources
       WHERE condominium_id = app.current_condominium_id()
         AND answer_id = $1
@@ -210,7 +212,8 @@ export function createPostgresAnswerTraceStore(pool: PoolLike): AnswerTraceStore
             document_id: evidence.documentId,
             document_version_id: evidence.documentVersionId,
             page_number: evidence.pageNumber,
-            content_sha256: evidence.contentSha256
+            content_sha256: evidence.contentSha256,
+            source_scope: evidence.sourceScope ?? "condominium"
           }))
         );
 
@@ -263,8 +266,9 @@ export function createPostgresAnswerTraceStore(pool: PoolLike): AnswerTraceStore
               INSERT INTO app.answer_trace_sources (
                 condominium_id, answer_id, source_index, document_id,
                 document_version_id, document_chunk_id, page_number, content_sha256
+                , source_scope
               )
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             `,
             [
               input.context.condominiumId,
@@ -274,7 +278,8 @@ export function createPostgresAnswerTraceStore(pool: PoolLike): AnswerTraceStore
               source.documentVersionId,
               source.chunkId,
               source.page,
-              source.contentSha256
+              source.contentSha256,
+              source.sourceScope ?? "condominium"
             ]
           );
         }

@@ -106,8 +106,24 @@ Raiz de isolamento.
 | `administration_company` | `text` | opcional |
 | `unit_count` | `integer` | opcional; positivo quando informado |
 | `contact` | `jsonb` | dados básicos de contato da gestão |
+| `profile_description` | `text` | opcional; apresentação do condomínio, nunca evidência para respostas |
 | `created_at` | `timestamptz` | obrigatório |
 | `updated_at` | `timestamptz` | obrigatório |
+
+### `condominium_profile_photos`
+
+Fotos de identificação privadas; não participam de OCR, indexação, recuperação nem citação documental.
+
+| Coluna | Tipo | Regra |
+|---|---|---|
+| `condominium_id`, `id` | `uuid`, `uuid` | PK composta e vínculo ao tenant com exclusão em cascata apenas pelo fluxo de exclusão confirmado |
+| `media_type` | `text` | allowlist `image/jpeg`, `image/png` ou `image/webp` |
+| `content` | `bytea` | conteúdo validado, entre 1 byte e 5 MiB |
+| `is_cover` | `boolean` | no máximo uma capa por condomínio |
+| `created_by_user_id` | `uuid` | pessoa que enviou a imagem |
+| `created_at` | `timestamptz` | obrigatório |
+
+O servidor limita cada condomínio a cinco imagens. A leitura exige membership ativa e fica escopada ao condomínio; somente o papel `manager` pode criar, escolher a capa ou excluir fotos.
 
 ### `memberships`
 

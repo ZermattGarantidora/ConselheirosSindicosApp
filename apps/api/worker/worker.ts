@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 
-import { createLocalPrivateDocumentStorage } from "../documents/private-document-storage.js";
+import { createPostgresPrivateDocumentStorage } from "../documents/postgres-private-document-storage.js";
 import { createOpenAiOcrAdapterFromEnvironment } from "../documents/openai-ocr.js";
 import { createScopedPostgresDocumentProcessor } from "../documents/postgres-document-processing-repository.js";
 import {
@@ -31,11 +31,10 @@ export async function startWorker(
 
 export async function startPersistentWorker(
   databaseUrl: string,
-  storageRoot = ".local/synthetic-documents",
   environment: NodeJS.ProcessEnv = process.env
 ): Promise<"processed" | "idle"> {
   const pool = new Pool({ connectionString: databaseUrl });
-  const storage = createLocalPrivateDocumentStorage(storageRoot);
+  const storage = createPostgresPrivateDocumentStorage(pool);
 
   try {
     return await processOne(
@@ -60,9 +59,5 @@ export async function startPersistentWorkerFromEnvironment(
     throw new Error("Defina DATABASE_URL para iniciar o worker persistido.");
   }
 
-  return startPersistentWorker(
-    databaseUrl,
-    environment.DOCUMENT_STORAGE_ROOT?.trim() || ".local/synthetic-documents",
-    environment
-  );
+  return startPersistentWorker(databaseUrl, environment);
 }

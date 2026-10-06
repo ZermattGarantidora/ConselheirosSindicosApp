@@ -53,6 +53,16 @@ describe("processamento documental", () => {
     expect(result.status === "completed" ? result.pages[1]?.extractedText : "").toBe(
       "Regra da segunda pagina"
     );
+    expect(result).toMatchObject({
+      extractionSummary: {
+        expectedPageCount: 2,
+        processedPageCount: 2,
+        searchablePageCount: 2,
+        unreadablePageNumbers: [],
+        extractionCompleteness: 1,
+        extractionMethod: "pdf_text"
+      }
+    });
     expect(ocrAdapter.recognize).not.toHaveBeenCalled();
   });
 
@@ -128,6 +138,16 @@ describe("processamento documental", () => {
       status: "needs_review",
       reason: "ocr_unavailable",
       state: { processingStatus: "needs_review", ocrQualityScore: null }
+    });
+    expect(unavailableResult).toMatchObject({
+      extractionSummary: {
+        expectedPageCount: 1,
+        processedPageCount: 1,
+        searchablePageCount: 0,
+        unreadablePageNumbers: [1],
+        extractionCompleteness: 0,
+        extractionMethod: "pdf_text"
+      }
     });
   });
 

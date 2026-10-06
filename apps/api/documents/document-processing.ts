@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { CondominiumId } from "../core/condominium-scope.js";
+import { identifyDocumentType, type DocumentIdentification } from "./document-identification.js";
 import {
   createDocumentVersion,
   transitionDocumentProcessing,
@@ -10,6 +11,7 @@ import {
 import { extractPdfTextByPage, type ExtractedPdfPage } from "./extract-pdf-text.js";
 import {
   assessOcrResult,
+  minimumOcrQualityScore,
   unavailableOcrAdapter,
   type OcrAdapter,
   type OcrPageResult,
@@ -25,6 +27,16 @@ export type ProcessedDocumentPage = Readonly<
   }
 >;
 
+export type DocumentExtractionSummary = Readonly<{
+  expectedPageCount: number;
+  processedPageCount: number;
+  searchablePageCount: number;
+  unreadablePageNumbers: readonly number[];
+  extractionCompleteness: number;
+  extractionMethod: "pdf_text" | "ocr" | null;
+  ocrQualityScore: number | null;
+}>;
+
 export type DocumentProcessingInput = Readonly<{
   condominiumId: CondominiumId;
   documentVersionId: string;
@@ -38,18 +50,24 @@ export type DocumentProcessingOutcome = Readonly<
       status: "completed";
       state: DocumentVersionState;
       pages: readonly ProcessedDocumentPage[];
+      extractionSummary: DocumentExtractionSummary;
+      documentIdentification?: DocumentIdentification;
     }
   | {
       status: "failed";
       state: DocumentVersionState;
       pages: readonly [];
       reason: "pdf_parse_failed";
+      extractionSummary: DocumentExtractionSummary;
+      documentIdentification?: DocumentIdentification;
     }
   | {
       status: "needs_review";
       state: DocumentVersionState;
       pages: readonly ProcessedDocumentPage[];
       reason: "ocr_unavailable" | "ocr_low_quality" | "ocr_invalid";
+      extractionSummary: DocumentExtractionSummary;
+      documentIdentification?: DocumentIdentification;
     }
 >;
 
@@ -134,7 +152,52 @@ function failedPdfResult(processingState: DocumentVersionState): DocumentProcess
     status: "failed" as const,
     state: transitionDocumentProcessing(processingState, "failed"),
     pages: Object.freeze([]) as readonly [],
-    reason: "pdf_parse_failed" as const
+    reason: "pdf_parse_failed" as const,
+    extractionSummary: Object.freeze({
+      expectedPageCount: 0,
+      processedPageCount: 0,
+      searchablePageCount: 0,
+      unreadablePageNumbers: Object.freeze([]),
+      extractionCompleteness: 0,
+      extractionMethod: null,
+      ocrQualityScore: null
+    }),
+    documentIdentification: identifyDocumentType("")
+  });
+}
+
+function identifyPages(pages: readonly ProcessedDocumentPage[]): DocumentIdentification {
+  return identifyDocumentType(pages.map((page) => page.extractedText).join("\n"));
+}
+
+function createExtractionSummary(
+  expectedPageCount: number,
+  pages: readonly ProcessedDocumentPage[],
+  ocrQualityScore: number | null
+): DocumentExtractionSummary {
+  const unreadablePageNumbers = pages
+    .filter(
+      (page) =>
+        page.extractedText.trim().length === 0 ||
+        page.qualityScore < (page.extractionMethod === "ocr" ? minimumOcrQualityScore : 1)
+    )
+    .map((page) => page.pageNumber);
+  const searchablePageCount = pages.filter(
+    (page) =>
+      page.extractedText.trim().length > 0 &&
+      page.qualityScore >= (page.extractionMethod === "ocr" ? minimumOcrQualityScore : 1)
+  ).length;
+  const methods = new Set(pages.map((page) => page.extractionMethod));
+
+  return Object.freeze({
+    expectedPageCount,
+    processedPageCount: pages.length,
+    searchablePageCount,
+    unreadablePageNumbers: Object.freeze(unreadablePageNumbers),
+    extractionCompleteness: expectedPageCount === 0 ? 0 : searchablePageCount / expectedPageCount,
+    extractionMethod:
+      methods.size === 0 ? null : methods.size === 1 ? (pages[0]?.extractionMethod ?? null) : "ocr",
+    ocrQualityScore
   });
 }
 
@@ -154,10 +217,13 @@ export async function processDocumentVersion(
     extractedPages.length > 0 && extractedPages.every((page) => page.extractedText.length > 0);
 
   if (hasUsableText) {
+    const pages = createPdfPages(input.condominiumId, input.documentVersionId, extractedPages);
     return Object.freeze({
       status: "completed" as const,
       state: transitionDocumentProcessing(processingState, "ready"),
-      pages: createPdfPages(input.condominiumId, input.documentVersionId, extractedPages)
+      pages,
+      extractionSummary: createExtractionSummary(extractedPages.length, pages, null),
+      documentIdentification: identifyPages(pages)
     });
   }
 
@@ -186,7 +252,17 @@ export async function processDocumentVersion(
   );
 
   if (decision.processingStatus === "ready") {
-    return Object.freeze({ status: "completed" as const, state, pages: ocrPages });
+    return Object.freeze({
+      status: "completed" as const,
+      state,
+      pages: ocrPages,
+      extractionSummary: createExtractionSummary(
+        extractedPages.length,
+        ocrPages,
+        decision.ocrQualityScore
+      ),
+      documentIdentification: identifyPages(ocrPages)
+    });
   }
 
   return Object.freeze({
@@ -199,7 +275,13 @@ export async function processDocumentVersion(
         : ocrResult.status === "completed" &&
             !hasExpectedOcrPages(ocrResult.pages, extractedPages.length)
           ? ("ocr_invalid" as const)
-          : ("ocr_low_quality" as const)
+          : ("ocr_low_quality" as const),
+    extractionSummary: createExtractionSummary(
+      extractedPages.length,
+      ocrPages,
+      decision.ocrQualityScore
+    ),
+    documentIdentification: identifyPages(ocrPages)
   });
 }
 

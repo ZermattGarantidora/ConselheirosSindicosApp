@@ -37,14 +37,6 @@ function gatewayResult(output: GeneratedAnswer): AnswerGatewayResult {
   });
 }
 
-function invalidGateway(output: GeneratedAnswer): AnswerGateway {
-  return {
-    async generate() {
-      return gatewayResult(output);
-    }
-  };
-}
-
 function baseGeneratedAnswer(overrides: Partial<GeneratedAnswer> = {}): GeneratedAnswer {
   const source = createEvidence({ content: "A regra sintética permite o uso da área comum." });
   return {
@@ -65,6 +57,27 @@ function baseGeneratedAnswer(overrides: Partial<GeneratedAnswer> = {}): Generate
     specialist: { required: false, type: null, reason: null },
     ...overrides
   };
+}
+
+function generalGuidanceAnswer(
+  answer = "Não encontrei uma regra confirmada nos documentos. Como orientação geral, registre o fato e verifique a fonte aplicável.",
+  overrides: Partial<GeneratedAnswer> = {}
+): GeneratedAnswer {
+  return {
+    answer,
+    answerMode: "abstained",
+    citations: [],
+    attentionPoints: [],
+    suggestedNextStep: null,
+    specialist: { required: false, type: null, reason: null },
+    claims: [],
+    ...overrides
+  };
+}
+
+function generalGuidanceGateway(answer = generalGuidanceAnswer()) {
+  const generate = vi.fn(async () => gatewayResult(answer));
+  return { generate } as AnswerGateway & { generate: typeof generate };
 }
 
 describe("caso de uso de consulta documental", () => {
@@ -94,6 +107,8 @@ describe("caso de uso de consulta documental", () => {
       pipelineVersion: "answer-pipeline-v1"
     });
     expect(answer.citations[0]).toMatchObject({ evidenceId: evidence.id });
+    expect(answer.attentionPoints).toEqual([]);
+    expect(answer.suggestedNextStep).toBeNull();
     expect(retrieval.search).toHaveBeenCalledWith(
       managerContext,
       expect.objectContaining({ query: "Qual é a regra da área comum?", asOf: fixedNow() })
@@ -109,6 +124,133 @@ describe("caso de uso de consulta documental", () => {
       "question_created",
       "answer_created"
     ]);
+  });
+
+  it.each([
+    ["risco baixo", "Qual é a regra da área comum?"],
+    ["risco médio", "Qual é a vigência do contrato?"]
+  ])(
+    "AC-509: remove orientação adicional genérica em resposta fundamentada de %s",
+    async (_label, question) => {
+      const evidence = createEvidence({
+        content: "A regra sintética permite o uso da área comum."
+      });
+      const gateway = {
+        generate: vi.fn(async () =>
+          gatewayResult(
+            baseGeneratedAnswer({
+              attentionPoints: ["A regra pode ser revista futuramente."],
+              suggestedNextStep: "Registre uma tarefa para conferir a regra novamente."
+            })
+          )
+        )
+      } as AnswerGateway;
+      const useCase = createAnswerUseCase({
+        retriever: retrieverFor(createRetrievalResult([evidence])),
+        gateway,
+        persistence: createInMemoryAnswerPersistence(
+          fixedIdFactory(`essential-${_label}`),
+          fixedNow
+        ),
+        now: fixedNow,
+        idFactory: fixedIdFactory(`essential-${_label}-interaction`)
+      });
+
+      const answer = await useCase.ask(managerContext, {
+        question,
+        requestId: `request-${_label}`
+      });
+
+      expect(answer.answerMode).toBe("grounded");
+      expect(answer.attentionPoints).toEqual([]);
+      expect(answer.suggestedNextStep).toBeNull();
+    }
+  );
+
+  it("trata uma pergunta factual sobre animais como consulta documental", async () => {
+    const retrieval = retrieverFor(createRetrievalResult([]));
+    const gateway = generalGuidanceGateway(
+      generalGuidanceAnswer(
+        "Não encontrei uma regra sobre animais nos documentos. Em geral, confira o regimento e a convenção antes de orientar o morador."
+      )
+    );
+    const useCase = createAnswerUseCase({
+      retriever: retrieval,
+      gateway,
+      persistence: createInMemoryAnswerPersistence(fixedIdFactory("animals"), fixedNow),
+      now: fixedNow,
+      idFactory: fixedIdFactory("animals-interaction")
+    });
+
+    const answer = await useCase.ask(managerContext, {
+      question: "Posso manter dois cachorros no apartamento?",
+      requestId: "request-animals"
+    });
+
+    expect(retrieval.search).toHaveBeenCalledOnce();
+    expect(answer).toMatchObject({ answerMode: "abstained", citations: [] });
+    expect(answer.answer).toContain("confira o regimento e a convenção");
+    expect(answer.attentionPoints.join(" ")).toContain(
+      "Não encontrei essa informação nos documentos"
+    );
+    expect(gateway.generate).toHaveBeenCalledWith(expect.objectContaining({ evidence: [] }));
+  });
+
+  it("orienta incidente operacional sem transformar evidência tangencial em base documental", async () => {
+    const tangentialEvidence = createEvidence({
+      content: "A regra sintética permite o uso da área comum."
+    });
+    const retrieval = retrieverFor(createRetrievalResult([tangentialEvidence]));
+    const gateway: AnswerGateway & { generate: ReturnType<typeof vi.fn> } = {
+      generate: vi.fn(async () =>
+        gatewayResult({
+          answer:
+            "Isole a área, avise os moradores para não se aproximarem e providencie uma avaliação técnica do reparo.",
+          answerMode: "abstained",
+          citations: [],
+          attentionPoints: [],
+          suggestedNextStep: "Registre o ocorrido e acione um profissional qualificado.",
+          specialist: { required: false, type: null, reason: null },
+          claims: []
+        })
+      )
+    };
+    const persistence = createInMemoryAnswerPersistence(
+      fixedIdFactory("operational-guidance"),
+      fixedNow
+    );
+    const useCase = createAnswerUseCase({
+      retriever: retrieval,
+      gateway,
+      persistence,
+      now: fixedNow,
+      idFactory: fixedIdFactory("operational-guidance-interaction")
+    });
+
+    const answer = await useCase.ask(managerContext, {
+      question:
+        "Depois de uma ventania, quebrou uma janela da área comum. Que ação devo tomar com os moradores?",
+      requestId: "request-operational-guidance"
+    });
+
+    expect(retrieval.search).toHaveBeenCalledOnce();
+    expect(gateway.generate).toHaveBeenCalledWith(
+      expect.objectContaining({ evidence: [tangentialEvidence], riskClass: "high" })
+    );
+    expect(answer).toMatchObject({
+      answerMode: "abstained",
+      riskClass: "high",
+      citations: [],
+      specialist: { required: true, type: "responsável técnico" }
+    });
+    expect(answer.answer).toContain("Isole a área");
+    expect(answer.attentionPoints.join(" ")).toContain(
+      "Os trechos encontrados não sustentam uma resposta documental segura"
+    );
+    expect(persistence.getInteraction(answer.answerId)).toMatchObject({
+      retrieval: { selectedCount: 1 },
+      invocations: [{ evidenceIds: [tangentialEvidence.id] }]
+    });
   });
 
   it("reutiliza a resposta quando a mesma chave idempotente é reenviada", async () => {
@@ -169,8 +311,8 @@ describe("caso de uso de consulta documental", () => {
     expect(answer.claims[0]?.claimType).toBe("interpretation");
   });
 
-  it("abstém sem evidência e não chama o gateway", async () => {
-    const gateway = { generate: vi.fn() } as unknown as AnswerGateway;
+  it("formula orientação geral sem evidência e informa a limitação documental", async () => {
+    const gateway = generalGuidanceGateway();
     const persistence = createInMemoryAnswerPersistence(fixedIdFactory("empty"), fixedNow);
     const useCase = createAnswerUseCase({
       retriever: retrieverFor(createRetrievalResult([])),
@@ -187,14 +329,16 @@ describe("caso de uso de consulta documental", () => {
 
     expect(answer).toMatchObject({
       answerMode: "abstained",
-      citations: [],
-      suggestedNextStep: expect.stringContaining("regimento")
+      citations: []
     });
-    expect(gateway.generate).not.toHaveBeenCalled();
+    expect(answer.answer).toContain("Como orientação geral");
+    expect(answer.attentionPoints.join(" ")).toContain(
+      "Não encontrei essa informação nos documentos"
+    );
+    expect(gateway.generate).toHaveBeenCalledWith(expect.objectContaining({ evidence: [] }));
     expect(persistence.getInteraction(answer.answerId)?.invocations[0]).toMatchObject({
-      status: "skipped",
-      outputHash: null,
-      estimatedCostMicrounits: 0
+      status: "completed",
+      evidenceIds: []
     });
   });
 
@@ -233,7 +377,11 @@ describe("caso de uso de consulta documental", () => {
       "Qual CNPJ foi registrado oficialmente?",
       "A ata substitui a convenção condominial registrada?"
     ] as const;
-    const gateway = { generate: vi.fn() } as unknown as AnswerGateway;
+    const gateway = generalGuidanceGateway(
+      generalGuidanceAnswer(
+        "Não encontrei esse dado nos documentos. Consulte a ata, a convenção ou o cadastro oficial correspondente."
+      )
+    );
     const useCase = createAnswerUseCase({
       retriever: retrieverFor(createRetrievalResult([])),
       gateway,
@@ -250,14 +398,20 @@ describe("caso de uso de consulta documental", () => {
       expect(answer.answerMode, question).toBe("abstained");
     }
 
-    expect(gateway.generate).not.toHaveBeenCalled();
+    expect(gateway.generate).toHaveBeenCalledTimes(questions.length);
+    expect(gateway.generate).toHaveBeenLastCalledWith(expect.objectContaining({ evidence: [] }));
   });
 
   it("explica quando há candidatos, mas o OCR não permite confirmação", async () => {
     const persistence = createInMemoryAnswerPersistence(fixedIdFactory("ocr"), fixedNow);
+    const gateway = generalGuidanceGateway(
+      generalGuidanceAnswer(
+        "Não consigo confirmar a vigência pelo texto reconhecido. Confira a data diretamente no documento original."
+      )
+    );
     const useCase = createAnswerUseCase({
       retriever: retrieverFor(createRetrievalResult([], { candidateCount: 1, selectedCount: 0 })),
-      gateway: { generate: vi.fn() } as unknown as AnswerGateway,
+      gateway,
       persistence,
       now: fixedNow,
       idFactory: fixedIdFactory("ocr-interaction")
@@ -269,8 +423,9 @@ describe("caso de uso de consulta documental", () => {
     });
 
     expect(answer.answerMode).toBe("abstained");
-    expect(answer.answer).toContain("reconhecimento");
-    expect(answer.attentionPoints.join(" ")).toContain("OCR");
+    expect(answer.answer).toContain("Confira a data diretamente no documento original");
+    expect(answer.attentionPoints.join(" ")).toContain("reconhecimento do documento é incerto");
+    expect(answer.attentionPoints.join(" ")).toContain("Confira o original ou corrija o OCR");
   });
 
   it("encaminha alto risco e mantém ressalva sem autorizar a intervenção", async () => {
@@ -305,14 +460,19 @@ describe("caso de uso de consulta documental", () => {
       specialist: { required: true, type: "engenheiro" }
     });
     expect(answer.answer).toContain("não representa autorização definitiva");
+    expect(answer.attentionPoints).toHaveLength(0);
+    expect(answer.suggestedNextStep).toContain("especialista");
     expect(observedTasks).toEqual(["specialist_review"]);
   });
 
   it("aplica especialista mesmo quando o alto risco termina em abstenção", async () => {
     const persistence = createInMemoryAnswerPersistence(fixedIdFactory("risk-empty"), fixedNow);
+    const gateway = generalGuidanceGateway(
+      generalGuidanceAnswer("Organize os fatos e reúna os documentos antes de contestar a multa.")
+    );
     const useCase = createAnswerUseCase({
       retriever: retrieverFor(createRetrievalResult([])),
-      gateway: { generate: vi.fn() } as unknown as AnswerGateway,
+      gateway,
       persistence,
       now: fixedNow,
       idFactory: fixedIdFactory("risk-empty-interaction")
@@ -348,8 +508,56 @@ describe("caso de uso de consulta documental", () => {
     expect(gateway.generate).not.toHaveBeenCalled();
   });
 
-  it("falha fechado quando o retrieval fica indisponível e preserva hash da pergunta", async () => {
-    const gateway = { generate: vi.fn() } as unknown as AnswerGateway;
+  it("AC-028: trata pergunta social como conversa curta sem busca ou alerta", async () => {
+    const retriever = retrieverFor(createRetrievalResult([createEvidence()]));
+    const gateway = generalGuidanceGateway(generalGuidanceAnswer("Tudo bem por aqui."));
+    const persistence = createInMemoryAnswerPersistence(fixedIdFactory("social"), fixedNow);
+    const useCase = createAnswerUseCase({
+      retriever,
+      gateway,
+      persistence,
+      now: fixedNow,
+      idFactory: fixedIdFactory("social-interaction")
+    });
+
+    const answer = await useCase.ask(managerContext, {
+      question: "Como vai?",
+      requestId: "request-social"
+    });
+
+    expect(answer.answer).toBe("Tudo bem por aqui.");
+    expect(answer.attentionPoints).toEqual([]);
+    expect(answer.suggestedNextStep).toBeNull();
+    expect(retriever.search).not.toHaveBeenCalled();
+  });
+
+  it("AC-028: responde sobre as capacidades da Alvitra sem buscar regras do condomínio", async () => {
+    const retriever = retrieverFor(createRetrievalResult([createEvidence()]));
+    const gateway = generalGuidanceGateway(
+      generalGuidanceAnswer("Posso consultar atas, convenção e contratos do condomínio.")
+    );
+    const persistence = createInMemoryAnswerPersistence(fixedIdFactory("capability"), fixedNow);
+    const useCase = createAnswerUseCase({
+      retriever,
+      gateway,
+      persistence,
+      now: fixedNow,
+      idFactory: fixedIdFactory("capability-interaction")
+    });
+
+    const answer = await useCase.ask(managerContext, {
+      question: "Como ele conseguiria me ajudar?",
+      requestId: "request-capability"
+    });
+
+    expect(answer.answer).toContain("consultar atas");
+    expect(answer.attentionPoints).toEqual([]);
+    expect(answer.suggestedNextStep).toBeNull();
+    expect(retriever.search).not.toHaveBeenCalled();
+  });
+
+  it("degrada para orientação geral quando o retrieval fica indisponível", async () => {
+    const gateway = generalGuidanceGateway();
     const persistence = createInMemoryAnswerPersistence(
       fixedIdFactory("retrieval-error"),
       fixedNow
@@ -365,44 +573,49 @@ describe("caso de uso de consulta documental", () => {
 
     const answer = await useCase.ask(managerContext, { question, requestId: "request-error" });
 
-    expect(answer.answerMode).toBe("failed");
-    expect(gateway.generate).not.toHaveBeenCalled();
+    expect(answer.answerMode).toBe("abstained");
+    expect(answer.attentionPoints.join(" ")).toContain("Não foi possível consultar os documentos");
+    expect(gateway.generate).toHaveBeenCalledWith(expect.objectContaining({ evidence: [] }));
     expect(persistence.getInteraction(answer.answerId)?.retrieval).toMatchObject({
       status: "failed",
       queryHash: createHash("sha256").update(question).digest("hex"),
       failureCode: "retrieval_unavailable"
     });
-    expect(persistence.listAuditEvents().at(-1)?.eventType).toBe("answer_failed");
+    expect(persistence.listAuditEvents().at(-1)?.eventType).toBe("answer_created");
   });
 
-  it.each([
-    ["sem citação", baseGeneratedAnswer({ citations: [] })],
-    ["com modo incompatível", baseGeneratedAnswer({ answerMode: "abstained", citations: [] })]
-  ] as const)(
-    "falha fechado quando o gateway retorna resposta %s",
-    async (_description, output) => {
-      const evidence = createEvidence();
-      const persistence = createInMemoryAnswerPersistence(
-        fixedIdFactory("gateway-error"),
-        fixedNow
-      );
-      const useCase = createAnswerUseCase({
-        retriever: retrieverFor(createRetrievalResult([evidence])),
-        gateway: invalidGateway(output),
-        persistence,
-        now: fixedNow,
-        idFactory: fixedIdFactory("gateway-error-interaction")
-      });
+  it("tenta orientação geral quando a resposta documental falha na validação", async () => {
+    const generate = vi.fn(async (input: Parameters<AnswerGateway["generate"]>[0]) =>
+      gatewayResult(
+        input.evidence.length > 0
+          ? baseGeneratedAnswer({ citations: [] })
+          : generalGuidanceAnswer(
+              "Sem uma fonte documental válida, organize o caso e confirme a regra aplicável antes de decidir."
+            )
+      )
+    );
+    const gateway = { generate } as AnswerGateway;
+    const evidence = createEvidence();
+    const persistence = createInMemoryAnswerPersistence(fixedIdFactory("gateway-error"), fixedNow);
+    const useCase = createAnswerUseCase({
+      retriever: retrieverFor(createRetrievalResult([evidence])),
+      gateway,
+      persistence,
+      now: fixedNow,
+      idFactory: fixedIdFactory("gateway-error-interaction")
+    });
 
-      const answer = await useCase.ask(managerContext, {
-        question: "Qual é a regra?",
-        requestId: "request-gateway-error"
-      });
+    const answer = await useCase.ask(managerContext, {
+      question: "Qual é a regra?",
+      requestId: "request-gateway-error"
+    });
 
-      expect(answer.answerMode).toBe("failed");
-      expect(answer.citations).toEqual([]);
-    }
-  );
+    expect(answer.answerMode).toBe("abstained");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answer).toContain("organize o caso");
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate).toHaveBeenLastCalledWith(expect.objectContaining({ evidence: [] }));
+  });
 
   it("rejeita entrada inválida antes de iniciar a busca", async () => {
     const retriever = retrieverFor(createRetrievalResult([createEvidence()]));
