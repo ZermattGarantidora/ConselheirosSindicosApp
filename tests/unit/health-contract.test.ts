@@ -35,7 +35,9 @@ describe("contrato HTTP de saúde", () => {
                         "aiProvider",
                         "authMode",
                         "googleAuthEnabled",
-                        "authSessionRestore"
+                        "authSessionRestore",
+                        "accountSecurityEnabled",
+                        "developmentAuthActions"
                       ])
                     }
                   }

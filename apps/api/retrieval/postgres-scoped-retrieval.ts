@@ -3,6 +3,8 @@ import type { Pool, PoolClient } from "pg";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 import { createLocalSyntheticEmbeddingAdapter } from "./local-embedding.js";
 import { formatPgVector } from "./local-embedding.js";
+import type { MultimodalImageEmbeddingAdapter } from "./gemini-multimodal-embedding.js";
+import { geminiImageEmbeddingProfile } from "./gemini-multimodal-embedding.js";
 import {
   type EmbeddingAdapter,
   type RetrievableChunk,
@@ -28,7 +30,7 @@ type RetrievalRow = Readonly<{
   content: string;
   content_sha256: string;
   semantic_score: number | string | null;
-  extraction_method: "pdf_text" | "ocr";
+  extraction_method: RetrievableChunk["extractionMethod"];
   quality_score: number | string;
   processing_status: "ready" | "needs_review";
   validity_status: RetrievableChunk["validityStatus"];
@@ -99,7 +101,8 @@ function mapRow(row: RetrievalRow): RetrievableChunk {
 
 export function createPostgresScopedRetrievalIndex(
   pool: PoolLike,
-  embeddingAdapter: EmbeddingAdapter = createLocalSyntheticEmbeddingAdapter()
+  embeddingAdapter: EmbeddingAdapter = createLocalSyntheticEmbeddingAdapter(),
+  imageEmbeddingAdapter?: MultimodalImageEmbeddingAdapter
 ): ScopedRetrievalIndex {
   return {
     async findAuthorizedCandidates(context, input): Promise<readonly RetrievableChunk[]> {
@@ -122,9 +125,35 @@ export function createPostgresScopedRetrievalIndex(
       }
 
       const client = await pool.connect();
+      let hasEligibleImages = false;
+      let localCandidates: readonly RetrievableChunk[] = Object.freeze([]);
       try {
         await client.query("BEGIN");
         await setRuntimeContext(client, context);
+        const imageAvailability = await client.query<{ available: boolean }>(
+          `
+            SELECT EXISTS (
+              SELECT 1
+              FROM app.documents AS d
+              JOIN app.document_versions AS dv
+                ON dv.condominium_id = d.condominium_id AND dv.document_id = d.id
+              JOIN app.document_version_states AS dvs
+                ON dvs.condominium_id = dv.condominium_id AND dvs.document_version_id = dv.id
+              JOIN app.document_pages AS dp
+                ON dp.condominium_id = dv.condominium_id AND dp.document_version_id = dv.id
+              WHERE d.condominium_id = app.current_condominium_id()
+                AND d.status = 'active'
+                AND dv.media_type IN ('image/jpeg', 'image/png')
+                AND dp.extraction_method = 'image_vision'
+                AND dvs.processing_status = 'ready'
+                AND dvs.validity_status IN ('confirmed', 'not_applicable')
+                AND (dvs.valid_from IS NULL OR dvs.valid_from <= $1::timestamptz)
+                AND (dvs.valid_until IS NULL OR dvs.valid_until > $1::timestamptz)
+            ) AS available
+          `,
+          [input.asOf.toISOString()]
+        );
+        hasEligibleImages = imageAvailability.rows[0]?.available === true;
         const result = await client.query<RetrievalRow>(
           `
             WITH condominium_chunks AS (
@@ -299,12 +328,107 @@ export function createPostgresScopedRetrievalIndex(
           ]
         );
         await client.query("COMMIT");
-        return Object.freeze(result.rows.map(mapRow));
+        localCandidates = Object.freeze(result.rows.map(mapRow));
       } catch (error: unknown) {
         await rollback(client);
         throw error;
       } finally {
         client.release();
+      }
+
+      if (!hasEligibleImages || imageEmbeddingAdapter === undefined) return localCandidates;
+
+      const imageQueryEmbedding = await imageEmbeddingAdapter.embed({
+        content: input.query,
+        contentSha256: "0".repeat(64)
+      });
+      if (
+        imageQueryEmbedding.dimensions !== geminiImageEmbeddingProfile.dimensions ||
+        imageQueryEmbedding.values.length !== geminiImageEmbeddingProfile.dimensions ||
+        imageQueryEmbedding.values.some((value) => !Number.isFinite(value))
+      )
+        throw new Error(
+          "O embedding multimodal da consulta não corresponde ao perfil configurado."
+        );
+
+      const imageClient = await pool.connect();
+      try {
+        await imageClient.query("BEGIN");
+        await setRuntimeContext(imageClient, context);
+        const imageRows = await imageClient.query<RetrievalRow>(
+          `
+            SELECT
+              dc.id AS chunk_id,
+              dc.condominium_id,
+              d.id AS document_id,
+              dv.id AS document_version_id,
+              dv.version_number,
+              d.title AS document_title,
+              d.document_type,
+              dv.source_kind,
+              'condominium'::text AS source_scope,
+              dp.id AS page_id,
+              dp.page_number,
+              dc.start_offset,
+              dc.end_offset,
+              dc.content,
+              dc.content_sha256,
+              1 - (dce.embedding <=> $2::vector) AS semantic_score,
+              dp.extraction_method,
+              dp.quality_score,
+              dvs.processing_status,
+              dvs.validity_status,
+              dvs.valid_from,
+              dvs.valid_until
+            FROM app.document_chunks AS dc
+            JOIN app.document_pages AS dp
+              ON dp.condominium_id = dc.condominium_id
+              AND dp.id = dc.document_page_id
+              AND dp.document_version_id = dc.document_version_id
+            JOIN app.document_versions AS dv
+              ON dv.condominium_id = dc.condominium_id
+              AND dv.id = dc.document_version_id
+            JOIN app.documents AS d
+              ON d.condominium_id = dv.condominium_id AND d.id = dv.document_id
+            JOIN app.document_version_states AS dvs
+              ON dvs.condominium_id = dv.condominium_id AND dvs.document_version_id = dv.id
+            JOIN app.document_chunk_embeddings AS dce
+              ON dce.condominium_id = dc.condominium_id
+              AND dce.document_chunk_id = dc.id
+              AND dce.embedding_profile = $1
+              AND dce.content_sha256 = dc.content_sha256
+            WHERE dc.condominium_id = app.current_condominium_id()
+              AND dv.media_type IN ('image/jpeg', 'image/png')
+              AND dp.extraction_method = 'image_vision'
+              AND dvs.processing_status = 'ready'
+              AND dvs.validity_status IN ('confirmed', 'not_applicable')
+              AND dp.quality_score >= $4
+              AND (dvs.valid_from IS NULL OR dvs.valid_from <= $3::timestamptz)
+              AND (dvs.valid_until IS NULL OR dvs.valid_until > $3::timestamptz)
+              AND d.status = 'active'
+            ORDER BY dce.embedding <=> $2::vector,
+              dv.version_number DESC,
+              dp.page_number ASC,
+              dc.id ASC
+            LIMIT $5
+          `,
+          [
+            geminiImageEmbeddingProfile.embeddingProfile,
+            formatPgVector(imageQueryEmbedding.values),
+            input.asOf.toISOString(),
+            input.minimumQualityScore,
+            input.limit
+          ]
+        );
+        await imageClient.query("COMMIT");
+        const merged = new Map(localCandidates.map((candidate) => [candidate.id, candidate]));
+        for (const row of imageRows.rows) merged.set(row.chunk_id, mapRow(row));
+        return Object.freeze([...merged.values()]);
+      } catch (error: unknown) {
+        await rollback(imageClient);
+        throw error;
+      } finally {
+        imageClient.release();
       }
     }
   };

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createApi } from "../../apps/api/app/create-api.js";
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
@@ -57,6 +57,34 @@ const memoryStorage: PrivateDocumentStorage = {
 };
 
 describe("catálogo documental do condomínio", () => {
+  it("mantém upload de foto bloqueado no armazenamento local de desenvolvimento", async () => {
+    const storeOriginal = vi.fn(async () => ({ storageKey: "local/nao-deve-gravar" }));
+    const repository = createDevelopmentDocumentUploadRepository();
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      documentStorage: { storeOriginal, async removeOriginal() {} },
+      documentUploadRepository: repository,
+      documentCatalogRepository: repository
+    });
+    try {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/condominiums/alameda/documents",
+        headers: {
+          "content-type": "image/png",
+          "x-development-user-id": "sindico-demo",
+          "x-document-title": "Foto sintética",
+          "x-document-type": "other"
+        },
+        payload: Buffer.from("foto sintética")
+      });
+      expect(response.statusCode).toBe(503);
+      expect(storeOriginal).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
   it("lista somente o condomínio autorizado e conserva apenas a versão mais recente", async () => {
     const repository = createDevelopmentDocumentUploadRepository([
       registeredDocument("alameda", { uploadedByCurrentUser: false }),

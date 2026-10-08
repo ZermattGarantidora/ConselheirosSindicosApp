@@ -98,6 +98,11 @@ Uma versão nova não substitui silenciosamente a anterior. Quando fontes aplic�
 
 Uma afirmação documental só pode ser apresentada quando estiver associada a evidência recuperada e autorizada. A citação deve conter documento, versão, página e trecho, e o trecho deve existir na página indicada e sustentar o sentido da afirmação.
 
+Em fotos, a descrição visual produzida por modelo não é texto literal nem fato confirmado: deve ser
+identificada como observação gerada por IA, ligada à imagem original e sujeita a incerteza. A
+resposta deve permitir abrir a imagem citada e não pode converter observação visual em diagnóstico
+de defeito, causa, conformidade ou segurança.
+
 Uma afirmação sobre regra, fato ou decisão do condomínio sem evidência suficiente é falha. Nessa situação, o sistema deve se abster da conclusão documental, explicar a lacuna e indicar qual documento ou validação pode resolvê-la. Para não abandonar o usuário, pode oferecer uma orientação geral formulada para a pergunta, desde que ela apareça claramente separada da base documental, sem citação e sem se apresentar como regra local ou parecer profissional.
 
 ### 5.3 Diagnóstico do acervo
@@ -175,10 +180,23 @@ Avançar em fatias pequenas e completas, testadas continuamente pelo usuário, p
 5. feedback e correções que melhorem a avaliação sem alterar trilhas históricas.
 6. caminho comercial mínimo e separado para o usuário solicitar informações ou uma simulação da Zermatt, somente depois que a utilidade e a confiança do núcleo estiverem demonstradas.
 
+### Exceção de sequenciamento aprovada — interpretação visual de fotos
+
+Em 2026-10-06, o usuário escolheu explicitamente a interpretação de fotos como próxima fatia após
+a leitura integral de PDFs. Ela testa se o síndico consegue registrar e consultar evidências visuais
+do condomínio com menos esforço, sem transformar fotos de identificação da Spec 009 em documentos.
+O escopo se limita a fotos enviadas pelo chat, descrição visual e texto visível identificados como
+gerados por IA, referência à imagem original e busca multimodal isolada em PostgreSQL. O envio à
+Gemini API exige aviso visível, ação explícita do usuário, projeto com faturamento ativo e controles
+de configuração que negam por padrão; a cota gratuita é vedada. Não inclui diagnóstico técnico,
+ações externas nem liberação de dados reais/piloto, que continuam sujeitos aos gates de segurança,
+LGPD, fornecedor e retenção.
+
 ### Exceção de sequenciamento aprovada — balancetes
 
 Em 2026-09-24, o usuário autorizou antecipar “despesas e balancetes” no MVP e definiu a leitura
-integral de PDFs como pré-requisito imediato dessa evolução.
+integral de PDFs como pré-requisito. A decisão posterior de 2026-10-06 coloca interpretação visual
+de fotos entre a leitura integral e a fatia financeira.
 A decisão testa recorrência, economia de tempo e confiança em um trabalho frequente do síndico e
 fortalece o diferencial de evidência verificável frente a uma IA genérica. A fatia fica limitada a
 extração rastreável, cálculo determinístico, explicação de divergências e rascunho sujeito à revisão
@@ -187,7 +205,7 @@ movimentação bancária ou ação financeira externa.
 
 ### Capacidades posteriores
 
-Comparação de orçamentos, análise contratual aprofundada, preparação de assembleias, gestão de fornecedores, permissões ampliadas, integrações e painel consolidado de carteira devem avançar em fatias próprias, com custo e complexidade justificados. A exceção aprovada para balancetes não antecipa essas demais capacidades.
+Comparação de orçamentos, análise contratual aprofundada, preparação de assembleias, gestão de fornecedores, permissões ampliadas, integrações e painel consolidado de carteira devem avançar em fatias próprias, com custo e complexidade justificados. As exceções aprovadas para fotos e balancetes não antecipam essas demais capacidades.
 
 Um piloto formal não é gate de desenvolvimento. Os gates técnicos, de segurança, privacidade,
 isolamento, evidência e revisão humana continuam obrigatórios antes de considerar cada fatia pronta.

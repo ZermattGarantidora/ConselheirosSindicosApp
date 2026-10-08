@@ -21,6 +21,8 @@ import { createDevelopmentDocumentUploadRepository } from "../documents/developm
 import { createPostgresPrivateDocumentStorage } from "../documents/postgres-private-document-storage.js";
 import { createPostgresDocumentRetentionRepository } from "../documents/postgres-document-retention-repository.js";
 import { createOpenAiOcrAdapterFromEnvironment } from "../documents/openai-ocr.js";
+import { createGeminiImageAnalysisAdapterFromEnvironment } from "../documents/gemini-image-analysis.js";
+import { createGeminiMultimodalEmbeddingAdapterFromEnvironment } from "../retrieval/gemini-multimodal-embedding.js";
 import {
   createDevelopmentDocumentSourceReader,
   createPostgresDocumentSourceReader
@@ -28,6 +30,9 @@ import {
 import { createDevelopmentIdentityRepository } from "../identity/development-identity-repository.js";
 import { createPostgresMembershipRepository } from "../identity/postgres-identity-repository.js";
 import { createPostgresAccountAuth } from "../identity/postgres-account-auth.js";
+import { createAccountActionDeliveryFromEnvironment } from "../identity/account-action-delivery.js";
+import { createAccountSecretCipherFromEnvironment } from "../identity/account-security.js";
+import { createPostgresAccountSecurity } from "../identity/postgres-account-security.js";
 import { createPostgresCondominiumDirectory } from "../identity/postgres-condominium-directory.js";
 import { createPostgresCondominiumProfileRepository } from "../identity/postgres-condominium-profile.js";
 import { createInMemoryCondominiumProfileRepository } from "../identity/in-memory-condominium-profile.js";
@@ -174,14 +179,23 @@ export async function startServer(
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
+  const accountActionDelivery = createAccountActionDeliveryFromEnvironment(environment);
+  const accountSecurity = createPostgresAccountSecurity(
+    pool,
+    createAccountSecretCipherFromEnvironment(environment)
+  );
   const documentStorage = createPostgresPrivateDocumentStorage(pool);
+  const imageAnalysisAdapter = createGeminiImageAnalysisAdapterFromEnvironment(environment);
+  const imageEmbeddingAdapter = createGeminiMultimodalEmbeddingAdapterFromEnvironment(environment);
   const embeddedDocumentWorker =
     environment.DOCUMENT_WORKER_IN_API?.trim().toLowerCase() === "true";
   const processingQueue = createPostgresProcessingJobQueue(pool);
   const documentProcessor = createScopedPostgresDocumentProcessor(
     pool,
     documentStorage,
-    createOpenAiOcrAdapterFromEnvironment(environment)
+    createOpenAiOcrAdapterFromEnvironment(environment),
+    imageAnalysisAdapter,
+    imageEmbeddingAdapter
   );
   let processingChain: Promise<void> = Promise.resolve();
   const processPendingDocuments = (): Promise<void> => {
@@ -198,9 +212,9 @@ export async function startServer(
   };
   const documentRepository = createPostgresDocumentUploadRepository(pool);
   const documentRetentionRepository = createPostgresDocumentRetentionRepository(pool);
-  const purgeExpiredOriginals = async (): Promise<void> => {
+  const purgeExpiredDocuments = async (): Promise<void> => {
     try {
-      await documentRetentionRepository.purgeExpiredOriginals();
+      await documentRetentionRepository.purgeExpiredDocuments();
     } catch (error) {
       console.error("Falha na retenção documental em segundo plano", {
         name: error instanceof Error ? error.name : "UnknownError"
@@ -210,6 +224,8 @@ export async function startServer(
   const app = createApi({
     membershipRepository: createPostgresMembershipRepository(pool),
     accountAuth: createPostgresAccountAuth(pool),
+    accountSecurity,
+    ...(accountActionDelivery === undefined ? {} : { accountActionDelivery }),
     adminDashboard: createPostgresAdminDashboard(pool),
     adminUserIds: parseAdminUserIds(environment.ADMIN_USER_IDS),
     ...(googleOAuth === undefined ? {} : { googleOAuth }),
@@ -219,24 +235,29 @@ export async function startServer(
     authSessionRestore: environment.AUTH_SESSION_AUTO_RESTORE?.trim().toLowerCase() !== "false",
     aiProvider,
     documentStorage,
+    imageUploadsEnabled: imageAnalysisAdapter !== undefined && imageEmbeddingAdapter !== undefined,
     documentUploadRepository: documentRepository,
     documentCatalogRepository: documentRepository,
     ...(embeddedDocumentWorker ? { processPendingDocuments } : {}),
     answerUseCase: createAnswerUseCase({
-      retriever: createScopedTextRetriever(createPostgresScopedRetrievalIndex(pool)),
+      retriever: createScopedTextRetriever(
+        createPostgresScopedRetrievalIndex(pool, undefined, imageEmbeddingAdapter)
+      ),
       gateway: answerGateway,
       persistence: createPostgresAnswerPersistence(pool)
     }),
-    retriever: createScopedTextRetriever(createPostgresScopedRetrievalIndex(pool)),
+    retriever: createScopedTextRetriever(
+      createPostgresScopedRetrievalIndex(pool, undefined, imageEmbeddingAdapter)
+    ),
     answerService: createAnswerService(createLocalExtractiveGateway()),
     answerTraceStore: createPostgresAnswerTraceStore(pool),
     documentSourceReader: createPostgresDocumentSourceReader(pool)
   });
   let documentWorkerTimer: ReturnType<typeof setInterval> | undefined;
-  await purgeExpiredOriginals();
+  await purgeExpiredDocuments();
   const documentRetentionTimer = setInterval(
     () => {
-      void purgeExpiredOriginals();
+      void purgeExpiredDocuments();
     },
     6 * 60 * 60 * 1_000
   );

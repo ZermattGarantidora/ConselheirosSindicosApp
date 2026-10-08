@@ -35,6 +35,7 @@ export function createDevelopmentDocumentMemory(
         condominiumId: record.condominiumId,
         documentVersionId: record.documentVersionId,
         content,
+        mediaType: record.mediaType,
         currentState: document.state
       });
 

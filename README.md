@@ -42,6 +42,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 - [Spec 007 — criação real de condomínio](docs/specs/007-condominio-real/spec.md)
 - [Spec 008 — login com Google](docs/specs/008-login-google/spec.md)
 - [Spec 009 — configurações do chat e exclusão do condomínio](docs/specs/009-configuracoes-chat/spec.md)
+- [Spec 015 — segurança e recuperação da conta](docs/specs/015-seguranca-da-conta/spec.md)
 - [Spec 002 — fundação local de engenharia](docs/specs/002-fundacao-engenharia/spec.md)
 - [Critérios de aceitação](docs/specs/001-consulta-documental/acceptance.md)
 - [Plano técnico](docs/specs/001-consulta-documental/plan.md)
@@ -73,7 +74,7 @@ O briefing é a visão canônica do projeto. Toda spec deve demonstrar, com refe
 
 ## Estado da implementação
 
-O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migrations PostgreSQL/RLS. A seleção de condomínio, a negação de acesso, a revogação, o cache, a recuperação sintética e a ingestão documental já possuem testes. O fluxo B3 registra o original e a versão, enfileira o processamento, extrai PDF por página, encaminha OCR fraco para revisão e preserva versões e vigências. A Spec 006 adiciona contas reais por e-mail e senha no ambiente persistente, com sessões revogáveis e isolamento mantido por condomínio.
+O scaffold local está disponível com API Fastify, cliente React/Vite, worker Node e migrations PostgreSQL/RLS. A seleção de condomínio, a negação de acesso, a revogação, o cache, a recuperação sintética e a ingestão documental já possuem testes. O fluxo B3 registra o original e a versão, enfileira o processamento, extrai PDF por página, encaminha OCR fraco para revisão e preserva versões e vigências. As Specs 006 e 015 adicionam contas reais por e-mail e senha no ambiente persistente, verificação do endereço, recuperação e troca de senha, TOTP MFA, códigos de recuperação e sessões revogáveis por dispositivo, mantendo o isolamento por condomínio.
 
 A Spec 009 adiciona configurações gerais da conversa e a saída segura da gestão: o síndico pode
 confirmar a exclusão permanente do condomínio selecionado, enquanto a conta e os demais condomínios
@@ -113,12 +114,13 @@ pnpm run dev:web
 
 Ao abrir o cliente local, o site real é o padrão e exige `DATABASE_URL`. Ele mostra a entrada e o
 cadastro com e-mail e senha. O cadastro usa nome, e-mail e senha de no mínimo 12 caracteres; o
-servidor guarda somente o hash da senha e uma sessão opaca em cookie HttpOnly. Depois do login,
+servidor guarda somente o hash da senha e uma sessão opaca em cookie HttpOnly. A conta precisa
+confirmar o endereço antes do primeiro acesso. A tela de perfil permite trocar a senha, ativar ou
+desativar TOTP MFA, guardar códigos de recuperação e revisar ou revogar sessões por dispositivo. Depois do login,
 nenhuma associação é criada automaticamente: a pessoa cria explicitamente seu condomínio e recebe
-o papel de síndico somente nesse novo contexto. Verificação de e-mail, recuperação de senha e MFA ainda são etapas
-obrigatórias antes de um piloto público, conforme a [Spec 006](docs/specs/006-autenticacao-real/spec.md),
-a [Spec 007](docs/specs/007-condominio-real/spec.md), a [Spec 008](docs/specs/008-login-google/spec.md)
-e o [ADR 0011](docs/adr/0011-autenticacao-real-email-senha.md).
+o papel de síndico somente nesse novo contexto. Esses controles seguem a
+[Spec 015](docs/specs/015-seguranca-da-conta/spec.md) e o
+[ADR 0020](docs/adr/0020-seguranca-e-recuperacao-da-conta.md).
 
 Para ativar esse modo localmente, suba o PostgreSQL, aplique as migrations e só então inicie a
 API com a URL do banco:
@@ -127,8 +129,20 @@ API com a URL do banco:
 pnpm run db:up
 pnpm run db:migrate
 $env:DATABASE_URL = "postgresql://postgres:local-development-only@127.0.0.1:5432/conselheiro"
+$env:AUTH_ACCOUNT_SECRET_KEY = "<32-bytes-em-hex-ou-base64url>"
 pnpm run dev:api
 ```
+
+Como nenhum provedor de e-mail foi aprovado, o desenvolvimento pode exibir um link local de
+verificação ou redefinição sem enviar mensagem externa. Esse modo é proibido em produção:
+
+```env
+AUTH_EMAIL_DELIVERY=development
+AUTH_PUBLIC_BASE_URL=http://127.0.0.1:5173/
+```
+
+Produção permanece bloqueada até a escolha documentada de um provedor de e-mail. Tokens de
+verificação e recuperação nunca devem aparecer em logs.
 
 Se o Docker não estiver disponível, use um PostgreSQL gerenciado remoto no staging. Crie o banco
 vazio no provedor, mantenha a URL somente no ambiente do servidor e exija TLS. Para desenvolvimento
@@ -226,6 +240,23 @@ o menor custo; `GEMINI_MODEL` permite uma substituição explícita quando um ev
 Falhas transitórias são repetidas até três vezes dentro do orçamento total de
 `GEMINI_TIMEOUT_MS`. Se todas falharem e houver evidência suficiente, o sistema mantém uma resposta
 curta em modo documental local, sem expor um trecho bruto ou fragmentado como resposta.
+
+Para interpretar fotos sintéticas, a aplicação precisa estar no modo persistido com PostgreSQL e
+`DATABASE_URL`. A migration 025 foi aplicada em 2026-10-07 no Neon configurado com o marcador de
+integração sintética que atende à prévia local, após autorização explícita. A suíte de integração
+não foi executada nessa base porque trunca fixtures e ela contém dados da prévia. Além da chave, configure
+`GEMINI_IMAGE_ANALYSIS_ENABLED=true` e `GEMINI_PAID_TIER_CONFIRMED=true` somente após confirmar o
+faturamento ativo no projeto associado à chave; essa confirmação é operacional e não é validada pela
+API. O modelo visual padrão é `gemini-3.5-flash-lite` (pode ser substituído por
+`GEMINI_IMAGE_MODEL`). A tela avisa que a foto escolhida será armazenada no banco do condomínio e
+enviada à Gemini paga após o clique de envio. No ambiente atual, use somente imagens sintéticas;
+fotos reais/pilotos continuam bloqueadas pelos gates de privacidade. Após 30 dias na lixeira, a
+purga remove do banco ativo o original e os dados usados para encontrá-lo novamente. Perguntas,
+respostas, feedback e citações ficam no chat; trechos de documentos removidos são identificados como
+históricos, sem acesso ao PDF original. O recibo sem conteúdo expira em 30 dias. O
+prazo de backups e o procedimento para reaplicar exclusões depois de uma restauração ainda precisam
+ser aprovados antes de dados reais. A migration 026 que ativa esse ciclo foi implementada, mas ainda
+não foi aplicada à prévia; a validação exige uma base de integração vazia, dedicada e somente sintética.
 
 As perguntas e respostas são registradas pela persistência de respostas e reaparecem ao reabrir o
 condomínio pela rota `GET /v1/condominiums/:condominiumId/history`. Sem `DATABASE_URL`, esse histórico

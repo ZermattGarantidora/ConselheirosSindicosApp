@@ -37,6 +37,7 @@ export function createDevelopmentDocumentUploadRepository(
           documentType: record.documentType,
           versionNumber,
           sizeBytes: record.sizeBytes,
+          mediaType: record.mediaType,
           processingStatus: record.processingStatus,
           validityStatus: record.validityStatus,
           createdAt: new Date().toISOString(),

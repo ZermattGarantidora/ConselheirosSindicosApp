@@ -51,6 +51,7 @@ type DocumentCatalogRow = Readonly<{
   document_type: RegisteredDocument["documentType"];
   version_number: number | string;
   size_bytes: number | string;
+  media_type: RegisteredDocument["mediaType"];
   processing_status: RegisteredDocument["processingStatus"];
   validity_status: RegisteredDocument["validityStatus"];
   created_at: Date | string;
@@ -59,7 +60,7 @@ type DocumentCatalogRow = Readonly<{
   searchable_page_count: number | string | null;
   unreadable_page_numbers: readonly number[] | null;
   extraction_completeness: number | string | null;
-  extraction_method: "pdf_text" | "ocr" | null;
+  extraction_method: NonNullable<RegisteredDocument["extractionMethod"]> | null;
   ocr_quality_score: number | string | null;
   storage_object_id: string;
   uploaded_by_current_user: boolean;
@@ -85,7 +86,7 @@ export function createPostgresDocumentUploadRepository(
               condominium_id, id, object_kind, storage_key, content_sha256,
               size_bytes, media_type, created_by_user_id
             )
-            VALUES ($1, $2, 'document_original', $3, $4, $5, 'application/pdf', $6)
+            VALUES ($1, $2, 'document_original', $3, $4, $5, $6, $7)
           `,
           [
             record.condominiumId,
@@ -93,6 +94,7 @@ export function createPostgresDocumentUploadRepository(
             record.storageKey,
             record.contentSha256,
             record.sizeBytes,
+            record.mediaType,
             databaseUserId
           ]
         );
@@ -152,7 +154,7 @@ export function createPostgresDocumentUploadRepository(
               condominium_id, id, document_id, version_number, storage_object_id,
               content_sha256, media_type, size_bytes, source_kind, uploaded_by_user_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, 'application/pdf', $7, 'user_upload', $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'user_upload', $9)
           `,
           [
             record.condominiumId,
@@ -161,6 +163,7 @@ export function createPostgresDocumentUploadRepository(
             versionNumber,
             record.storageObjectId,
             record.contentSha256,
+            record.mediaType,
             record.sizeBytes,
             databaseUserId
           ]
@@ -232,6 +235,7 @@ export function createPostgresDocumentUploadRepository(
               documents.document_type,
               latest_version.version_number,
               latest_version.size_bytes,
+              latest_version.media_type,
               latest_version.storage_object_id,
               version_state.processing_status,
               version_state.validity_status,
@@ -245,7 +249,7 @@ export function createPostgresDocumentUploadRepository(
               latest_version.created_at
             FROM app.documents AS documents
             JOIN LATERAL (
-              SELECT id, version_number, size_bytes, created_at, storage_object_id,
+              SELECT id, version_number, size_bytes, media_type, created_at, storage_object_id,
                 uploaded_by_user_id = app.current_user_id() AS uploaded_by_current_user
               FROM app.document_versions
               WHERE condominium_id = documents.condominium_id
@@ -274,6 +278,7 @@ export function createPostgresDocumentUploadRepository(
               documentType: row.document_type,
               versionNumber: Number(row.version_number),
               sizeBytes: Number(row.size_bytes),
+              mediaType: row.media_type ?? "application/pdf",
               processingStatus: row.processing_status,
               validityStatus: row.validity_status,
               createdAt: new Date(row.created_at).toISOString(),
@@ -344,6 +349,13 @@ export function createPostgresDocumentUploadRepository(
            FROM app.documents AS documents
            WHERE documents.condominium_id = $1
              AND documents.status = 'archived'
+             AND documents.archived_at > now() - interval '30 days'
+             AND NOT EXISTS (
+               SELECT 1
+               FROM app.document_purge_receipts AS receipts
+               WHERE receipts.condominium_id = documents.condominium_id
+                 AND receipts.document_id = documents.id
+             )
              AND EXISTS (
                SELECT 1
                FROM app.document_versions AS versions
@@ -389,6 +401,13 @@ export function createPostgresDocumentUploadRepository(
            WHERE documents.condominium_id = $1
              AND documents.id = $2
              AND documents.status = 'archived'
+             AND documents.archived_at > now() - interval '30 days'
+             AND NOT EXISTS (
+               SELECT 1
+               FROM app.document_purge_receipts AS receipts
+               WHERE receipts.condominium_id = documents.condominium_id
+                 AND receipts.document_id = documents.id
+             )
              AND EXISTS (
                SELECT 1
                FROM app.document_versions AS versions

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import type { CondominiumId } from "../core/condominium-scope.js";
 import type { DocumentType } from "../documents/document-model.js";
+import type { DocumentExtractionMethod } from "../documents/document-model.js";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 
 export const retrievalPipelineVersion = "hybrid-v1" as const;
@@ -53,7 +54,7 @@ export type RetrievableChunk = Readonly<{
   content: string;
   contentSha256: string;
   semanticScore: number | null;
-  extractionMethod: "pdf_text" | "ocr";
+  extractionMethod: DocumentExtractionMethod;
   qualityScore: number;
   processingStatus: "ready" | "needs_review";
   validityStatus: "confirmed" | "not_applicable" | "pending" | "disputed" | "superseded";

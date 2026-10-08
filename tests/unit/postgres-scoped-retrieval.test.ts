@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 import type { AuthorizedCondominiumContext } from "../../apps/api/identity/authorized-condominium-context.js";
+import { geminiImageEmbeddingProfile } from "../../apps/api/retrieval/gemini-multimodal-embedding.js";
 import { createPostgresScopedRetrievalIndex } from "../../apps/api/retrieval/postgres-scoped-retrieval.js";
 
 function createFakeClient() {
@@ -88,6 +89,7 @@ describe("índice PostgreSQL de retrieval", () => {
       expect.stringContaining("resolve_user_id"),
       expect.stringContaining("set_config('app.user_id'"),
       expect.stringContaining("set_config('app.condominium_id'"),
+      expect.stringContaining("SELECT EXISTS"),
       expect.stringContaining("WITH condominium_chunks"),
       "COMMIT"
     ]);
@@ -135,6 +137,89 @@ describe("índice PostgreSQL de retrieval", () => {
       })
     ).rejects.toThrow("retrieval unavailable");
     expect(fake.queries.at(-1)).toBe("ROLLBACK");
+  });
+
+  it("só consulta Gemini quando há foto pronta e recupera pelo vetor no condomínio autorizado", async () => {
+    const queries: Array<{ sql: string; parameters: readonly unknown[] }> = [];
+    const imageRow = {
+      chunk_id: "foto-chunk",
+      condominium_id: "alameda",
+      document_id: "foto-documento",
+      document_version_id: "foto-versao",
+      version_number: "1",
+      document_title: "Foto da área comum",
+      document_type: "other",
+      source_kind: "user_upload",
+      source_scope: "condominium",
+      page_id: "foto-pagina",
+      page_number: "1",
+      start_offset: "0",
+      end_offset: "54",
+      content: "Observação visual gerada por IA: uma caixa azul no corredor.",
+      content_sha256: "a".repeat(64),
+      semantic_score: "0.91",
+      extraction_method: "image_vision",
+      quality_score: "1",
+      processing_status: "ready",
+      validity_status: "confirmed",
+      valid_from: null,
+      valid_until: null
+    };
+    const client = {
+      async query(sql: string, parameters: readonly unknown[] = []) {
+        queries.push({ sql, parameters });
+        if (sql.includes("resolve_user_id")) {
+          return { rows: [{ user_id: "11111111-1111-4111-8111-111111111111" }] };
+        }
+        if (sql.includes("SELECT EXISTS")) return { rows: [{ available: true }] };
+        if (sql.includes("WITH condominium_chunks")) return { rows: [] };
+        if (sql.includes("FROM app.document_chunks AS dc")) return { rows: [imageRow] };
+        return { rows: [], rowCount: 1 };
+      },
+      release: vi.fn()
+    };
+    const embed = vi.fn(async ({ content }: { content: string; contentSha256: string }) => ({
+      ...geminiImageEmbeddingProfile,
+      contentSha256: "0".repeat(64),
+      values: Array(768).fill(content.length / 100)
+    }));
+    const index = createPostgresScopedRetrievalIndex(
+      { connect: async () => client as unknown as PoolClient },
+      undefined,
+      {
+        profile: geminiImageEmbeddingProfile,
+        embed,
+        async embedImageAndText() {
+          throw new Error("não usado na consulta");
+        }
+      }
+    );
+
+    await expect(
+      index.findAuthorizedCandidates(context, {
+        query: "onde está a caixa azul?",
+        limit: 8,
+        minimumQualityScore: 0.7,
+        asOf: new Date("2026-09-01T00:00:00.000Z")
+      })
+    ).resolves.toMatchObject([
+      {
+        id: "foto-chunk",
+        condominiumId: "alameda",
+        extractionMethod: "image_vision",
+        pageNumber: 1,
+        semanticScore: 0.91
+      }
+    ]);
+    expect(embed).toHaveBeenCalledWith({
+      content: "onde está a caixa azul?",
+      contentSha256: "0".repeat(64)
+    });
+    const imageQuery = queries.find(({ sql }) => sql.includes("dce.embedding_profile = $1"));
+    expect(imageQuery?.sql).toContain("dc.condominium_id = app.current_condominium_id()");
+    expect(imageQuery?.sql).toContain("d.status = 'active'");
+    expect(imageQuery?.sql).toContain("dp.extraction_method = 'image_vision'");
+    expect(imageQuery?.parameters[0]).toBe(geminiImageEmbeddingProfile.embeddingProfile);
   });
 
   it("não abre conexão sem a permissão de leitura ou com consulta vazia", async () => {

@@ -16,7 +16,7 @@ const sessionTokenBytes = 32;
 export const accountSessionCookie = "conselheiro_session";
 export const accountSessionTtlMs = 1000 * 60 * 60 * 24 * 30;
 
-type AccountCredentials = Readonly<{
+export type AccountCredentials = Readonly<{
   userId: UserId;
   authSubject: string;
   email: string;
@@ -47,7 +47,13 @@ export type AccountAuthSession = Readonly<{
 export class AccountAuthError extends Error {
   public constructor(
     public readonly code:
-      "invalid_input" | "email_taken" | "invalid_credentials" | "temporarily_unavailable",
+      | "invalid_input"
+      | "email_taken"
+      | "invalid_credentials"
+      | "temporarily_unavailable"
+      | "email_unverified"
+      | "invalid_token"
+      | "invalid_mfa",
     message: string
   ) {
     super(message);
@@ -84,7 +90,7 @@ export interface AccountAuthService {
   logout(token: string): Promise<void>;
 }
 
-function normalizeEmail(input: string): string {
+export function normalizeAccountEmail(input: string): string {
   const email = input.trim().toLocaleLowerCase("en-US");
   if (email.length < 3 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) {
     throw new AccountAuthError("invalid_input", "Informe um e-mail válido.");
@@ -92,7 +98,7 @@ function normalizeEmail(input: string): string {
   return email;
 }
 
-function normalizeDisplayName(input: string): string {
+export function normalizeAccountDisplayName(input: string): string {
   const displayName = input.trim();
   if (displayName.length < 2 || displayName.length > 120) {
     throw new AccountAuthError("invalid_input", "O nome deve ter entre 2 e 120 caracteres.");
@@ -100,7 +106,7 @@ function normalizeDisplayName(input: string): string {
   return displayName;
 }
 
-function validatePassword(input: string): string {
+export function validateAccountPassword(input: string): string {
   if (input.length < 12 || input.length > 200) {
     throw new AccountAuthError("invalid_input", "A senha deve ter entre 12 e 200 caracteres.");
   }
@@ -111,13 +117,16 @@ function hashSessionToken(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-async function hashPassword(password: string): Promise<string> {
+export async function hashAccountPassword(password: string): Promise<string> {
   const salt = randomBytes(passwordSaltBytes);
   const derivedKey = (await scrypt(password, salt, passwordKeyBytes)) as Buffer;
   return `scrypt$1$${salt.toString("base64url")}$${derivedKey.toString("base64url")}`;
 }
 
-async function verifyPassword(password: string, encodedHash: string | null): Promise<boolean> {
+export async function verifyAccountPassword(
+  password: string,
+  encodedHash: string | null
+): Promise<boolean> {
   if (encodedHash === null) return false;
   const parts = encodedHash.split("$");
   if (parts.length !== 4 || parts[0] !== "scrypt" || parts[1] !== "1") return false;
@@ -159,10 +168,10 @@ export function createAccountAuthService(store: AccountAuthStore): AccountAuthSe
 
   return {
     async register(input) {
-      const email = normalizeEmail(input.email);
-      const displayName = normalizeDisplayName(input.displayName);
-      const password = validatePassword(input.password);
-      const passwordHash = await hashPassword(password);
+      const email = normalizeAccountEmail(input.email);
+      const displayName = normalizeAccountDisplayName(input.displayName);
+      const password = validateAccountPassword(input.password);
+      const passwordHash = await hashAccountPassword(password);
       const userId = createUserId(randomUUID());
       const account = Object.freeze({
         userId,
@@ -183,13 +192,13 @@ export function createAccountAuthService(store: AccountAuthStore): AccountAuthSe
     },
 
     async login(input) {
-      const email = normalizeEmail(input.email);
-      const password = validatePassword(input.password);
+      const email = normalizeAccountEmail(input.email);
+      const password = validateAccountPassword(input.password);
       const account = await store.findAccountByEmail(email);
       if (
         account === undefined ||
         account.status !== "active" ||
-        !(await verifyPassword(password, account.passwordHash))
+        !(await verifyAccountPassword(password, account.passwordHash))
       ) {
         throw new AccountAuthError("invalid_credentials", "E-mail ou senha inválidos.");
       }
@@ -201,8 +210,8 @@ export function createAccountAuthService(store: AccountAuthStore): AccountAuthSe
       if (subject.length === 0 || subject.length > 255) {
         throw new AccountAuthError("invalid_input", "Não foi possível validar a conta Google.");
       }
-      const email = normalizeEmail(input.email);
-      const displayName = normalizeDisplayName(input.displayName);
+      const email = normalizeAccountEmail(input.email);
+      const displayName = normalizeAccountDisplayName(input.displayName);
       const account = await store.findOrCreateGoogleAccount({
         userId: createUserId(randomUUID()),
         authSubject: `google:${subject}`,
@@ -341,4 +350,4 @@ export function serializeClearedAccountSessionCookie(secure: boolean): string {
   return attributes.join("; ");
 }
 
-export type { AccountAuthStore, AccountCredentials };
+export type { AccountAuthStore };

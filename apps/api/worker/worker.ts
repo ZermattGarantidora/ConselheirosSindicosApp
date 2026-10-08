@@ -2,6 +2,8 @@ import { Pool } from "pg";
 
 import { createPostgresPrivateDocumentStorage } from "../documents/postgres-private-document-storage.js";
 import { createOpenAiOcrAdapterFromEnvironment } from "../documents/openai-ocr.js";
+import { createGeminiImageAnalysisAdapterFromEnvironment } from "../documents/gemini-image-analysis.js";
+import { createGeminiMultimodalEmbeddingAdapterFromEnvironment } from "../retrieval/gemini-multimodal-embedding.js";
 import { createScopedPostgresDocumentProcessor } from "../documents/postgres-document-processing-repository.js";
 import {
   processOne,
@@ -42,7 +44,9 @@ export async function startPersistentWorker(
       createScopedPostgresDocumentProcessor(
         pool,
         storage,
-        createOpenAiOcrAdapterFromEnvironment(environment)
+        createOpenAiOcrAdapterFromEnvironment(environment),
+        createGeminiImageAnalysisAdapterFromEnvironment(environment),
+        createGeminiMultimodalEmbeddingAdapterFromEnvironment(environment)
       )
     );
   } finally {

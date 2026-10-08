@@ -97,4 +97,25 @@ describe("recuperação de autorização no upload documental", () => {
     expect(response.status).toBe(500);
     expect(calls).toBe(1);
   });
+
+  it("envia o MIME escolhido para a API sem transformar a imagem em PDF", async () => {
+    let request: RequestInit | undefined;
+    const response = await requestDocumentUploadWithAuthorizationRecovery(
+      async (_url, init) => {
+        request = init;
+        return jsonResponse(202, { processingStatus: "uploaded" });
+      },
+      {
+        condominiumId: "condominio-autorizado",
+        content: new Blob(["imagem sintética"], { type: "image/jpeg" }),
+        title: "Foto sintética",
+        documentType: "other",
+        mediaType: "image/jpeg",
+        authMode: "real"
+      }
+    );
+
+    expect(response.status).toBe(202);
+    expect(new Headers(request?.headers).get("content-type")).toBe("image/jpeg");
+  });
 });

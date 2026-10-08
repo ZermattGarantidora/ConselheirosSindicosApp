@@ -4,6 +4,8 @@ import type { CondominiumId } from "../core/condominium-scope.js";
 import { identifyDocumentType, type DocumentIdentification } from "./document-identification.js";
 import {
   createDocumentVersion,
+  type DocumentExtractionMethod,
+  type DocumentMediaType,
   transitionDocumentProcessing,
   type DocumentPage,
   type DocumentVersionState
@@ -17,13 +19,21 @@ import {
   type OcrPageResult,
   type OcrResult
 } from "./ocr-quality.js";
+import type { ImageAnalysisAdapter } from "./gemini-image-analysis.js";
+import type { MultimodalImageEmbeddingAdapter } from "../retrieval/gemini-multimodal-embedding.js";
+import type { GeneratedEmbedding } from "../retrieval/retrieval-contract.js";
+import { chunkPage } from "../retrieval/retrieval-contract.js";
 
 export type ProcessedDocumentPage = Readonly<
   DocumentPage & {
     extractedText: string;
-    extractionMethod: "pdf_text" | "ocr";
+    extractionMethod: DocumentExtractionMethod;
     qualityScore: number;
     contentSha256: string;
+    visualDescription?: string;
+    recognizedText?: string;
+    analysisLimitations?: string;
+    multimodalEmbeddings?: readonly GeneratedEmbedding[];
   }
 >;
 
@@ -33,7 +43,7 @@ export type DocumentExtractionSummary = Readonly<{
   searchablePageCount: number;
   unreadablePageNumbers: readonly number[];
   extractionCompleteness: number;
-  extractionMethod: "pdf_text" | "ocr" | null;
+  extractionMethod: DocumentExtractionMethod | null;
   ocrQualityScore: number | null;
 }>;
 
@@ -42,7 +52,10 @@ export type DocumentProcessingInput = Readonly<{
   documentVersionId: string;
   content: Buffer;
   currentState: DocumentVersionState;
+  mediaType?: DocumentMediaType;
   ocrAdapter?: OcrAdapter;
+  imageAnalysisAdapter?: ImageAnalysisAdapter;
+  imageEmbeddingAdapter?: MultimodalImageEmbeddingAdapter;
 }>;
 
 export type DocumentProcessingOutcome = Readonly<
@@ -65,7 +78,12 @@ export type DocumentProcessingOutcome = Readonly<
       status: "needs_review";
       state: DocumentVersionState;
       pages: readonly ProcessedDocumentPage[];
-      reason: "ocr_unavailable" | "ocr_low_quality" | "ocr_invalid";
+      reason:
+        | "ocr_unavailable"
+        | "ocr_low_quality"
+        | "ocr_invalid"
+        | "image_analysis_unavailable"
+        | "image_analysis_failed";
       extractionSummary: DocumentExtractionSummary;
       documentIdentification?: DocumentIdentification;
     }
@@ -82,8 +100,12 @@ function createProcessedPage(
     pageIndex: number;
     pageNumber: number;
     extractedText: string;
-    extractionMethod: "pdf_text" | "ocr";
+    extractionMethod: DocumentExtractionMethod;
     qualityScore: number;
+    visualDescription?: string;
+    recognizedText?: string;
+    analysisLimitations?: string;
+    multimodalEmbeddings?: readonly GeneratedEmbedding[];
   }>
 ): ProcessedDocumentPage {
   return Object.freeze({
@@ -95,7 +117,17 @@ function createProcessedPage(
     extractedText: input.extractedText,
     extractionMethod: input.extractionMethod,
     qualityScore: input.qualityScore,
-    contentSha256: createHash("sha256").update(input.extractedText).digest("hex")
+    contentSha256: createHash("sha256").update(input.extractedText).digest("hex"),
+    ...(input.visualDescription === undefined
+      ? {}
+      : { visualDescription: input.visualDescription }),
+    ...(input.recognizedText === undefined ? {} : { recognizedText: input.recognizedText }),
+    ...(input.analysisLimitations === undefined
+      ? {}
+      : { analysisLimitations: input.analysisLimitations }),
+    ...(input.multimodalEmbeddings === undefined
+      ? {}
+      : { multimodalEmbeddings: Object.freeze([...input.multimodalEmbeddings]) })
   });
 }
 
@@ -179,13 +211,23 @@ function createExtractionSummary(
     .filter(
       (page) =>
         page.extractedText.trim().length === 0 ||
-        page.qualityScore < (page.extractionMethod === "ocr" ? minimumOcrQualityScore : 1)
+        page.qualityScore <
+          (page.extractionMethod === "ocr"
+            ? minimumOcrQualityScore
+            : page.extractionMethod === "image_vision"
+              ? 0.7
+              : 1)
     )
     .map((page) => page.pageNumber);
   const searchablePageCount = pages.filter(
     (page) =>
       page.extractedText.trim().length > 0 &&
-      page.qualityScore >= (page.extractionMethod === "ocr" ? minimumOcrQualityScore : 1)
+      page.qualityScore >=
+        (page.extractionMethod === "ocr"
+          ? minimumOcrQualityScore
+          : page.extractionMethod === "image_vision"
+            ? 0.7
+            : 1)
   ).length;
   const methods = new Set(pages.map((page) => page.extractionMethod));
 
@@ -205,6 +247,10 @@ export async function processDocumentVersion(
   input: DocumentProcessingInput
 ): Promise<DocumentProcessingOutcome> {
   const processingState = transitionDocumentProcessing(input.currentState, "processing");
+  const mediaType = input.mediaType ?? "application/pdf";
+  if (mediaType !== "application/pdf") {
+    return processImageVersion(input, processingState, mediaType);
+  }
   let extractedPages: readonly ExtractedPdfPage[];
 
   try {
@@ -285,10 +331,117 @@ export async function processDocumentVersion(
   });
 }
 
+function imageReviewOutcome(
+  input: DocumentProcessingInput,
+  processingState: DocumentVersionState,
+  reason: "image_analysis_unavailable" | "image_analysis_failed"
+): DocumentProcessingOutcome {
+  const page = createProcessedPage({
+    condominiumId: input.condominiumId,
+    documentVersionId: input.documentVersionId,
+    pageIndex: 0,
+    pageNumber: 1,
+    extractedText: "",
+    extractionMethod: "image_vision",
+    qualityScore: 0
+  });
+  return Object.freeze({
+    status: "needs_review" as const,
+    state: transitionDocumentProcessing(processingState, "needs_review"),
+    pages: Object.freeze([page]),
+    reason,
+    extractionSummary: Object.freeze({
+      expectedPageCount: 1,
+      processedPageCount: 1,
+      searchablePageCount: 0,
+      unreadablePageNumbers: Object.freeze([1]),
+      extractionCompleteness: 0,
+      extractionMethod: "image_vision" as const,
+      ocrQualityScore: null
+    })
+  });
+}
+
+async function processImageVersion(
+  input: DocumentProcessingInput,
+  processingState: DocumentVersionState,
+  mediaType: Extract<DocumentMediaType, "image/jpeg" | "image/png">
+): Promise<DocumentProcessingOutcome> {
+  const analyzer = input.imageAnalysisAdapter;
+  const embedder = input.imageEmbeddingAdapter;
+  if (analyzer === undefined || embedder === undefined) {
+    return imageReviewOutcome(input, processingState, "image_analysis_unavailable");
+  }
+  try {
+    const analysis = await analyzer.analyze({
+      condominiumId: input.condominiumId,
+      documentVersionId: input.documentVersionId,
+      content: input.content,
+      mediaType
+    });
+    const extractedText = [
+      "Observação visual gerada por IA (não é texto literal da imagem):",
+      analysis.visualDescription,
+      "Texto percebido na imagem por IA (transcrição não garantida):",
+      analysis.recognizedText || "Nenhum texto curto e legível foi reconhecido.",
+      "Limitações:",
+      analysis.limitations || "Confira a imagem original; a descrição pode conter erros."
+    ].join("\n");
+    const page = createProcessedPage({
+      condominiumId: input.condominiumId,
+      documentVersionId: input.documentVersionId,
+      pageIndex: 0,
+      pageNumber: 1,
+      extractedText,
+      extractionMethod: "image_vision",
+      qualityScore: 1,
+      visualDescription: analysis.visualDescription,
+      recognizedText: analysis.recognizedText,
+      analysisLimitations: analysis.limitations
+    });
+    const chunks = chunkPage({
+      condominiumId: input.condominiumId,
+      documentVersionId: input.documentVersionId,
+      documentPageId: page.id,
+      pageNumber: 1,
+      extractedText
+    });
+    if (chunks.length === 0) throw new Error("A descrição visual ficou vazia.");
+    const multimodalEmbeddings: GeneratedEmbedding[] = [];
+    for (const chunk of chunks) {
+      const embedding = await embedder.embedImageAndText({
+        content: input.content,
+        mediaType,
+        text: chunk.content,
+        contentSha256: chunk.contentSha256
+      });
+      if (
+        embedding.dimensions !== embedder.profile.dimensions ||
+        embedding.values.length !== embedder.profile.dimensions ||
+        embedding.contentSha256 !== chunk.contentSha256
+      )
+        throw new Error("O vetor não corresponde ao chunk da página.");
+      multimodalEmbeddings.push(embedding);
+    }
+    const pages = Object.freeze([
+      Object.freeze({ ...page, multimodalEmbeddings: Object.freeze(multimodalEmbeddings) })
+    ]);
+    return Object.freeze({
+      status: "completed" as const,
+      state: transitionDocumentProcessing(processingState, "ready"),
+      pages,
+      extractionSummary: createExtractionSummary(1, pages, null)
+    });
+  } catch {
+    return imageReviewOutcome(input, processingState, "image_analysis_failed");
+  }
+}
+
 export type StoredDocumentForProcessing = Readonly<{
   condominiumId: CondominiumId;
   documentVersionId: string;
   content: Buffer;
+  mediaType?: DocumentMediaType;
   state: DocumentVersionState;
 }>;
 
@@ -312,7 +465,9 @@ export interface DocumentProcessingRepository {
 
 export function createScopedDocumentProcessor(
   repository: DocumentProcessingRepository,
-  ocrAdapter: OcrAdapter = unavailableOcrAdapter
+  ocrAdapter: OcrAdapter = unavailableOcrAdapter,
+  imageAnalysisAdapter?: ImageAnalysisAdapter,
+  imageEmbeddingAdapter?: MultimodalImageEmbeddingAdapter
 ): Readonly<{
   process(
     input: Readonly<{
@@ -342,8 +497,11 @@ export function createScopedDocumentProcessor(
         condominiumId: input.condominiumId,
         documentVersionId: input.documentVersionId,
         content: stored.content,
+        ...(stored.mediaType === undefined ? {} : { mediaType: stored.mediaType }),
         currentState: stored.state,
-        ocrAdapter
+        ocrAdapter,
+        ...(imageAnalysisAdapter === undefined ? {} : { imageAnalysisAdapter }),
+        ...(imageEmbeddingAdapter === undefined ? {} : { imageEmbeddingAdapter })
       });
 
       await repository.saveProcessingResult({
@@ -364,6 +522,7 @@ export function documentVersionFromUpload(
     documentVersionId: string;
     contentSha256: string;
     sizeBytes: number;
+    mediaType?: DocumentMediaType;
   }>
 ): Readonly<{
   version: ReturnType<typeof createDocumentVersion>["version"];
@@ -375,7 +534,7 @@ export function documentVersionFromUpload(
     documentId: input.documentId,
     versionNumber: 1,
     contentSha256: input.contentSha256,
-    mediaType: "application/pdf",
+    mediaType: input.mediaType ?? "application/pdf",
     sizeBytes: input.sizeBytes
   });
 }

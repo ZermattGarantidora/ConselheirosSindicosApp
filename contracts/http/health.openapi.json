@@ -21,7 +21,9 @@
                     "aiProvider",
                     "authMode",
                     "googleAuthEnabled",
-                    "authSessionRestore"
+                    "authSessionRestore",
+                    "accountSecurityEnabled",
+                    "developmentAuthActions"
                   ],
                   "properties": {
                     "status": { "type": "string", "const": "ok" },
@@ -29,7 +31,9 @@
                     "aiProvider": { "type": "string", "enum": ["gemini", "local"] },
                     "authMode": { "type": "string", "enum": ["development", "real"] },
                     "googleAuthEnabled": { "type": "boolean" },
-                    "authSessionRestore": { "type": "boolean" }
+                    "authSessionRestore": { "type": "boolean" },
+                    "accountSecurityEnabled": { "type": "boolean" },
+                    "developmentAuthActions": { "type": "boolean" }
                   }
                 }
               }
@@ -57,7 +61,9 @@
                     "aiProvider",
                     "authMode",
                     "googleAuthEnabled",
-                    "authSessionRestore"
+                    "authSessionRestore",
+                    "accountSecurityEnabled",
+                    "developmentAuthActions"
                   ],
                   "properties": {
                     "status": { "type": "string", "const": "ok" },
@@ -65,7 +71,9 @@
                     "aiProvider": { "type": "string", "enum": ["gemini", "local"] },
                     "authMode": { "type": "string", "enum": ["development", "real"] },
                     "googleAuthEnabled": { "type": "boolean" },
-                    "authSessionRestore": { "type": "boolean" }
+                    "authSessionRestore": { "type": "boolean" },
+                    "accountSecurityEnabled": { "type": "boolean" },
+                    "developmentAuthActions": { "type": "boolean" }
                   }
                 }
               }

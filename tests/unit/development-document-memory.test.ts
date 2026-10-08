@@ -31,6 +31,7 @@ function uploadedRecord(condominiumId: string, content: Buffer): UploadedDocumen
     storageKey: `${condominiumId}/33333333-3333-4333-8333-333333333333.pdf`,
     title: "Ata sintética de constituição",
     documentType: "meeting_minutes",
+    mediaType: "application/pdf",
     contentSha256: createHash("sha256").update(content).digest("hex"),
     sizeBytes: content.length,
     uploadedByUserId: createUserId("sindico-demo"),

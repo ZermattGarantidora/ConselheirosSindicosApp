@@ -21,7 +21,8 @@ describe("servidor local", () => {
 
   it("liga os adaptadores persistidos quando DATABASE_URL está configurado", async () => {
     const app = await startServer(0, {
-      DATABASE_URL: "postgresql://postgres:senha-sintetica@127.0.0.1:5432/conselheiro"
+      DATABASE_URL: "postgresql://postgres:senha-sintetica@127.0.0.1:5432/conselheiro",
+      AUTH_ACCOUNT_SECRET_KEY: "11".repeat(32)
     });
 
     await expect(app.inject({ method: "GET", url: "/health" })).resolves.toMatchObject({

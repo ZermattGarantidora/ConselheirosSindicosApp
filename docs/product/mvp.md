@@ -46,6 +46,7 @@ Quando o fluxo correspondente estiver implementado e testado, o MVP deve oferece
 11. Registrar feedback, fontes, versão de prompt/modelo, latência e custo estimado.
 12. Permitir que o usuário solicite, em um fluxo separado e opcional, informações ou uma simulação dos serviços da Zermatt.
 13. Analisar balancetes em PDF, recalcular totais e gerar um rascunho de prestação de contas com evidências e revisão humana.
+14. Interpretar visualmente fotos enviadas explicitamente no chat, identificar a descrição gerada por IA e permitir busca textual por embeddings multimodais no PostgreSQL, com isolamento e evidência por condomínio.
 
 ## Formato de resposta
 
@@ -132,7 +133,15 @@ dos PDFs: todas as páginas devem ser contabilizadas, a estrutura de linhas deve
 qualquer página vazia, ilegível ou incompleta impede o estado de documento pronto. A interface deve
 mostrar a completude e as páginas que exigem revisão.
 
-Depois desse gate, a análise assistida de balancetes será entregue em três partes: conferência e
+Em 2026-10-06, o usuário autorizou como próxima fatia, depois da leitura integral de PDFs, a
+interpretação de fotos enviadas pelo síndico no chat. A foto só é transmitida à Gemini API com aviso
+visível e clique explícito de envio, usando projeto com faturamento ativo; a cota gratuita é
+proibida. Original, descrição visual claramente atribuída à IA, texto reconhecido e vetor
+multimodal ficam vinculados ao mesmo condomínio no PostgreSQL. Esta autorização não libera dados
+reais ou pilotos: permanecem bloqueados até os gates de LGPD, avaliação de fornecedor, retenção,
+exclusão e resposta a incidentes.
+
+Depois dessa fatia, a análise assistida de balancetes será entregue em três partes: conferência e
 cálculos básicos; análise financeira e perguntas naturais; e rascunho imprimível de prestação de
 contas. O resultado nunca significa contas aprovadas, auditoria concluída ou conciliação bancária.
 Dados ambíguos, ilegíveis ou incompletos permanecem em revisão e toda correção humana é auditada.
