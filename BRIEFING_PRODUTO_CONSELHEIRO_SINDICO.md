@@ -130,8 +130,18 @@ Benefícios esperados:
 
 ### Próxima fatia autorizada do MVP
 
+Por decisão explícita do usuário em 2026-10-06, após a conclusão da leitura integral de PDFs, a
+próxima fatia passa a permitir que o síndico envie fotos pelo chat para interpretação visual. A
+imagem original, a descrição visual identificada como gerada por IA, o texto legível reconhecido e
+os embeddings multimodais devem preservar página, condomínio, versão e origem; somente fontes
+confirmadas e processadas podem fundamentar respostas. A imagem é enviada à Gemini API apenas no
+serviço pago, após aviso visível e clique explícito de envio. A cota gratuita é proibida para este
+fluxo. A interpretação descreve o que é visível e suas incertezas; não diagnostica defeitos,
+conformidade, causa ou segurança. Dados reais e pilotos continuam bloqueados até a aprovação dos
+gates de LGPD, fornecedores, retenção e resposta a incidentes.
+
 “Despesas e balancetes” foi antecipado por decisão explícita de produto em 2026-09-24. A fatia
-permite analisar PDFs financeiros, confirmar competência e dados extraídos, recalcular totais,
+segue à interpretação visual de fotos e permite analisar PDFs financeiros, confirmar competência e dados extraídos, recalcular totais,
 explicar divergências e preparar um rascunho de prestação de contas. Ela não aprova contas, não
 realiza auditoria, não executa conciliação bancária sem todos os extratos e não movimenta dinheiro.
 
@@ -229,6 +239,10 @@ O onboarding deve exigir poucos passos, explicar claramente o estado de cada doc
 4. Usuário pode abrir a fonte, corrigir a resposta ou transformar o resultado em comunicado ou pendência.
 5. Quando houver relação legítima com os serviços da Zermatt, a interface pode apresentar separadamente um convite opcional para conhecer o serviço ou solicitar uma simulação.
 
+Fotos escolhidas no chat permanecem anexadas até o usuário clicar em enviar. Antes desse ato, a
+interface informa que a foto será armazenada no banco do condomínio e transmitida à Gemini API
+paga para interpretação visual; o sistema não envia a foto automaticamente ao selecioná-la.
+
 ### Formato recomendado da resposta
 
 - **Resposta direta**
@@ -248,6 +262,11 @@ O onboarding deve exigir poucos passos, explicar claramente o estado de cada doc
 - Criptografar dados em trânsito e armazenados.
 - Implementar exclusão, exportação, retenção e controle de acesso compatíveis com a LGPD.
 - Não usar documentos dos clientes para treinamento sem consentimento específico.
+- Para interpretação visual de fotos, transmitir somente a imagem escolhida e enviada explicitamente
+  pelo usuário à Gemini API sob serviço pago e aviso claro; nunca usar cota gratuita. A descrição e
+  os embeddings derivados permanecem vinculados ao mesmo condomínio e sujeitos à retenção e purge
+  dos documentos. Essa autorização de produto não libera dados reais ou pilotos antes dos gates de
+  LGPD, avaliação do fornecedor e resposta a incidentes.
 - Separar claramente “informação encontrada”, “interpretação da IA” e “recomendação”.
 - Não alterar respostas ou recomendações para favorecer uma oportunidade comercial da Zermatt.
 - Não usar o conteúdo dos documentos para qualificação ou prospecção comercial sem consentimento específico, claro e informado.
@@ -284,6 +303,8 @@ Uma aplicação web com:
 - feedback sobre as respostas;
 - painel básico de documentos e obrigações.
 - análise de balancete com números principais, cálculos reproduzíveis, evidências e rascunho imprimível de prestação de contas pendente de revisão.
+- interpretação visual limitada de fotos enviadas explicitamente pelo síndico, com descrição de IA
+  identificada, origem consultável e vetor multimodal isolado por condomínio.
 - acesso separado e opcional para solicitar informações ou uma simulação dos serviços da Zermatt.
 
 Não automatizar ações externas no MVP. O objetivo inicial é provar que as respostas são confiáveis, economizam tempo e geram uso recorrente.
@@ -296,6 +317,8 @@ Não automatizar ações externas no MVP. O objetivo inicial é provar que as re
 - Recuperação combinada da legislação oficial compartilhada e do contexto autorizado por condomínio, documento, versão, data e nível de permissão.
 - Respostas geradas somente após localizar evidências suficientes.
 - OCR com indicador de qualidade para documentos escaneados.
+- interpretação e embeddings multimodais com provedor configurável; nenhuma imagem real pode ser
+  transmitida sem aviso, autorização explícita, serviço pago confirmado e gates de privacidade.
 - Avaliação automatizada e humana de precisão, citação, cobertura e alucinação.
 
 ### Arquitetura orientada a custo
@@ -491,11 +514,14 @@ Esse núcleo testa as premissas mais importantes:
 Adicionar os próximos módulos em fatias completas e seguras, com testes e revisão a cada entrega;
 um piloto formal não bloqueia essa sequência.
 
-Por decisão explícita de produto em 2026-09-24, a análise assistida de balancetes passa a ser a
-próxima capacidade vertical depois do reforço de leitura integral dos PDFs. Ela deve reutilizar
-upload, OCR, isolamento e citações, validar utilidade com dados sintéticos e permanecer sujeita à
-revisão humana. Contabilidade completa, conciliação sem extratos, aprovação de contas e ações
-financeiras externas continuam fora do escopo.
+Por decisão explícita de produto em 2026-10-06, a interpretação visual de fotos enviadas no chat
+passa a ser a próxima capacidade vertical depois da leitura integral de PDFs e antes de balancetes.
+Ela deve reutilizar upload, isolamento, evidência e retenção, usar Gemini exclusivamente em serviço
+pago com envio iniciado pelo usuário e validar utilidade com imagens sintéticas. Em seguida, a
+análise assistida de balancetes continua autorizada: reutiliza upload, leitura integral, isolamento
+e citações, valida utilidade com dados sintéticos e permanece sujeita à revisão humana. Nenhuma
+dessas decisões autoriza dados reais antes do gate de privacidade. Contabilidade completa,
+conciliação sem extratos, aprovação de contas e ações financeiras externas continuam fora do escopo.
 
 Quando estiver pronto, um caminho comercial mínimo e separado da conversa da IA pode ser testado
 durante o uso contínuo do aplicativo, sem depender de um piloto formal. O síndico deve solicitar

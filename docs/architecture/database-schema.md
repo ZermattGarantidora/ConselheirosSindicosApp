@@ -82,46 +82,72 @@ erDiagram
 
 ### `users`
 
-Identidade global mínima. Perfil, e-mail e credenciais permanecem no provedor de identidade quando possível.
+Identidade global mínima. A aplicação mantém apenas o necessário para autenticar e proteger a
+conta; esse dado nunca participa da recuperação documental de um condomínio.
 
-| Coluna | Tipo | Regra |
-|---|---|---|
-| `id` | `uuid` | PK |
-| `auth_subject` | `text` | único, opaco, nunca reutilizado |
-| `status` | `text` | `active`, `blocked` ou `deleted` |
-| `created_at` | `timestamptz` | obrigatório |
-| `updated_at` | `timestamptz` | obrigatório |
+| Coluna                  | Tipo          | Regra                                                       |
+| ----------------------- | ------------- | ----------------------------------------------------------- |
+| `id`                    | `uuid`        | PK                                                          |
+| `auth_subject`          | `text`        | único, opaco, nunca reutilizado                             |
+| `email`                 | `text`        | único sem diferença de caixa quando informado              |
+| `display_name`          | `text`        | nome mínimo da conta                                       |
+| `password_hash`         | `text`        | hash scrypt; a senha não é persistida                       |
+| `google_subject`        | `text`        | identificador Google opcional e único                       |
+| `email_verified_at`     | `timestamptz` | nulo enquanto o endereço não foi confirmado                |
+| `mfa_secret_ciphertext` | `text`        | segredo TOTP cifrado com AES-256-GCM; nunca devolvido ativo |
+| `mfa_enabled_at`        | `timestamptz` | nulo enquanto o segundo fator estiver inativo              |
+| `password_changed_at`   | `timestamptz` | registra a última alteração da credencial                   |
+| `status`                | `text`        | `active`, `blocked` ou `deleted`                            |
+| `created_at`            | `timestamptz` | obrigatório                                                 |
+| `updated_at`            | `timestamptz` | obrigatório                                                 |
+
+### `auth_sessions`, `auth_action_tokens` e MFA
+
+As tabelas globais de autenticação ficam fora do escopo documental e só podem ser acessadas pelas
+funções mínimas `SECURITY DEFINER` concedidas ao runtime:
+
+- `auth_sessions` guarda somente hash do token, conta, rótulo genérico do dispositivo, criação,
+  última atividade, expiração e revogação;
+- `auth_action_tokens` guarda hashes de tokens de verificação de e-mail ou redefinição de senha,
+  finalidade, expiração e consumo; um novo pedido invalida os anteriores da mesma finalidade;
+- `auth_mfa_challenges` guarda o hash do desafio temporário, tentativas, expiração e consumo;
+- `auth_mfa_recovery_codes` guarda somente hashes dos códigos e a marca de uso único.
+
+Tokens brutos e códigos de recuperação não são registrados em logs. A redefinição de senha revoga
+todas as sessões; a troca autenticada, a ativação e a desativação do MFA preservam a sessão atual e
+revogam as demais. Contas anteriores à migration 027 são marcadas como verificadas para preservar o
+acesso existente; contas novas precisam confirmar o e-mail.
 
 ### `condominiums`
 
 Raiz de isolamento.
 
-| Coluna | Tipo | Regra |
-|---|---|---|
-| `id` | `uuid` | PK e valor usado como `condominium_id` nos filhos |
-| `display_name` | `text` | obrigatório |
-| `status` | `text` | `active`, `suspended` ou `pending_deletion` |
-| `cnpj` | `text` | opcional; único quando informado |
-| `address` | `jsonb` | cidade/UF obrigatórias no fluxo de criação |
-| `administration_company` | `text` | opcional |
-| `unit_count` | `integer` | opcional; positivo quando informado |
-| `contact` | `jsonb` | dados básicos de contato da gestão |
-| `profile_description` | `text` | opcional; apresentação do condomínio, nunca evidência para respostas |
-| `created_at` | `timestamptz` | obrigatório |
-| `updated_at` | `timestamptz` | obrigatório |
+| Coluna                   | Tipo          | Regra                                                                |
+| ------------------------ | ------------- | -------------------------------------------------------------------- |
+| `id`                     | `uuid`        | PK e valor usado como `condominium_id` nos filhos                    |
+| `display_name`           | `text`        | obrigatório                                                          |
+| `status`                 | `text`        | `active`, `suspended` ou `pending_deletion`                          |
+| `cnpj`                   | `text`        | opcional; único quando informado                                     |
+| `address`                | `jsonb`       | cidade/UF obrigatórias no fluxo de criação                           |
+| `administration_company` | `text`        | opcional                                                             |
+| `unit_count`             | `integer`     | opcional; positivo quando informado                                  |
+| `contact`                | `jsonb`       | dados básicos de contato da gestão                                   |
+| `profile_description`    | `text`        | opcional; apresentação do condomínio, nunca evidência para respostas |
+| `created_at`             | `timestamptz` | obrigatório                                                          |
+| `updated_at`             | `timestamptz` | obrigatório                                                          |
 
 ### `condominium_profile_photos`
 
 Fotos de identificação privadas; não participam de OCR, indexação, recuperação nem citação documental.
 
-| Coluna | Tipo | Regra |
-|---|---|---|
+| Coluna                 | Tipo           | Regra                                                                                            |
+| ---------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
 | `condominium_id`, `id` | `uuid`, `uuid` | PK composta e vínculo ao tenant com exclusão em cascata apenas pelo fluxo de exclusão confirmado |
-| `media_type` | `text` | allowlist `image/jpeg`, `image/png` ou `image/webp` |
-| `content` | `bytea` | conteúdo validado, entre 1 byte e 5 MiB |
-| `is_cover` | `boolean` | no máximo uma capa por condomínio |
-| `created_by_user_id` | `uuid` | pessoa que enviou a imagem |
-| `created_at` | `timestamptz` | obrigatório |
+| `media_type`           | `text`         | allowlist `image/jpeg`, `image/png` ou `image/webp`                                              |
+| `content`              | `bytea`        | conteúdo validado, entre 1 byte e 5 MiB                                                          |
+| `is_cover`             | `boolean`      | no máximo uma capa por condomínio                                                                |
+| `created_by_user_id`   | `uuid`         | pessoa que enviou a imagem                                                                       |
+| `created_at`           | `timestamptz`  | obrigatório                                                                                      |
 
 O servidor limita cada condomínio a cinco imagens. A leitura exige membership ativa e fica escopada ao condomínio; somente o papel `manager` pode criar, escolher a capa ou excluir fotos.
 
@@ -129,16 +155,16 @@ O servidor limita cada condomínio a cinco imagens. A leitura exige membership a
 
 Associação vigente usada para resolver `AuthorizedCondominiumContext`.
 
-| Coluna | Tipo | Regra |
-|---|---|---|
-| `condominium_id`, `id` | `uuid`, `uuid` | PK composta |
-| `user_id` | `uuid` | FK para `users` |
-| `role_key` | `text` | papel aprovado pela futura decisão de identidade |
-| `status` | `text` | `active`, `revoked` ou `expired` |
-| `valid_from`, `valid_until` | `timestamptz` | intervalo; fim opcional |
-| `revoked_at` | `timestamptz` | obrigatório quando revogada |
-| `created_by_user_id` | `uuid` | ator que concedeu o acesso |
-| `created_at`, `updated_at` | `timestamptz` | obrigatórios |
+| Coluna                      | Tipo           | Regra                                            |
+| --------------------------- | -------------- | ------------------------------------------------ |
+| `condominium_id`, `id`      | `uuid`, `uuid` | PK composta                                      |
+| `user_id`                   | `uuid`         | FK para `users`                                  |
+| `role_key`                  | `text`         | papel aprovado pela futura decisão de identidade |
+| `status`                    | `text`         | `active`, `revoked` ou `expired`                 |
+| `valid_from`, `valid_until` | `timestamptz`  | intervalo; fim opcional                          |
+| `revoked_at`                | `timestamptz`  | obrigatório quando revogada                      |
+| `created_by_user_id`        | `uuid`         | ator que concedeu o acesso                       |
+| `created_at`, `updated_at`  | `timestamptz`  | obrigatórios                                     |
 
 Constraints principais:
 
@@ -176,7 +202,7 @@ Tipos iniciais: `convention`, `internal_rules`, `meeting_minutes`, `contract` e 
 
 Snapshot imutável do arquivo e da procedência no momento do upload.
 
-Campos: chave composta, `document_id`, `version_number`, `storage_object_id`, `content_sha256`, `media_type`, `size_bytes`, `source_kind`, `source_description`, `issued_by`, `uploaded_by_user_id` e `created_at`.
+Campos: chave composta, `document_id`, `version_number`, `storage_object_id`, `content_sha256`, `media_type` (application/pdf, image/jpeg ou image/png), `size_bytes`, `source_kind`, `source_description`, `issued_by`, `uploaded_by_user_id` e `created_at`.
 
 Constraints principais:
 
@@ -210,7 +236,7 @@ Campos: chave composta, `source_version_id`, `target_version_id`, `relation_type
 
 ### `processing_jobs`
 
-Fonte transacional para extração, OCR, chunking e embeddings.
+Fonte transacional para extração, OCR, interpretação visual, chunking e embeddings. Para `image_vision`, descrição, texto percebido e limitações são colunas distintas; o texto de citação permanece rotulado em `extracted_text`.
 
 Campos: chave composta, `document_version_id`, `job_type`, `status`, `attempt_count`, `max_attempts`, `idempotency_key`, `available_at`, `leased_at`, `lease_expires_at`, `finished_at`, `error_code`, `error_metadata` sanitizado, `created_at` e `updated_at`.
 
@@ -220,7 +246,7 @@ O worker reivindica jobs com lock transacional e `SKIP LOCKED`, revalida a FK co
 
 Texto verificável por página.
 
-Campos: chave composta, `document_version_id`, `page_index` zero-based, `page_number` humano e one-based, `printed_label` opcional, `extracted_text`, `extraction_method`, `quality_score`, `content_sha256` e `created_at`.
+Campos: chave composta, `document_version_id`, `page_index` zero-based, `page_number` humano e one-based, `printed_label` opcional, `extracted_text`, `extraction_method` (pdf_text, ocr ou image_vision), `quality_score`, `content_sha256` e `created_at`. Foto isolada tem uma página lógica número 1; descrição visual e texto percebido são identificados como saídas de IA.
 
 Constraints principais:
 
@@ -249,6 +275,18 @@ Representação semântica versionada separadamente do chunk.
 Campos: chave composta, `document_chunk_id`, `embedding_profile`, `provider_key`, `model_key`, `model_version`, `pipeline_version`, `dimensions`, `embedding vector`, `content_sha256` e `created_at`.
 
 Constraint única por tenant, chunk e perfil técnico. O hash precisa ser igual ao do chunk que foi embeddado. Perfis com dimensões diferentes podem coexistir; qualquer índice futuro é parcial por perfil e dimensão.
+
+Fotos podem manter embeddings locais e o perfil `google-gemini-embedding-2-768-v1` (768 dimensões), representando imagem e descrição. Consulta textual só compara vetor do mesmo perfil. Ambos seguem RLS e o ciclo de exclusão do documento.
+
+### `document_purge_receipts`
+
+Recibo técnico sem conteúdo para uma purga documental concluída.
+
+Campos: `condominium_id`, identificador opaco `document_id`, `purged_at`, `retention_until` e
+`deleted_artifact_count`. Não guarda título, texto, hash do conteúdo ou bytes. O identificador é
+mantido sem FK ao documento removido para permitir revalidação da exclusão; o recibo expira após
+30 dias. RLS permite leitura somente a membership ativa no condomínio, e a escrita/expiração ocorre
+por funções privilegiadas chamadas pelo papel `app_worker`.
 
 ## 7. Tabelas de consulta, evidência e resposta
 
@@ -297,10 +335,10 @@ Campos: chave composta, `answer_id`, `ordinal`, `statement`, `claim_type` e `evi
 
 Vínculo entre afirmação e evidência exibida.
 
-Campos: chave composta, `answer_claim_id`, `retrieval_evidence_id`, `ordinal`, `document_title_snapshot`, `page_number_snapshot`, `page_start_offset`, `page_end_offset`, `excerpt_snapshot`, `excerpt_sha256` e `created_at`.
+Campos: chave composta, `answer_claim_id`, `retrieval_evidence_id`, `ordinal`, `document_title_snapshot`, `page_number_snapshot`, `page_start_offset`, `page_end_offset`, `excerpt_snapshot`, `excerpt_sha256`, `source_scope`, `source_removed_at` e `created_at`.
 
-Antes do insert, a aplicação valida que a citação pertence à allowlist recuperada; as
-foreign keys compostas e os checks do banco preservam os vínculos e limites estruturais:
+Antes do insert, a aplicação valida que a citação pertence à allowlist recuperada; o gatilho de
+origem e as foreign keys compostas preservam os vínculos e limites estruturais:
 
 - a evidência estava selecionada para a mesma resposta e tenant;
 - o chunk, a página, a versão e o documento existem;
@@ -308,6 +346,11 @@ foreign keys compostas e os checks do banco preservam os vínculos e limites est
 - toda claim com `evidence_required = true` possui ao menos uma citação antes de `answers.validation_status = passed`.
 
 O snapshot preserva exatamente o que o usuário viu sem copiar páginas inteiras.
+Depois que o arquivo original completa 30 dias na lixeira, `source_removed_at` marca a citação
+como histórica. O snapshot continua associado à resposta e disponível no chat, mas não é uma
+promessa de que o PDF original ainda possa ser aberto. A migration 026 remove a FK da citação para
+`retrieval_evidence` para preservar esse registro depois da exclusão do índice; novas citações ainda
+são validadas pela rotina de origem antes de serem gravadas.
 
 ### `feedback`
 
@@ -432,20 +475,21 @@ Pergunta, run e telemetria podem registrar falha. Uma resposta `grounded` ou `co
 
 ### Append-only
 
-Papéis de runtime não recebem `UPDATE` ou `DELETE` em `document_version_events`, `feedback` e `audit_events`. Correção cria evento novo. Purge por LGPD usa papel separado e deixa somente um comprovante minimizado sem conteúdo do cliente, conforme política de retenção ainda a aprovar.
+Papéis de runtime não recebem `UPDATE` ou `DELETE` em respostas, feedback e auditoria. Correção cria evento novo. A exceção de purge é uma função `SECURITY DEFINER`, sem execução pública e acessível somente a `app_worker`; ela valida condomínio e prazo de 30 dias antes de apagar arquivo e índice, sem alterar mensagens, respostas, feedback ou snapshots de citação. Não concede ao runtime permissão geral de alteração ou exclusão.
 
 ## 12. Exportação, retenção e exclusão
 
-Todas as tabelas e objetos derivados são enumeráveis por `condominium_id`. O fluxo de exclusão deve:
+Todas as tabelas e objetos derivados são enumeráveis por `condominium_id`. Ao remover um documento, a busca para imediatamente, mas original e derivados permanecem recuperáveis por 30 dias. A partir do vencimento, a rotina transacional `app.purge_expired_document_data` bloqueia e revalida o documento antes de apagar:
 
-1. bloquear novas escritas e jobs;
-2. inventariar linhas, objetos, caches e backups aplicáveis;
-3. remover objetos privados;
-4. remover dados derivados e transacionais em ordem explícita;
-5. verificar contagem zero por tenant;
-6. manter apenas recibo técnico minimizado permitido pela política.
+- páginas, texto extraído/OCR/visão, chunks e embeddings;
+- evidências recuperadas, vínculos de evidência e referências de origem do documento;
+- estado e jobs de processamento, versões, original, metadados do documento e objetos de storage;
+- perguntas, respostas, claims, feedback e citações já exibidas permanecem no chat; a citação ganha `source_removed_at` e mantém o trecho histórico, mas o PDF deixa de poder ser aberto;
+- retenção das conversas e dos trechos históricos continua sujeita à política geral ainda pendente.
 
-Não se usa soft delete como substituto de purge. Os prazos de `retention_until`, backup e recibo precisam ser aprovados em T003 antes do piloto.
+A rotina verifica, antes do commit, que não restaram linhas do arquivo, do índice ou das referências ativas do documento no banco. O recibo técnico sem conteúdo expira após 30 dias. A lista da lixeira e o endpoint de restauração recusam documentos vencidos mesmo que a rotina de purge ainda não tenha rodado. A exclusão é idempotente e erros revertem a transação para nova tentativa.
+
+Não se usa soft delete como substituto de purge. DELETE no PostgreSQL é lógico: pode haver conteúdo residual em snapshots, WAL, réplicas ou backups gerenciados até a expiração definida pelo provedor. O prazo real de backup e um procedimento externo de replay das exclusões após restore continuam pendentes e bloqueiam dados reais/piloto; a rotina de aplicação sozinha não os apaga.
 
 Na fatia da Spec 009, a migration `015_delete_condominium.sql` oferece a função privilegiada
 `app.delete_condominium_for_user` para o síndico responsável. Ela revalida a membership `manager`

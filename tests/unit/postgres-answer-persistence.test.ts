@@ -161,7 +161,8 @@ describe("persistência PostgreSQL de respostas", () => {
               page_number_snapshot: "2",
               page_start_offset: "5",
               page_end_offset: "22",
-              excerpt_snapshot: "A regra consta."
+              excerpt_snapshot: "A regra consta.",
+              source_removed_at: new Date("2026-10-07T12:00:00.000Z")
             }
           ]
         };
@@ -189,7 +190,9 @@ describe("persistência PostgreSQL de respostas", () => {
       answerId: "answer-1",
       condominiumId: "alameda",
       answerMode: "grounded",
-      citations: [{ evidenceId: "chunk-1", page: 2, startOffset: 5, endOffset: 22 }],
+      citations: [
+        { evidenceId: "chunk-1", page: 2, sourceRemoved: true, startOffset: 5, endOffset: 22 }
+      ],
       claims: [{ id: "claim-1", evidenceRequired: true, citationEvidenceIds: ["chunk-1"] }]
     });
     expect(answer?.createdAt).toEqual(new Date("2026-09-08T12:00:00.000Z"));

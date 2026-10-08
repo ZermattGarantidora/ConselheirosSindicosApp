@@ -20,7 +20,7 @@
 
 - A primeira versão usa e-mail e senha com armazenamento transacional no PostgreSQL; não adiciona login social ou provedor externo.
 - O modo real é o padrão. A demonstração local exige `DEMO_MODE=true` e não cria contas persistentes.
-- Verificação de e-mail, recuperação de senha, MFA, rate limiting distribuído e gestão de sessões de dispositivos ficam fora desta fatia e são pré-requisitos para um piloto público.
+- Verificação de e-mail, recuperação e troca de senha, MFA e gestão de sessões são detalhadas pela Spec 015, autorizada por decisão explícita do usuário em 2026-10-08. Rate limiting distribuído continua posterior e obrigatório para um piloto público.
 - Não cria condomínios automaticamente ao registrar a conta e não altera o isolamento documental existente.
 - Não implementa contabilidade, boletos, portaria, marketplace ou ações externas.
 
@@ -63,8 +63,8 @@ Síndico profissional ou síndico morador que inicia o uso do conselheiro com da
 
 ## 5. Fora do escopo
 
-- Login social, SSO, MFA ou provedor de identidade externo.
-- Verificação de posse do e-mail, recuperação de senha e troca de senha.
+- Login social, SSO ou provedor de identidade externo, exceto o fluxo Google já separado na Spec 008.
+- Os controles adicionais de conta pertencem à Spec 015 e permanecem fora do contrato original desta fatia.
 - Convites, equipes e permissões administrativas de conta.
 - Rate limiting distribuído, detecção antifraude e gestão de dispositivos.
 - Persistência de condomínios criados sem uma associação autorizada.

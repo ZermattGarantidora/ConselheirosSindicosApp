@@ -290,7 +290,10 @@ regimento interno, ata ou contrato
 **Então** o documento deixa de integrar a memória consultável do condomínio
 **E** a interface informa que ele pode recuperá-lo por 30 dias
 **E** o PDF original permanece protegido e recuperável até o prazo
-**E** um processo interno apaga o original após 30 dias sem recuperação
+**E** um processo interno apaga original, derivados de busca e evidências do banco ativo após 30 dias sem recuperação
+**E** perguntas, respostas, claims, feedback e citações históricas permanecem no chat sem alteração do conteúdo
+**E** a citação informa que o original foi removido e mantém o trecho que já aparecia na conversa
+**E** o PDF original não pode mais ser aberto e o documento não pode ser recuperado pela busca
 **E** a ação não alcança documento nem PDF de outro condomínio.
 
 **Dado** que o síndico envia uma nova ata e existe outra ata registrada no condomínio

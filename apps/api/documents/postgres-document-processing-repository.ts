@@ -11,6 +11,9 @@ import {
 import type { DocumentProcessingStatus, DocumentVersionState } from "./document-model.js";
 import type { PrivateDocumentReader } from "./private-document-storage.js";
 import type { OcrAdapter } from "./ocr-quality.js";
+import type { ImageAnalysisAdapter } from "./gemini-image-analysis.js";
+import type { MultimodalImageEmbeddingAdapter } from "../retrieval/gemini-multimodal-embedding.js";
+import type { DocumentMediaType } from "./document-model.js";
 import { chunkPage } from "../retrieval/retrieval-contract.js";
 import {
   createLocalSyntheticEmbeddingAdapter,
@@ -25,6 +28,7 @@ type DocumentProcessingRow = Readonly<{
   document_version_id: string;
   storage_object_id: string;
   content_sha256: string;
+  media_type: DocumentMediaType;
   processing_status: DocumentProcessingStatus;
   validity_status: DocumentVersionState["validityStatus"];
   valid_from: Date | null;
@@ -88,6 +92,7 @@ export function createPostgresDocumentProcessingRepository(
               dv.id AS document_version_id,
               dv.storage_object_id,
               dv.content_sha256,
+              so.media_type,
               dvs.processing_status,
               dvs.validity_status,
               dvs.valid_from,
@@ -132,6 +137,7 @@ export function createPostgresDocumentProcessingRepository(
         condominiumId: input.condominiumId,
         documentVersionId: input.documentVersionId,
         content,
+        mediaType: row.media_type,
         state: toDocumentVersionState(row)
       });
     },
@@ -193,9 +199,10 @@ export function createPostgresDocumentProcessingRepository(
             `
               INSERT INTO app.document_pages (
                 condominium_id, id, document_version_id, page_index, page_number,
-                extracted_text, extraction_method, quality_score, content_sha256
+                extracted_text, extraction_method, quality_score, content_sha256,
+                visual_description, recognized_text, analysis_limitations
               )
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             `,
             [
               input.condominiumId,
@@ -206,7 +213,10 @@ export function createPostgresDocumentProcessingRepository(
               page.extractedText,
               page.extractionMethod,
               page.qualityScore,
-              page.contentSha256
+              page.contentSha256,
+              page.visualDescription ?? null,
+              page.recognizedText ?? null,
+              page.analysisLimitations ?? null
             ]
           );
 
@@ -245,6 +255,41 @@ export function createPostgresDocumentProcessingRepository(
                 chunk.tokenCount
               ]
             );
+
+            const multimodalEmbedding = page.multimodalEmbeddings?.find(
+              (candidate) => candidate.contentSha256 === chunk.contentSha256
+            );
+            if (multimodalEmbedding !== undefined) {
+              if (
+                multimodalEmbedding.dimensions !== multimodalEmbedding.values.length ||
+                multimodalEmbedding.values.some((value) => !Number.isFinite(value))
+              ) {
+                throw new Error("O vetor multimodal do chunk é inválido.");
+              }
+              await client.query(
+                `
+                  INSERT INTO app.document_chunk_embeddings (
+                    condominium_id, id, document_chunk_id, embedding_profile,
+                    provider_key, model_key, model_version, pipeline_version,
+                    dimensions, embedding, content_sha256
+                  )
+                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::vector, $11)
+                `,
+                [
+                  input.condominiumId,
+                  randomUUID(),
+                  documentChunkId,
+                  multimodalEmbedding.embeddingProfile,
+                  multimodalEmbedding.providerKey,
+                  multimodalEmbedding.modelKey,
+                  multimodalEmbedding.modelVersion,
+                  multimodalEmbedding.pipelineVersion,
+                  multimodalEmbedding.dimensions,
+                  formatPgVector(multimodalEmbedding.values),
+                  multimodalEmbedding.contentSha256
+                ]
+              );
+            }
             documentChunkIndex += 1;
 
             const embedding = await embeddingAdapter.embed({
@@ -387,7 +432,9 @@ export function createPostgresDocumentProcessingRepository(
 export function createScopedPostgresDocumentProcessor(
   pool: PoolLike,
   storage: PrivateDocumentReader,
-  ocrAdapter?: OcrAdapter
+  ocrAdapter?: OcrAdapter,
+  imageAnalysisAdapter?: ImageAnalysisAdapter,
+  imageEmbeddingAdapter?: MultimodalImageEmbeddingAdapter
 ): Readonly<{
   process(
     input: Readonly<{
@@ -400,7 +447,9 @@ export function createScopedPostgresDocumentProcessor(
 }> {
   const processor = createScopedDocumentProcessor(
     createPostgresDocumentProcessingRepository(pool, storage),
-    ocrAdapter
+    ocrAdapter,
+    imageAnalysisAdapter,
+    imageEmbeddingAdapter
   );
 
   return Object.freeze({

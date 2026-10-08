@@ -1,5 +1,7 @@
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 import type {
+  DocumentExtractionMethod,
+  DocumentMediaType,
   DocumentProcessingStatus,
   DocumentType,
   DocumentValidityStatus
@@ -13,6 +15,7 @@ export type RegisteredDocument = Readonly<{
   documentType: DocumentType;
   versionNumber: number;
   sizeBytes: number;
+  mediaType?: DocumentMediaType;
   processingStatus: DocumentProcessingStatus;
   validityStatus: DocumentValidityStatus;
   createdAt: string;
@@ -21,7 +24,7 @@ export type RegisteredDocument = Readonly<{
   searchablePageCount: number | null;
   unreadablePageNumbers: readonly number[];
   extractionCompleteness: number | null;
-  extractionMethod: "pdf_text" | "ocr" | null;
+  extractionMethod: DocumentExtractionMethod | null;
   ocrQualityScore: number | null;
   storageObjectId?: string;
   uploadedByCurrentUser?: boolean;

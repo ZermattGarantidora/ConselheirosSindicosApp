@@ -59,4 +59,13 @@ describe("turnos do chat", () => {
     expect(app).not.toContain("Com base nos documentos");
     expect(app).not.toContain("Nenhuma fonte é exibida quando falta base documental.");
   });
+
+  it("mantém citações no histórico e identifica quando o PDF original foi removido", async () => {
+    const app = await readFile("apps/web/App.tsx", "utf8");
+
+    expect(app).toContain("entry.answer.citations.map((citation) => (");
+    expect(app).toContain('"Documento removido do acervo · trecho histórico"');
+    expect(app).toContain('selectedCitation.sourceRemoved ? "TRECHO HISTÓRICO" : "FONTE ABERTA"');
+    expect(app).toContain('selectedCitation.sourceRemoved ? "Original removido · " : "Versão "');
+  });
 });

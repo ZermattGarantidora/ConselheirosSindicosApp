@@ -214,7 +214,7 @@ describe("navegação móvel entre condomínios", () => {
     expect(app).toContain("setDocumentRemovalCandidate(document)");
     expect(app).toContain("loadRegisteredDocuments(context.condominiumId)");
     expect(app).toContain("/v1/condominiums/${encodeURIComponent(id)}/documents");
-    expect(app).toContain('accept="application/pdf,.pdf"');
+    expect(app).toContain('accept="application/pdf,.pdf,image/jpeg,.jpg,.jpeg,image/png,.png"');
     expect(app).toContain("multiple");
     expect(app).toContain('context?.permissions.includes("document:upload")');
     expect(app).toContain("settingsDocumentsConfirmed");

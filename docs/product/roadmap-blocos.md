@@ -1,7 +1,7 @@
 # Cronograma e visão de futuro por blocos
 
 **Status:** referência operacional do projeto  
-**Atualizado em:** 2026-09-24
+**Atualizado em:** 2026-10-06
 
 Este documento explica o caminho do produto em blocos. Cada bloco representa uma etapa compreensível do trabalho. A previsão abaixo é indicativa: um bloco só é dado como concluído quando o código, os testes, a segurança e a documentação estiverem coerentes.
 
@@ -19,8 +19,10 @@ Os blocos **B1** a **B6** foram concluídos na fatia local com dados sintéticos
 | **B4 — Encontrar os trechos certos** ✅ | Concluído em 04/09/2026 | Criar a busca que procura somente dentro do condomínio escolhido e encontra as páginas mais relevantes. | O sistema localiza a regra ou decisão relacionada à pergunta. |
 | **B5 — Criar o chat confiável** ✅ | Concluído em 09/09/2026 | Permitir perguntas e continuações em linguagem natural, montar respostas com fontes, reconhecer falta de informação, mostrar conflitos e recomendar especialista quando necessário. | O síndico conversa sem aprender comandos, recebe uma resposta direta, confere a fonte e entende quando não há segurança para responder. |
 | **B6 — Aprender com o uso** ✅ | Concluído em 09/09/2026 | Registrar avaliações, erros, facilidade de uso, tempo de resposta e custo; executar os casos de teste e corrigir problemas. | Sabemos se as respostas estão corretas, se a conversa é fácil, se as fontes ajudam e quanto custa cada resposta aprovada. |
+| **B6.1 — Proteger a conta** ✅ | Concluído em 08/10/2026 | Verificar e-mail, recuperar e trocar senha, oferecer TOTP MFA e permitir que a pessoa revise e encerre sessões por dispositivo. | A conta tem recuperação segura, segundo fator opcional e controle explícito dos dispositivos conectados. |
 | **B7 — Garantir leitura integral de PDFs** 🟡 | Próxima fatia | Ler todas as páginas, preservar linhas e tabelas, medir completude e impedir que páginas vazias ou ilegíveis sejam tratadas como prontas. | O síndico vê quantas páginas foram lidas, a qualidade e quais páginas exigem revisão. |
-| **B8.1 — Conferir o balancete** ⏸️ | Depois do B7 | Identificar tipo e competência, extrair valores com origem, permitir correção humana e recalcular receitas, despesas e saldo. | Um balancete produz números conferíveis e cálculos reproduzíveis. |
+| **B7.1 — Interpretar fotos do condomínio** ⏸️ | Depois do B7 | Receber fotos pelo chat com envio explícito, produzir descrição visual e texto visível rotulados como interpretação de IA e indexar vetor multimodal isolado no PostgreSQL. A integração Gemini exige faturamento ativo, aviso claro e negação por padrão; fotos reais/pilotos continuam bloqueadas pelos gates de privacidade. | O síndico pode perguntar sobre uma imagem armazenada no condomínio, conferir a imagem original e distinguir observação de IA de evidência textual. |
+| **B8.1 — Conferir o balancete** ⏸️ | Depois do B7.1 | Identificar tipo e competência, extrair valores com origem, permitir correção humana e recalcular receitas, despesas e saldo. | Um balancete produz números conferíveis e cálculos reproduzíveis. |
 | **B8.2 — Analisar as finanças** ⏸️ | Depois do B8.1 | Organizar categorias, fornecedores, duplicidades, variações, orçamento versus realizado, perguntas naturais e documentos ausentes. | O síndico entende o período e abre a evidência de cada conclusão. |
 | **B8.3 — Preparar a prestação de contas** ⏸️ | Depois do B8.2 | Montar rascunho, índice de evidências, impressão, feedback e auditoria final. | Um rascunho completo fica pronto para revisão humana, nunca para aprovação automática. |
 | **B9 — Completar o produto por módulos** ⏸️ | Após cada fatia aprovada | Evoluir obrigações, comunicados, demais documentos, integrações e fluxo comercial em módulos end-to-end, testados continuamente pelo usuário. | O aplicativo cresce sem depender de uma etapa formal de piloto para liberar a próxima funcionalidade. |

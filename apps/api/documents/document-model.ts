@@ -8,6 +8,8 @@ export type DocumentProcessingStatus =
 
 export type DocumentValidityStatus =
   "pending" | "confirmed" | "disputed" | "superseded" | "not_applicable";
+export type DocumentMediaType = "application/pdf" | "image/jpeg" | "image/png";
+export type DocumentExtractionMethod = "pdf_text" | "ocr" | "image_vision";
 
 export type DocumentRecord = Readonly<{
   id: string;
@@ -22,7 +24,7 @@ export type DocumentVersion = Readonly<{
   documentId: string;
   versionNumber: number;
   contentSha256: string;
-  mediaType: "application/pdf";
+  mediaType: DocumentMediaType;
   sizeBytes: number;
 }>;
 

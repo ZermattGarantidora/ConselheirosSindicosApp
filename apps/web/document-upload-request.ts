@@ -5,6 +5,7 @@ type UploadRequestInput = Readonly<{
   content: BodyInit;
   title: string;
   documentType: string;
+  mediaType?: "application/pdf" | "image/jpeg" | "image/png";
   authMode: "real" | "development";
   developmentUserId?: string;
 }>;
@@ -25,7 +26,7 @@ export async function requestDocumentUploadWithAuthorizationRecovery(
       method: "POST",
       credentials: "same-origin",
       headers: {
-        "content-type": "application/pdf",
+        "content-type": input.mediaType ?? "application/pdf",
         ...developmentHeaders(input),
         "x-document-title": encodeURIComponent(input.title),
         "x-document-type": input.documentType,

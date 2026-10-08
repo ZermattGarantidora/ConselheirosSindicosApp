@@ -27,6 +27,7 @@ type Citation = Readonly<{
   page: number;
   excerpt: string;
   sourceScope?: "condominium" | "legislation";
+  sourceRemoved?: boolean;
   startOffset: number;
   endOffset: number;
 }>;
@@ -84,13 +85,26 @@ type RegistrationForm = Readonly<{
 }>;
 type DocumentMemoryStatus = "ready" | "pending_confirmation" | "needs_review" | "failed";
 type AuthMode = "unknown" | "development" | "real" | "unavailable";
-type AuthPanel = "login" | "register";
+type AuthPanel = "login" | "register" | "forgot" | "reset" | "verify" | "mfa";
 type AuthUser = Readonly<{
   userId: string;
   email: string;
   displayName: string;
   isAdmin: boolean;
 }>;
+type AccountSecurityStatus = Readonly<{
+  emailVerified: boolean;
+  mfaEnabled: boolean;
+}>;
+type ManagedAuthSession = Readonly<{
+  sessionId: string;
+  deviceLabel: string;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  current: boolean;
+}>;
+type MfaSetup = Readonly<{ secret: string; uri: string }>;
 type AdminDashboard = Readonly<{
   metrics: Readonly<{
     activeAccounts: number;
@@ -130,6 +144,7 @@ type RegisteredDocument = Readonly<{
   documentType: "convention" | "internal_rules" | "meeting_minutes" | "contract" | "other";
   versionNumber: number;
   sizeBytes: number;
+  mediaType?: "application/pdf" | "image/jpeg" | "image/png";
   processingStatus: "uploaded" | "processing" | "ready" | "needs_review" | "failed";
   validityStatus: "pending" | "confirmed" | "disputed" | "superseded" | "not_applicable";
   createdAt: string;
@@ -138,7 +153,7 @@ type RegisteredDocument = Readonly<{
   searchablePageCount: number | null;
   unreadablePageNumbers: readonly number[];
   extractionCompleteness: number | null;
-  extractionMethod: "pdf_text" | "ocr" | null;
+  extractionMethod: "pdf_text" | "ocr" | "image_vision" | null;
   ocrQualityScore: number | null;
   uploadedByCurrentUser: boolean;
 }>;
@@ -150,6 +165,7 @@ type ArchivedDocument = Readonly<{
 type DocumentPreview = Readonly<{
   title: string;
   url: string;
+  mediaType: "application/pdf" | "image/jpeg" | "image/png";
 }>;
 type CondominiumProfile = Readonly<{
   condominiumId: string;
@@ -256,6 +272,18 @@ function isPdf(file: Pick<File, "type" | "name">): boolean {
   return file.type === "application/pdf" || file.name.toLocaleLowerCase("pt-BR").endsWith(".pdf");
 }
 
+function chatFileMediaType(
+  file: Pick<File, "type" | "name">
+): "application/pdf" | "image/jpeg" | "image/png" | undefined {
+  const name = file.name.toLocaleLowerCase("pt-BR");
+  if (isPdf(file)) return "application/pdf";
+  if (file.type === "image/jpeg" || name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+  if (file.type === "image/png" || name.endsWith(".png")) return "image/png";
+  return undefined;
+}
+
 function inferDocumentType(fileName: string): string {
   const normalized = fileName
     .normalize("NFD")
@@ -289,8 +317,15 @@ function processingStatusLabel(status: RegisteredDocument["processingStatus"]): 
 }
 
 function extractionSummaryLabel(document: RegisteredDocument): string {
+  if (document.extractionMethod === "image_vision") {
+    return document.processingStatus === "ready"
+      ? "1 imagem interpretada por IA · confira a foto original"
+      : "Interpretação visual indisponível; a foto não está em consulta";
+  }
   if (document.expectedPageCount === null || document.processedPageCount === null) {
-    return "Leitura ainda não medida";
+    return document.mediaType?.startsWith("image/")
+      ? "Análise da imagem ainda não concluída"
+      : "Leitura ainda não medida";
   }
 
   const method = document.extractionMethod === "ocr" ? "OCR" : "texto do PDF";
@@ -642,13 +677,35 @@ export function App() {
   const [aiProvider, setAiProvider] = useState<AiProvider>("unavailable");
   const [authMode, setAuthMode] = useState<AuthMode>("unknown");
   const [authSessionRestore, setAuthSessionRestore] = useState(true);
+  const [accountSecurityEnabled, setAccountSecurityEnabled] = useState(false);
   const [authPanel, setAuthPanel] = useState<AuthPanel>("login");
   const [authUser, setAuthUser] = useState<AuthUser | undefined>();
   const [authDisplayName, setAuthDisplayName] = useState("");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [authPasswordConfirmation, setAuthPasswordConfirmation] = useState("");
+  const [authActionToken, setAuthActionToken] = useState("");
+  const [authChallengeId, setAuthChallengeId] = useState("");
+  const [authMfaCode, setAuthMfaCode] = useState("");
+  const [authDevelopmentActionUrl, setAuthDevelopmentActionUrl] = useState("");
   const [authMessage, setAuthMessage] = useState("");
+  const [authMessageIsError, setAuthMessageIsError] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
+  const [accountSecurityStatus, setAccountSecurityStatus] = useState<
+    AccountSecurityStatus | undefined
+  >();
+  const [accountSessions, setAccountSessions] = useState<readonly ManagedAuthSession[]>([]);
+  const [accountSettingsBusy, setAccountSettingsBusy] = useState(false);
+  const [accountSettingsMessage, setAccountSettingsMessage] = useState("");
+  const [accountSettingsMessageIsError, setAccountSettingsMessageIsError] = useState(false);
+  const [currentAccountPassword, setCurrentAccountPassword] = useState("");
+  const [newAccountPassword, setNewAccountPassword] = useState("");
+  const [newAccountPasswordConfirmation, setNewAccountPasswordConfirmation] = useState("");
+  const [mfaSetup, setMfaSetup] = useState<MfaSetup | undefined>();
+  const [mfaSetupCode, setMfaSetupCode] = useState("");
+  const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<readonly string[]>([]);
+  const [mfaDisablePassword, setMfaDisablePassword] = useState("");
+  const [mfaDisableCode, setMfaDisableCode] = useState("");
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | undefined>();
   const [adminDashboardBusy, setAdminDashboardBusy] = useState(false);
   const [adminDashboardError, setAdminDashboardError] = useState("");
@@ -744,6 +801,26 @@ export function App() {
     visibleAttentionPoints.length > 0 || showSuggestedNextStep || showSpecialist;
 
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const verificationToken = query.get("verify_email");
+    const resetToken = query.get("reset_password");
+    if (verificationToken !== null || resetToken !== null) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (verificationToken !== null) {
+      setAuthActionToken(verificationToken);
+      setAuthPanel("verify");
+      setView("login");
+      return;
+    }
+    if (resetToken !== null) {
+      setAuthActionToken(resetToken);
+      setAuthPanel("reset");
+      setView("login");
+    }
+  }, []);
+
+  useEffect(() => {
     let runtimeRequestActive = true;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 4_000);
@@ -754,6 +831,7 @@ export function App() {
           aiProvider?: unknown;
           authMode?: unknown;
           authSessionRestore?: unknown;
+          accountSecurityEnabled?: unknown;
         }>;
         if (!runtimeRequestActive) return;
         if (body.aiProvider === "gemini" || body.aiProvider === "local") {
@@ -767,6 +845,7 @@ export function App() {
         if (typeof body.authSessionRestore === "boolean") {
           setAuthSessionRestore(body.authSessionRestore);
         }
+        setAccountSecurityEnabled(body.accountSecurityEnabled === true);
       })
       .catch(() => {
         if (!runtimeRequestActive) return;
@@ -858,13 +937,20 @@ export function App() {
 
   async function submitAuthentication(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const registering = authPanel === "register";
+    if (registering && authPassword !== authPasswordConfirmation) {
+      setAuthMessage("As senhas informadas não são iguais.");
+      setAuthMessageIsError(true);
+      return;
+    }
     setAuthBusy(true);
     setAuthMessage("");
-    const endpoint = authPanel === "register" ? "/v1/auth/register" : "/v1/auth/login";
-    const payload =
-      authPanel === "register"
-        ? { displayName: authDisplayName, email: authEmail, password: authPassword }
-        : { email: authEmail, password: authPassword };
+    setAuthMessageIsError(false);
+    setAuthDevelopmentActionUrl("");
+    const endpoint = registering ? "/v1/auth/register" : "/v1/auth/login";
+    const payload = registering
+      ? { displayName: authDisplayName, email: authEmail, password: authPassword }
+      : { email: authEmail, password: authPassword };
 
     try {
       const response = await fetch(endpoint, {
@@ -875,30 +961,191 @@ export function App() {
       });
       if (!response.ok) {
         setAuthMessage(await readMessage(response, "Não foi possível concluir o acesso."));
+        setAuthMessageIsError(true);
+        return;
+      }
+      const body = (await response.json()) as Readonly<{
+        user?: AuthUser;
+        verificationRequired?: boolean;
+        mfaRequired?: boolean;
+        challengeId?: string;
+        developmentActionUrl?: string;
+      }>;
+      if (registering && body.verificationRequired === true) {
+        setAuthPassword("");
+        setAuthPasswordConfirmation("");
+        setAuthDevelopmentActionUrl(body.developmentActionUrl ?? "");
+        setAuthPanel("verify");
+        setAuthMessage(
+          body.developmentActionUrl === undefined
+            ? "Conta criada. Consulte seu e-mail para confirmar o endereço antes de entrar."
+            : "Conta criada. Neste ambiente de desenvolvimento, use o link abaixo para confirmar o e-mail."
+        );
+        return;
+      }
+      if (body.mfaRequired === true && typeof body.challengeId === "string") {
+        setAuthChallengeId(body.challengeId);
+        setAuthMfaCode("");
+        setAuthPassword("");
+        setAuthPanel("mfa");
+        setAuthMessage("Informe o código do aplicativo autenticador ou um código de recuperação.");
+        return;
+      }
+      if (body.user === undefined) {
+        setAuthMessage("A resposta do servidor não trouxe uma conta válida.");
+        setAuthMessageIsError(true);
+        return;
+      }
+      await completeAccountLogin(body.user);
+    } catch {
+      setAuthMessage("Não foi possível conectar ao servidor agora.");
+      setAuthMessageIsError(true);
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function completeAccountLogin(user: AuthUser): Promise<void> {
+    setAuthUser(user);
+    setDisplayName(user.displayName);
+    setAuthPassword("");
+    setAuthPasswordConfirmation("");
+    setAuthMfaCode("");
+    setAuthChallengeId("");
+    setAuthMessage("");
+    setAuthMessageIsError(false);
+    if (user.isAdmin) {
+      setView("admin-dashboard");
+      await loadAdminDashboard();
+      return;
+    }
+    await loadAuthorizedCondominiums();
+    setMessage("Login concluído. Escolha um condomínio autorizado para abrir a conversa.");
+    setView("condominiums");
+  }
+
+  async function submitMfaChallenge(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setAuthBusy(true);
+    setAuthMessage("");
+    setAuthMessageIsError(false);
+    try {
+      const response = await fetch("/v1/auth/mfa/challenge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ challengeId: authChallengeId, code: authMfaCode })
+      });
+      if (!response.ok) {
+        setAuthMessage(await readMessage(response, "O código não pôde ser validado."));
+        setAuthMessageIsError(true);
         return;
       }
       const body = (await response.json()) as Readonly<{ user?: AuthUser }>;
-      if (body.user === undefined) {
-        setAuthMessage("A resposta do servidor não trouxe uma conta válida.");
+      if (body.user === undefined) throw new Error("missing_user");
+      await completeAccountLogin(body.user);
+    } catch {
+      setAuthMessage("Não foi possível validar o segundo fator agora.");
+      setAuthMessageIsError(true);
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function requestAccountAction(
+    event: FormEvent<HTMLFormElement>,
+    purpose: "verify-email" | "password-reset"
+  ): Promise<void> {
+    event.preventDefault();
+    setAuthBusy(true);
+    setAuthMessage("");
+    setAuthMessageIsError(false);
+    setAuthDevelopmentActionUrl("");
+    try {
+      const response = await fetch(`/v1/auth/${purpose}/request`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: authEmail })
+      });
+      if (!response.ok) {
+        setAuthMessage(await readMessage(response, "Não foi possível enviar as instruções."));
+        setAuthMessageIsError(true);
         return;
       }
-      setAuthUser(body.user);
-      setDisplayName(body.user.displayName);
-      setAuthPassword("");
-      if (body.user.isAdmin) {
-        setView("admin-dashboard");
-        await loadAdminDashboard();
-        return;
-      }
-      await loadAuthorizedCondominiums();
-      setMessage(
-        authPanel === "register"
-          ? "Conta criada. Seus grupos de condomínio aparecerão aqui quando forem autorizados."
-          : "Login concluído. Escolha um condomínio autorizado para abrir a conversa."
-      );
-      setView("condominiums");
+      const body = (await response.json()) as Readonly<{
+        message?: string;
+        developmentActionUrl?: string;
+      }>;
+      setAuthDevelopmentActionUrl(body.developmentActionUrl ?? "");
+      setAuthMessage(body.message ?? "Se a conta for compatível, as instruções serão enviadas.");
     } catch {
       setAuthMessage("Não foi possível conectar ao servidor agora.");
+      setAuthMessageIsError(true);
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function confirmEmail(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setAuthBusy(true);
+    setAuthMessage("");
+    setAuthMessageIsError(false);
+    try {
+      const response = await fetch("/v1/auth/verify-email/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ token: authActionToken })
+      });
+      if (!response.ok) {
+        setAuthMessage(await readMessage(response, "O link é inválido ou expirou."));
+        setAuthMessageIsError(true);
+        return;
+      }
+      window.history.replaceState({}, "", window.location.pathname);
+      setAuthActionToken("");
+      setAuthDevelopmentActionUrl("");
+      setAuthPanel("login");
+      setAuthMessage("E-mail confirmado. Agora você pode entrar.");
+    } catch {
+      setAuthMessage("Não foi possível confirmar o e-mail agora.");
+      setAuthMessageIsError(true);
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function resetAccountPassword(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (authPassword !== authPasswordConfirmation) {
+      setAuthMessage("As senhas informadas não são iguais.");
+      setAuthMessageIsError(true);
+      return;
+    }
+    setAuthBusy(true);
+    setAuthMessage("");
+    setAuthMessageIsError(false);
+    try {
+      const response = await fetch("/v1/auth/password-reset/confirm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ token: authActionToken, password: authPassword })
+      });
+      if (!response.ok) {
+        setAuthMessage(await readMessage(response, "O link é inválido ou expirou."));
+        setAuthMessageIsError(true);
+        return;
+      }
+      window.history.replaceState({}, "", window.location.pathname);
+      setAuthActionToken("");
+      setAuthPassword("");
+      setAuthPasswordConfirmation("");
+      setAuthPanel("login");
+      setAuthMessage("Senha redefinida. Todas as sessões anteriores foram encerradas.");
+    } catch {
+      setAuthMessage("Não foi possível redefinir a senha agora.");
+      setAuthMessageIsError(true);
     } finally {
       setAuthBusy(false);
     }
@@ -912,7 +1159,18 @@ export function App() {
     setAuthDisplayName("");
     setAuthEmail("");
     setAuthPassword("");
+    setAuthPasswordConfirmation("");
+    setAuthActionToken("");
+    setAuthChallengeId("");
+    setAuthMfaCode("");
+    setAuthDevelopmentActionUrl("");
     setAuthMessage("");
+    setAuthMessageIsError(false);
+    setAccountSecurityStatus(undefined);
+    setAccountSessions([]);
+    setAccountSettingsMessage("");
+    setMfaSetup(undefined);
+    setMfaRecoveryCodes([]);
     setAdminDashboard(undefined);
     setAdminDashboardError("");
     setChatSettings(defaultChatSettings);
@@ -950,7 +1208,12 @@ export function App() {
   function openAuthentication(panel: AuthPanel): void {
     setAuthPanel(panel);
     setAuthMessage("");
+    setAuthMessageIsError(false);
     setAuthPassword("");
+    setAuthPasswordConfirmation("");
+    setAuthMfaCode("");
+    setAuthChallengeId("");
+    setAuthDevelopmentActionUrl("");
     setView("login");
   }
 
@@ -1022,9 +1285,242 @@ export function App() {
     document.getElementById(`settings-tab-${nextTab}`)?.focus();
   }
 
+  async function loadAccountSecurity(): Promise<void> {
+    if (!accountSecurityEnabled) return;
+    setAccountSettingsBusy(true);
+    try {
+      const [statusResponse, sessionsResponse] = await Promise.all([
+        fetch("/v1/auth/security", { credentials: "same-origin" }),
+        fetch("/v1/auth/sessions", { credentials: "same-origin" })
+      ]);
+      if (!statusResponse.ok) {
+        throw new Error(
+          await readMessage(statusResponse, "Não foi possível carregar a segurança da conta.")
+        );
+      }
+      if (!sessionsResponse.ok) {
+        throw new Error(
+          await readMessage(sessionsResponse, "Não foi possível carregar os dispositivos.")
+        );
+      }
+      const status = (await statusResponse.json()) as AccountSecurityStatus;
+      const sessionsBody = (await sessionsResponse.json()) as Readonly<{
+        sessions?: readonly ManagedAuthSession[];
+      }>;
+      setAccountSecurityStatus(status);
+      setAccountSessions(sessionsBody.sessions ?? []);
+    } catch (error: unknown) {
+      setAccountSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível carregar a segurança da conta."
+      );
+      setAccountSettingsMessageIsError(true);
+    } finally {
+      setAccountSettingsBusy(false);
+    }
+  }
+
+  async function changeAccountPassword(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (newAccountPassword !== newAccountPasswordConfirmation) {
+      setAccountSettingsMessage("As novas senhas informadas não são iguais.");
+      setAccountSettingsMessageIsError(true);
+      return;
+    }
+    setAccountSettingsBusy(true);
+    setAccountSettingsMessage("");
+    try {
+      const response = await fetch("/v1/auth/password/change", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          currentPassword: currentAccountPassword,
+          newPassword: newAccountPassword
+        })
+      });
+      if (!response.ok) {
+        throw new Error(await readMessage(response, "Não foi possível trocar a senha."));
+      }
+      setCurrentAccountPassword("");
+      setNewAccountPassword("");
+      setNewAccountPasswordConfirmation("");
+      setAccountSettingsMessage(
+        "Senha alterada. Os outros dispositivos foram desconectados; esta sessão continua ativa."
+      );
+      setAccountSettingsMessageIsError(false);
+      await loadAccountSecurity();
+    } catch (error: unknown) {
+      setAccountSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível trocar a senha."
+      );
+      setAccountSettingsMessageIsError(true);
+    } finally {
+      setAccountSettingsBusy(false);
+    }
+  }
+
+  async function beginMfaSetup(): Promise<void> {
+    setAccountSettingsBusy(true);
+    setAccountSettingsMessage("");
+    setMfaRecoveryCodes([]);
+    try {
+      const response = await fetch("/v1/auth/mfa/setup", {
+        method: "POST",
+        credentials: "same-origin"
+      });
+      if (!response.ok) {
+        throw new Error(await readMessage(response, "Não foi possível iniciar o MFA."));
+      }
+      setMfaSetup((await response.json()) as MfaSetup);
+      setMfaSetupCode("");
+      setAccountSettingsMessage(
+        "Adicione a chave no aplicativo autenticador e informe o código de seis dígitos."
+      );
+      setAccountSettingsMessageIsError(false);
+    } catch (error: unknown) {
+      setAccountSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível iniciar o MFA."
+      );
+      setAccountSettingsMessageIsError(true);
+    } finally {
+      setAccountSettingsBusy(false);
+    }
+  }
+
+  async function enableMfa(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setAccountSettingsBusy(true);
+    setAccountSettingsMessage("");
+    try {
+      const response = await fetch("/v1/auth/mfa/enable", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ code: mfaSetupCode })
+      });
+      if (!response.ok) {
+        throw new Error(await readMessage(response, "Não foi possível ativar o MFA."));
+      }
+      const body = (await response.json()) as Readonly<{ recoveryCodes?: readonly string[] }>;
+      setMfaRecoveryCodes(body.recoveryCodes ?? []);
+      setMfaSetup(undefined);
+      setMfaSetupCode("");
+      setAccountSecurityStatus((current) =>
+        current === undefined
+          ? { emailVerified: true, mfaEnabled: true }
+          : { ...current, mfaEnabled: true }
+      );
+      setAccountSettingsMessage(
+        "MFA ativado. Guarde os códigos de recuperação antes de sair desta tela."
+      );
+      setAccountSettingsMessageIsError(false);
+      await loadAccountSecurity();
+    } catch (error: unknown) {
+      setAccountSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível ativar o MFA."
+      );
+      setAccountSettingsMessageIsError(true);
+    } finally {
+      setAccountSettingsBusy(false);
+    }
+  }
+
+  async function disableMfa(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setAccountSettingsBusy(true);
+    setAccountSettingsMessage("");
+    try {
+      const response = await fetch("/v1/auth/mfa/disable", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ password: mfaDisablePassword, code: mfaDisableCode })
+      });
+      if (!response.ok) {
+        throw new Error(await readMessage(response, "Não foi possível desativar o MFA."));
+      }
+      setMfaDisablePassword("");
+      setMfaDisableCode("");
+      setMfaRecoveryCodes([]);
+      setAccountSecurityStatus((current) =>
+        current === undefined
+          ? { emailVerified: true, mfaEnabled: false }
+          : { ...current, mfaEnabled: false }
+      );
+      setAccountSettingsMessage("MFA desativado. Os outros dispositivos foram desconectados.");
+      setAccountSettingsMessageIsError(false);
+      await loadAccountSecurity();
+    } catch (error: unknown) {
+      setAccountSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível desativar o MFA."
+      );
+      setAccountSettingsMessageIsError(true);
+    } finally {
+      setAccountSettingsBusy(false);
+    }
+  }
+
+  async function revokeAccountSession(session: ManagedAuthSession): Promise<void> {
+    setAccountSettingsBusy(true);
+    setAccountSettingsMessage("");
+    try {
+      const response = await fetch(`/v1/auth/sessions/${encodeURIComponent(session.sessionId)}`, {
+        method: "DELETE",
+        credentials: "same-origin"
+      });
+      if (!response.ok) {
+        throw new Error(await readMessage(response, "Não foi possível encerrar a sessão."));
+      }
+      const body = (await response.json()) as Readonly<{ currentRevoked?: boolean }>;
+      if (body.currentRevoked === true) {
+        await logoutAccount();
+        return;
+      }
+      setAccountSettingsMessage("Dispositivo desconectado.");
+      setAccountSettingsMessageIsError(false);
+      await loadAccountSecurity();
+    } catch (error: unknown) {
+      setAccountSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível encerrar a sessão."
+      );
+      setAccountSettingsMessageIsError(true);
+    } finally {
+      setAccountSettingsBusy(false);
+    }
+  }
+
+  async function revokeOtherAccountSessions(): Promise<void> {
+    setAccountSettingsBusy(true);
+    setAccountSettingsMessage("");
+    try {
+      const response = await fetch("/v1/auth/sessions/revoke-others", {
+        method: "POST",
+        credentials: "same-origin"
+      });
+      if (!response.ok) {
+        throw new Error(
+          await readMessage(response, "Não foi possível desconectar os dispositivos.")
+        );
+      }
+      setAccountSettingsMessage("Todos os outros dispositivos foram desconectados.");
+      setAccountSettingsMessageIsError(false);
+      await loadAccountSecurity();
+    } catch (error: unknown) {
+      setAccountSettingsMessage(
+        error instanceof Error ? error.message : "Não foi possível desconectar os dispositivos."
+      );
+      setAccountSettingsMessageIsError(true);
+    } finally {
+      setAccountSettingsBusy(false);
+    }
+  }
+
   function openProfile(returnView: "chat" | "condominiums"): void {
     setProfileReturnView(returnView);
+    setAccountSettingsMessage("");
+    setAccountSettingsMessageIsError(false);
     setView("profile");
+    if (authMode === "real") void loadAccountSecurity();
   }
 
   function openCondominiumRegistration(returnView: "onboarding" | "condominiums") {
@@ -1603,18 +2099,19 @@ export function App() {
         }
       );
       if (!response.ok) {
-        throw new Error(await readMessage(response, "Não foi possível abrir este PDF."));
+        throw new Error(await readMessage(response, "Não foi possível abrir este arquivo."));
       }
       const file = await response.blob();
-      if (file.type !== "application/pdf") {
-        throw new Error("O arquivo disponível não é um PDF válido.");
+      const mediaType = document.mediaType ?? "application/pdf";
+      if (file.type !== mediaType) {
+        throw new Error("O arquivo disponível não corresponde ao tipo registrado.");
       }
       const url = URL.createObjectURL(file);
       documentPreviewUrl.current = url;
-      setDocumentPreview({ title: document.title, url });
+      setDocumentPreview({ title: document.title, url, mediaType });
     } catch (error) {
       setDocumentPreviewError(
-        error instanceof Error ? error.message : "Não foi possível abrir este PDF."
+        error instanceof Error ? error.message : "Não foi possível abrir este arquivo."
       );
     } finally {
       setDocumentPreviewBusy(false);
@@ -1636,7 +2133,7 @@ export function App() {
       if (!response.ok)
         throw new Error(await readMessage(response, "Não foi possível remover o documento."));
       setSettingsMessage(
-        `${document.title} foi removido da memória. Você pode recuperá-lo na lixeira por até 30 dias.`
+        `${document.title} foi para a lixeira. Você pode recuperá-lo por até 30 dias; depois, o original e os dados derivados serão apagados do banco ativo.`
       );
       await loadRegisteredDocuments(context.condominiumId);
     } catch (error) {
@@ -1676,9 +2173,11 @@ export function App() {
   }
 
   function selectChatDocument(file: File): void {
-    if (!isPdf(file) || file.size > 25 * 1024 * 1024) {
+    const mediaType = chatFileMediaType(file);
+    const maximumBytes = mediaType === "application/pdf" ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (mediaType === undefined || file.size > maximumBytes) {
       setChatDocumentMessageIsError(true);
-      setChatDocumentMessage("Escolha um PDF de até 25 MB para enviar na conversa.");
+      setChatDocumentMessage("Escolha um PDF de até 25 MB ou uma foto JPEG/PNG de até 10 MB.");
       return;
     }
     setPendingChatDocument(file);
@@ -1703,13 +2202,15 @@ export function App() {
       );
       return;
     }
-    if (!isPdf(file) || file.size > 25 * 1024 * 1024) {
+    const mediaType = chatFileMediaType(file);
+    const maximumBytes = mediaType === "application/pdf" ? 25 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (mediaType === undefined || file.size > maximumBytes) {
       setChatDocumentMessageIsError(true);
-      setChatDocumentMessage("Escolha um PDF de até 25 MB para enviar na conversa.");
+      setChatDocumentMessage("Escolha um PDF de até 25 MB ou uma foto JPEG/PNG de até 10 MB.");
       return;
     }
     const previousMeetingMinutes =
-      inferDocumentType(file.name) === "meeting_minutes"
+      mediaType === "application/pdf" && inferDocumentType(file.name) === "meeting_minutes"
         ? registeredDocuments.find((document) => document.documentType === "meeting_minutes")
         : undefined;
     const removePreviousMeetingMinutes =
@@ -1725,8 +2226,9 @@ export function App() {
       const response = await requestDocumentUploadWithAuthorizationRecovery(fetch, {
         condominiumId: activeContext.condominiumId,
         content: file,
-        title: file.name.replace(/\.pdf$/iu, ""),
+        title: file.name.replace(/\.(pdf|jpe?g|png)$/iu, ""),
         documentType: "other",
+        mediaType,
         authMode: authMode === "development" ? "development" : "real",
         developmentUserId
       });
@@ -1739,7 +2241,9 @@ export function App() {
       setPendingChatDocument(undefined);
       setSentChatDocumentName(file.name);
       setChatDocumentMessage(
-        `Recebi ${file.name}. Estou lendo e identificando o documento; ele só ficará disponível para respostas quando o processamento terminar.`
+        mediaType === "application/pdf"
+          ? `Recebi ${file.name}. Estou lendo e identificando o documento; ele só ficará disponível para respostas quando o processamento terminar.`
+          : `Recebi ${file.name}. A observação visual será gerada por IA e pode conter erros; confira a foto original. Neste ambiente, use somente imagens sintéticas. A foto será guardada no banco deste condomínio e enviada à Gemini paga para análise.`
       );
       if (removePreviousMeetingMinutes && previousMeetingMinutes !== undefined) {
         void removeRegisteredDocument(previousMeetingMinutes);
@@ -2222,6 +2726,36 @@ export function App() {
     }
     if (authMode === "real") {
       const registering = authPanel === "register";
+      const panelCopy: Readonly<Record<AuthPanel, Readonly<{ title: string; lead: string }>>> = {
+        login: {
+          title: "Bem-vindo de volta.",
+          lead: "Entre para continuar de onde você parou, com seus condomínios autorizados."
+        },
+        register: {
+          title: "Crie sua conta.",
+          lead: "Organize os documentos dos seus condomínios em um espaço seguro."
+        },
+        forgot: {
+          title: "Recupere seu acesso.",
+          lead: "Informe seu e-mail. Se houver uma conta compatível, você receberá as instruções."
+        },
+        reset: {
+          title: "Defina uma nova senha.",
+          lead: "A nova senha encerrará o acesso em todos os dispositivos anteriores."
+        },
+        verify: {
+          title: "Confirme seu e-mail.",
+          lead:
+            authActionToken === ""
+              ? "Use o link recebido ou solicite uma nova confirmação."
+              : "Confirme que este endereço pertence a você antes de entrar."
+        },
+        mfa: {
+          title: "Confirme que é você.",
+          lead: "Use o código do aplicativo autenticador ou um código de recuperação."
+        }
+      };
+      const activePanelCopy = panelCopy[authPanel];
       return (
         <main className="login-page">
           <section className="login-card" aria-labelledby="auth-title">
@@ -2230,74 +2764,225 @@ export function App() {
               <span>{provisionalBrand.productName}</span>
             </div>
             <p className="overline">CONSELHEIRO DOCUMENTAL</p>
-            <h1 id="auth-title">{registering ? "Crie sua conta." : "Bem-vindo de volta."}</h1>
-            <p className="login-lead">
-              {registering
-                ? "Organize os documentos dos seus condomínios em um espaço seguro."
-                : "Entre para continuar de onde você parou, com seus condomínios autorizados."}
-            </p>
-            <form className="auth-form" onSubmit={submitAuthentication}>
-              {registering ? (
+            <h1 id="auth-title">{activePanelCopy.title}</h1>
+            <p className="login-lead">{activePanelCopy.lead}</p>
+
+            {authPanel === "login" || registering ? (
+              <form className="auth-form" onSubmit={submitAuthentication}>
+                {registering ? (
+                  <label>
+                    Como quer ser chamado?
+                    <input
+                      value={authDisplayName}
+                      onChange={(event) => setAuthDisplayName(event.target.value)}
+                      autoComplete="name"
+                      minLength={2}
+                      maxLength={120}
+                      required
+                    />
+                  </label>
+                ) : null}
                 <label>
-                  Como quer ser chamado?
+                  E-mail
                   <input
-                    value={authDisplayName}
-                    onChange={(event) => setAuthDisplayName(event.target.value)}
-                    autoComplete="name"
-                    minLength={2}
-                    maxLength={120}
+                    type="email"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    autoComplete="email"
                     required
                   />
                 </label>
-              ) : null}
-              <label>
-                E-mail
-                <input
-                  type="email"
-                  value={authEmail}
-                  onChange={(event) => setAuthEmail(event.target.value)}
-                  autoComplete="email"
-                  required
-                />
-              </label>
-              <label>
-                Senha
-                <input
-                  type="password"
-                  value={authPassword}
-                  onChange={(event) => setAuthPassword(event.target.value)}
-                  autoComplete={registering ? "new-password" : "current-password"}
-                  minLength={12}
-                  maxLength={200}
-                  required
-                />
-              </label>
-              {registering ? (
-                <p className="auth-hint">
-                  Use pelo menos 12 caracteres. Não reutilize uma senha importante.
-                </p>
-              ) : null}
-              {authMessage !== "" ? (
-                <p className="auth-error" role="alert">
-                  {authMessage}
-                </p>
-              ) : null}
-              <button className="primary-button" type="submit" disabled={authBusy}>
-                {authBusy ? "Aguarde…" : registering ? "Criar conta" : "Entrar"}
-                <span aria-hidden="true">→</span>
+                <label>
+                  Senha
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={(event) => setAuthPassword(event.target.value)}
+                    autoComplete={registering ? "new-password" : "current-password"}
+                    minLength={12}
+                    maxLength={200}
+                    required
+                  />
+                </label>
+                {registering ? (
+                  <>
+                    <label>
+                      Confirme a senha
+                      <input
+                        type="password"
+                        value={authPasswordConfirmation}
+                        onChange={(event) => setAuthPasswordConfirmation(event.target.value)}
+                        autoComplete="new-password"
+                        minLength={12}
+                        maxLength={200}
+                        required
+                      />
+                    </label>
+                    <p className="auth-hint">
+                      Use pelo menos 12 caracteres. Não reutilize uma senha importante.
+                    </p>
+                  </>
+                ) : null}
+                <button className="primary-button" type="submit" disabled={authBusy}>
+                  {authBusy ? "Aguarde…" : registering ? "Criar conta" : "Entrar"}
+                  <span aria-hidden="true">→</span>
+                </button>
+              </form>
+            ) : null}
+
+            {authPanel === "forgot" ? (
+              <form
+                className="auth-form"
+                onSubmit={(event) => void requestAccountAction(event, "password-reset")}
+              >
+                <label>
+                  E-mail
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    autoComplete="email"
+                    required
+                  />
+                </label>
+                <button className="primary-button" type="submit" disabled={authBusy}>
+                  {authBusy ? "Aguarde…" : "Enviar instruções"}
+                  <span aria-hidden="true">→</span>
+                </button>
+              </form>
+            ) : null}
+
+            {authPanel === "verify" && authActionToken !== "" ? (
+              <form className="auth-form" onSubmit={confirmEmail}>
+                <button className="primary-button" type="submit" disabled={authBusy}>
+                  {authBusy ? "Confirmando…" : "Confirmar meu e-mail"}
+                  <span aria-hidden="true">→</span>
+                </button>
+              </form>
+            ) : null}
+
+            {authPanel === "verify" && authActionToken === "" ? (
+              <form
+                className="auth-form"
+                onSubmit={(event) => void requestAccountAction(event, "verify-email")}
+              >
+                <label>
+                  E-mail
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    autoComplete="email"
+                    required
+                  />
+                </label>
+                <button className="primary-button" type="submit" disabled={authBusy}>
+                  {authBusy ? "Aguarde…" : "Reenviar confirmação"}
+                  <span aria-hidden="true">→</span>
+                </button>
+              </form>
+            ) : null}
+
+            {authPanel === "reset" ? (
+              <form className="auth-form" onSubmit={resetAccountPassword}>
+                <label>
+                  Nova senha
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={(event) => setAuthPassword(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={12}
+                    maxLength={200}
+                    required
+                  />
+                </label>
+                <label>
+                  Confirme a nova senha
+                  <input
+                    type="password"
+                    value={authPasswordConfirmation}
+                    onChange={(event) => setAuthPasswordConfirmation(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={12}
+                    maxLength={200}
+                    required
+                  />
+                </label>
+                <p className="auth-hint">Use pelo menos 12 caracteres.</p>
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={authBusy || authActionToken === ""}
+                >
+                  {authBusy ? "Aguarde…" : "Redefinir senha"}
+                  <span aria-hidden="true">→</span>
+                </button>
+              </form>
+            ) : null}
+
+            {authPanel === "mfa" ? (
+              <form className="auth-form" onSubmit={submitMfaChallenge}>
+                <label>
+                  Código de segurança
+                  <input
+                    value={authMfaCode}
+                    onChange={(event) => setAuthMfaCode(event.target.value)}
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    minLength={6}
+                    maxLength={32}
+                    required
+                    autoFocus
+                  />
+                </label>
+                <button className="primary-button" type="submit" disabled={authBusy}>
+                  {authBusy ? "Validando…" : "Confirmar acesso"}
+                  <span aria-hidden="true">→</span>
+                </button>
+              </form>
+            ) : null}
+
+            {authMessage !== "" ? (
+              <p
+                className={authMessageIsError ? "auth-error" : "auth-message"}
+                role={authMessageIsError ? "alert" : "status"}
+              >
+                {authMessage}
+              </p>
+            ) : null}
+            {authDevelopmentActionUrl === "" ? null : (
+              <a className="auth-development-link" href={authDevelopmentActionUrl}>
+                Abrir link local de teste
+              </a>
+            )}
+
+            {authPanel === "login" ? (
+              <div className="auth-navigation">
+                <button
+                  className="auth-switch"
+                  type="button"
+                  onClick={() => openAuthentication("forgot")}
+                >
+                  Esqueci minha senha
+                </button>
+                <button
+                  className="auth-switch"
+                  type="button"
+                  onClick={() => openAuthentication("register")}
+                >
+                  Ainda não tenho uma conta
+                </button>
+              </div>
+            ) : (
+              <button
+                className="auth-switch"
+                type="button"
+                onClick={() => openAuthentication("login")}
+              >
+                {authPanel === "register" ? "Já tenho uma conta" : "Voltar para o login"}
               </button>
-            </form>
-            <button
-              className="auth-switch"
-              type="button"
-              onClick={() => {
-                setAuthPanel(registering ? "login" : "register");
-                setAuthMessage("");
-                setAuthPassword("");
-              }}
-            >
-              {registering ? "Já tenho uma conta" : "Ainda não tenho uma conta"}
-            </button>
+            )}
             <p className="login-footer">
               Seus documentos continuam separados por condomínio e só aparecem para quem tem
               autorização.
@@ -3131,6 +3816,218 @@ export function App() {
             </div>
           </section>
 
+          {accountSettingsMessage === "" ? null : (
+            <p
+              className={`account-settings-message${accountSettingsMessageIsError ? " error" : ""}`}
+              role={accountSettingsMessageIsError ? "alert" : "status"}
+            >
+              {accountSettingsMessage}
+            </p>
+          )}
+
+          {authMode === "real" && accountSecurityEnabled ? (
+            <>
+              <section className="app-settings-card account-security-card">
+                <div className="app-settings-card-heading">
+                  <div>
+                    <p>SENHA</p>
+                    <h2>Trocar senha</h2>
+                  </div>
+                  <span aria-hidden="true">•••</span>
+                </div>
+                <p>A troca mantém este dispositivo conectado e encerra as outras sessões.</p>
+                <form className="account-security-form" onSubmit={changeAccountPassword}>
+                  <label>
+                    Senha atual
+                    <input
+                      type="password"
+                      value={currentAccountPassword}
+                      onChange={(event) => setCurrentAccountPassword(event.target.value)}
+                      autoComplete="current-password"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Nova senha
+                    <input
+                      type="password"
+                      value={newAccountPassword}
+                      onChange={(event) => setNewAccountPassword(event.target.value)}
+                      autoComplete="new-password"
+                      minLength={12}
+                      maxLength={200}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Confirme a nova senha
+                    <input
+                      type="password"
+                      value={newAccountPasswordConfirmation}
+                      onChange={(event) => setNewAccountPasswordConfirmation(event.target.value)}
+                      autoComplete="new-password"
+                      minLength={12}
+                      maxLength={200}
+                      required
+                    />
+                  </label>
+                  <button type="submit" disabled={accountSettingsBusy}>
+                    {accountSettingsBusy ? "Aguarde…" : "Alterar senha"}
+                  </button>
+                </form>
+              </section>
+
+              <section className="app-settings-card account-security-card">
+                <div className="app-settings-card-heading">
+                  <div>
+                    <p>SEGUNDO FATOR</p>
+                    <h2>Autenticação em duas etapas</h2>
+                  </div>
+                  <span
+                    className={accountSecurityStatus?.mfaEnabled ? "is-secure" : ""}
+                    aria-hidden="true"
+                  >
+                    2×
+                  </span>
+                </div>
+                <p>
+                  {accountSecurityStatus?.mfaEnabled
+                    ? "Ativa. Todo novo acesso exige um código do autenticador ou de recuperação."
+                    : "Adicione uma proteção além da senha usando um aplicativo autenticador."}
+                </p>
+
+                {mfaRecoveryCodes.length === 0 ? null : (
+                  <div className="mfa-recovery-codes" role="status">
+                    <strong>Guarde estes códigos em local seguro</strong>
+                    <p>Cada código pode ser usado uma única vez e não será exibido novamente.</p>
+                    <ul>
+                      {mfaRecoveryCodes.map((code) => (
+                        <li key={code}>
+                          <code>{code}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {accountSecurityStatus?.mfaEnabled ? (
+                  <form className="account-security-form" onSubmit={disableMfa}>
+                    <label>
+                      Senha atual
+                      <input
+                        type="password"
+                        value={mfaDisablePassword}
+                        onChange={(event) => setMfaDisablePassword(event.target.value)}
+                        autoComplete="current-password"
+                        required
+                      />
+                    </label>
+                    <label>
+                      Código do autenticador ou de recuperação
+                      <input
+                        value={mfaDisableCode}
+                        onChange={(event) => setMfaDisableCode(event.target.value)}
+                        autoComplete="one-time-code"
+                        minLength={6}
+                        maxLength={32}
+                        required
+                      />
+                    </label>
+                    <button className="danger" type="submit" disabled={accountSettingsBusy}>
+                      Desativar MFA
+                    </button>
+                  </form>
+                ) : mfaSetup === undefined ? (
+                  <button
+                    className="account-security-action"
+                    type="button"
+                    onClick={() => void beginMfaSetup()}
+                    disabled={accountSettingsBusy}
+                  >
+                    Configurar aplicativo autenticador
+                  </button>
+                ) : (
+                  <form className="account-security-form" onSubmit={enableMfa}>
+                    <div className="mfa-setup-key">
+                      <span>Chave de configuração</span>
+                      <code>{mfaSetup.secret}</code>
+                      <a href={mfaSetup.uri}>Abrir no aplicativo autenticador</a>
+                    </div>
+                    <label>
+                      Código de seis dígitos
+                      <input
+                        value={mfaSetupCode}
+                        onChange={(event) => setMfaSetupCode(event.target.value)}
+                        autoComplete="one-time-code"
+                        inputMode="numeric"
+                        pattern="[0-9]{6}"
+                        minLength={6}
+                        maxLength={6}
+                        required
+                      />
+                    </label>
+                    <button type="submit" disabled={accountSettingsBusy}>
+                      Ativar MFA
+                    </button>
+                  </form>
+                )}
+              </section>
+
+              <section className="app-settings-card account-security-card">
+                <div className="app-settings-card-heading">
+                  <div>
+                    <p>DISPOSITIVOS</p>
+                    <h2>Sessões conectadas</h2>
+                  </div>
+                  <span aria-hidden="true">{accountSessions.length}</span>
+                </div>
+                <p>Revise onde sua conta está aberta e encerre acessos que não reconhecer.</p>
+                {accountSettingsBusy && accountSessions.length === 0 ? (
+                  <p className="account-sessions-empty">Carregando dispositivos…</p>
+                ) : accountSessions.length === 0 ? (
+                  <p className="account-sessions-empty">Nenhuma sessão ativa foi encontrada.</p>
+                ) : (
+                  <ul className="account-session-list">
+                    {accountSessions.map((session) => (
+                      <li key={session.sessionId}>
+                        <div>
+                          <strong>
+                            {session.deviceLabel}
+                            {session.current ? <em>Este dispositivo</em> : null}
+                          </strong>
+                          <small>
+                            Atividade em{" "}
+                            {new Intl.DateTimeFormat("pt-BR", {
+                              dateStyle: "short",
+                              timeStyle: "short"
+                            }).format(new Date(session.lastSeenAt))}
+                          </small>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void revokeAccountSession(session)}
+                          disabled={accountSettingsBusy}
+                        >
+                          {session.current ? "Sair" : "Desconectar"}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {accountSessions.some((session) => !session.current) ? (
+                  <button
+                    className="account-security-action secondary"
+                    type="button"
+                    onClick={() => void revokeOtherAccountSessions()}
+                    disabled={accountSettingsBusy}
+                  >
+                    Desconectar outros dispositivos
+                  </button>
+                ) : null}
+              </section>
+            </>
+          ) : null}
+
           <section className="app-settings-card app-settings-session-card">
             <div className="app-settings-card-heading">
               <div>
@@ -3756,7 +4653,7 @@ export function App() {
                   </span>
                   <div>
                     <strong>Nenhum documento registrado</strong>
-                    <p>Adicione o primeiro PDF para começar a memória deste condomínio.</p>
+                    <p>Adicione PDFs ou fotos pelo chat para começar a memória deste condomínio.</p>
                   </div>
                 </div>
               ) : (
@@ -3835,8 +4732,10 @@ export function App() {
                     <RestoreIcon />
                   </span>
                   <p>
-                    Os PDFs removidos podem ser recuperados por até 30 dias. Depois disso, são
-                    apagados permanentemente.
+                    Você pode recuperar o documento por até 30 dias. Depois, o original e os dados
+                    usados para localizá-lo na busca são removidos do banco ativo. As conversas,
+                    respostas e trechos já citados ficam no chat, identificados como históricos.
+                    Cópias de segurança seguem prazo próprio.
                   </p>
                 </div>
                 <ul className="document-catalog-list" aria-label="Documentos recuperáveis">
@@ -4215,7 +5114,7 @@ export function App() {
               </header>
               {documentPreviewBusy ? (
                 <p className="document-preview-state" role="status">
-                  Carregando PDF…
+                  Carregando arquivo…
                 </p>
               ) : documentPreviewError !== "" ? (
                 <div className="document-preview-state error" role="alert">
@@ -4229,7 +5128,15 @@ export function App() {
                   </button>
                 </div>
               ) : documentPreview !== undefined ? (
-                <iframe title={`PDF: ${documentPreview.title}`} src={documentPreview.url} />
+                documentPreview.mediaType === "application/pdf" ? (
+                  <iframe title={`PDF: ${documentPreview.title}`} src={documentPreview.url} />
+                ) : (
+                  <img
+                    className="document-preview-image"
+                    src={documentPreview.url}
+                    alt={`Foto original: ${documentPreview.title}`}
+                  />
+                )
               ) : null}
             </section>
           </div>
@@ -4250,8 +5157,11 @@ export function App() {
               <p className="chat-settings-overline">GERENCIAR MEMÓRIA DOCUMENTAL</p>
               <h2 id="document-removal-title">Mover para a lixeira?</h2>
               <p id="document-removal-description">
-                <strong>{documentRemovalCandidate.title}</strong> deixará de ser usado nas respostas
-                agora. Você poderá recuperá-lo por até 30 dias antes da exclusão permanente.
+                <strong>{documentRemovalCandidate.title}</strong> deixará de ser usado em novas
+                respostas agora. Você poderá recuperá-lo por até 30 dias. Após esse prazo, o
+                original e os dados usados na busca serão removidos do banco ativo. As mensagens,
+                respostas e trechos já citados permanecem no chat, identificados como históricos.
+                Cópias de segurança seguem prazo próprio.
               </p>
               <div className="document-removal-dialog-actions">
                 <button
@@ -4494,6 +5404,41 @@ export function App() {
                     <FormattedText text={entry.answer.answer} />
                   </p>
                 </article>
+                {entry.answer.citations.length === 0 ? null : (
+                  <section className="assistant-message detail-message sources">
+                    <div>
+                      <strong>Fontes da resposta</strong>
+                      <small>
+                        {entry.answer.citations.some((citation) => citation.sourceRemoved)
+                          ? "Trechos históricos preservados na conversa"
+                          : `${entry.answer.citations.length} trecho(s) verificável(is)`}
+                      </small>
+                    </div>
+                    {entry.answer.citations.map((citation) => (
+                      <button
+                        type="button"
+                        key={citation.id}
+                        onClick={() => setSelectedCitation(citation)}
+                      >
+                        <span>
+                          <DocumentIcon />
+                        </span>
+                        <div>
+                          <strong>{citation.title}</strong>
+                          <small>
+                            {citation.sourceRemoved
+                              ? "Documento removido do acervo · trecho histórico"
+                              : citation.sourceScope === "legislation"
+                                ? "Legislação oficial"
+                                : "Documento do condomínio"}{" "}
+                            · página {citation.page} · abrir trecho
+                          </small>
+                        </div>
+                        <b>›</b>
+                      </button>
+                    ))}
+                  </section>
+                )}
               </div>
             ))}
             {visibleConversationHistory.length === 0 &&
@@ -4619,7 +5564,11 @@ export function App() {
                   <section className="assistant-message detail-message sources">
                     <div>
                       <strong>Fontes da resposta</strong>
-                      <small>{answer.citations.length} trecho(s) verificável(is)</small>
+                      <small>
+                        {answer.citations.some((citation) => citation.sourceRemoved)
+                          ? "Trechos históricos preservados na conversa"
+                          : `${answer.citations.length} trecho(s) verificável(is)`}
+                      </small>
                     </div>
                     {answer.citations.map((citation) => (
                       <button
@@ -4633,30 +5582,17 @@ export function App() {
                         <div>
                           <strong>{citation.title}</strong>
                           <small>
-                            {citation.sourceScope === "legislation"
-                              ? "Legislação oficial"
-                              : "Documento do condomínio"}{" "}
+                            {citation.sourceRemoved
+                              ? "Documento removido do acervo · trecho histórico"
+                              : citation.sourceScope === "legislation"
+                                ? "Legislação oficial"
+                                : "Documento do condomínio"}{" "}
                             · página {citation.page} · abrir trecho
                           </small>
                         </div>
                         <b>›</b>
                       </button>
                     ))}
-                  </section>
-                )}
-                {selectedCitation === undefined ? null : (
-                  <section className="assistant-message source-viewer">
-                    <div>
-                      <p className="overline">FONTE ABERTA</p>
-                      <h3>{selectedCitation.title}</h3>
-                    </div>
-                    <button type="button" onClick={() => setSelectedCitation(undefined)}>
-                      Fechar
-                    </button>
-                    <p>
-                      Versão {selectedCitation.documentVersionId} · página {selectedCitation.page}
-                    </p>
-                    <blockquote>{selectedCitation.excerpt}</blockquote>
                   </section>
                 )}
                 {isConversationalResponse ? null : (
@@ -4686,18 +5622,49 @@ export function App() {
                 )}
               </>
             )}
+            {selectedCitation === undefined ? null : (
+              <section className="assistant-message source-viewer">
+                <div>
+                  <p className="overline">
+                    {selectedCitation.sourceRemoved ? "TRECHO HISTÓRICO" : "FONTE ABERTA"}
+                  </p>
+                  <h3>{selectedCitation.title}</h3>
+                </div>
+                <button type="button" onClick={() => setSelectedCitation(undefined)}>
+                  Fechar
+                </button>
+                <p>
+                  {selectedCitation.sourceRemoved ? "Original removido · " : "Versão "}
+                  {selectedCitation.documentVersionId} · página {selectedCitation.page}
+                </p>
+                <blockquote>{selectedCitation.excerpt}</blockquote>
+              </section>
+            )}
           </div>
         </section>
-        <footer className="composer">
+        <footer
+          className={`composer${registeredDocuments.some((document) => document.mediaType?.startsWith("image/")) ? " composer-has-images" : ""}`}
+        >
           {pendingChatDocument === undefined ? (
-            <span className="composer-hint">Pergunte à {provisionalBrand.agentName}</span>
+            <div className="composer-hint-wrap">
+              <span className="composer-hint">Pergunte à {provisionalBrand.agentName}</span>
+              {registeredDocuments.some((document) => document.mediaType?.startsWith("image/")) ? (
+                <small className="composer-image-disclosure">
+                  Perguntas para localizar fotos cadastradas podem ser processadas pela Gemini paga.
+                </small>
+              ) : null}
+            </div>
           ) : (
             <div className="composer-attachment">
               <span aria-hidden="true">
                 <DocumentIcon />
               </span>
               <strong>{pendingChatDocument.name}</strong>
-              <small>Pronto para enviar pela seta</small>
+              <small>
+                {chatFileMediaType(pendingChatDocument) === "application/pdf"
+                  ? "Pronto para enviar pela seta"
+                  : "A foto será armazenada no banco deste condomínio e enviada à Gemini paga para análise. Use somente imagem sintética neste ambiente. Envie pela seta."}
+              </small>
               <button
                 type="button"
                 aria-label={`Remover ${pendingChatDocument.name}`}
@@ -4711,7 +5678,7 @@ export function App() {
             ref={chatDocumentInput}
             className="composer-document-input"
             type="file"
-            accept="application/pdf,.pdf"
+            accept="application/pdf,.pdf,image/jpeg,.jpg,.jpeg,image/png,.png"
             onChange={(event) => {
               const file = event.currentTarget.files?.[0];
               event.currentTarget.value = "";
@@ -4725,8 +5692,8 @@ export function App() {
             disabled={
               chatDocumentUploading || busy || !context?.permissions.includes("document:upload")
             }
-            aria-label="Enviar documento em PDF"
-            title="Enviar documento em PDF"
+            aria-label="Anexar PDF ou foto"
+            title="Anexar PDF ou foto"
           >
             <UploadIcon />
           </button>

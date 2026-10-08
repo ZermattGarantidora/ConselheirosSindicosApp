@@ -52,6 +52,7 @@ type CitationRow = Readonly<{
   page_end_offset: number | string;
   excerpt_snapshot: string;
   source_scope: "condominium" | "legislation";
+  source_removed_at: Date | string | null;
 }>;
 
 type ClaimRow = Readonly<{
@@ -130,6 +131,7 @@ function mapAnswer(
           page: Number(citation.page_number_snapshot),
           excerpt: citation.excerpt_snapshot,
           sourceScope: citation.source_scope ?? "condominium",
+          sourceRemoved: Boolean(citation.source_removed_at),
           startOffset: Number(citation.page_start_offset),
           endOffset: Number(citation.page_end_offset)
         })
@@ -180,8 +182,9 @@ async function loadAnswerDetails(
           page_number_snapshot,
           page_start_offset,
           page_end_offset,
-          excerpt_snapshot
-          , source_scope
+          excerpt_snapshot,
+          source_scope,
+          source_removed_at
         FROM app.citations
         WHERE condominium_id = $1 AND answer_id = $2
         ORDER BY ordinal

@@ -12,24 +12,38 @@ async function rollback(client: PoolClient): Promise<void> {
 
 export function createPostgresDocumentRetentionRepository(pool: PoolLike) {
   return {
-    async purgeExpiredOriginals(): Promise<number> {
+    async purgeExpiredDocuments(): Promise<number> {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
         await client.query("SET LOCAL ROLE app_worker");
-        const result = await client.query(
-          `DELETE FROM app.document_original_contents AS contents
-           USING app.document_versions AS versions
-           JOIN app.documents AS documents
-             ON documents.condominium_id = versions.condominium_id
-            AND documents.id = versions.document_id
-           WHERE contents.condominium_id = versions.condominium_id
-             AND contents.storage_object_id = versions.storage_object_id
-             AND documents.status = 'archived'
-             AND documents.archived_at <= now() - interval '30 days'`
+        const expiredDocuments = await client.query<{
+          condominium_id: string;
+          document_id: string;
+        }>(
+          `SELECT condominium_id, id AS document_id
+           FROM app.documents
+           WHERE status = 'archived'
+             AND archived_at <= now() - interval '30 days'
+           ORDER BY archived_at, condominium_id, id
+           LIMIT 100`
         );
+
+        let purgedCount = 0;
+        for (const document of expiredDocuments.rows) {
+          await client.query("SELECT set_config('app.condominium_id', $1, true)", [
+            document.condominium_id
+          ]);
+          const result = await client.query<{ purged: boolean }>(
+            "SELECT app.purge_expired_document_data($1, $2) AS purged",
+            [document.condominium_id, document.document_id]
+          );
+          if (result.rows[0]?.purged === true) purgedCount += 1;
+        }
+
+        await client.query("SELECT app.purge_expired_document_purge_receipts()");
         await client.query("COMMIT");
-        return result.rowCount as number;
+        return purgedCount;
       } catch (error) {
         await rollback(client);
         throw error;

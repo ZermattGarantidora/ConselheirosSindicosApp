@@ -9,6 +9,7 @@ import { createPostgresDocumentProcessingRepository } from "../../apps/api/docum
 import { createPostgresDocumentUploadRepository } from "../../apps/api/documents/postgres-document-upload-repository.js";
 import type { UploadedDocumentRecord } from "../../apps/api/documents/upload-document.js";
 import { createPostgresProcessingJobQueue } from "../../apps/api/worker/postgres-processing-job-queue.js";
+import { geminiImageEmbeddingProfile } from "../../apps/api/retrieval/gemini-multimodal-embedding.js";
 
 type QueryHandler = (sql: string, parameters: readonly unknown[]) => QueryResult<never>;
 
@@ -51,6 +52,7 @@ const record: UploadedDocumentRecord = Object.freeze({
   storageKey: "tenants/opaque/objects/44444444-4444-4444-8444-444444444444",
   title: "Convenção sintética",
   documentType: "convention",
+  mediaType: "application/pdf",
   contentSha256: "a".repeat(64),
   sizeBytes: 128,
   uploadedByUserId: userId,
@@ -292,6 +294,86 @@ describe("adaptadores persistidos de documentos", () => {
       false
     );
     expect(fixture.queries.some((query) => query.includes("finished_at = now()"))).toBe(true);
+    expect(fixture.queries.at(-1)).toBe("COMMIT");
+  });
+
+  it("persiste o embedding Gemini separado do perfil local no mesmo chunk do condomínio", async () => {
+    const embeddingProfiles: unknown[] = [];
+    const fixture = createFakePool((sql, values) => {
+      if (sql.includes("SELECT 1 AS active")) {
+        return result([
+          {
+            job_id: "55555555-5555-4555-8555-555555555555",
+            condominium_id: condominiumId,
+            document_version_id: record.documentVersionId
+          }
+        ] as never[]);
+      }
+      if (sql.includes("INSERT INTO app.document_chunk_embeddings")) {
+        embeddingProfiles.push(values[3]);
+      }
+      return result([], 1);
+    });
+    const extractedText = "Observação visual gerada por IA: caixa azul no corredor.";
+    const contentSha256ForChunk = createHash("sha256").update(extractedText).digest("hex");
+    const outcome: DocumentProcessingOutcome = {
+      status: "completed",
+      state: {
+        processingStatus: "ready",
+        validityStatus: "confirmed",
+        validFrom: null,
+        validUntil: null,
+        ocrQualityScore: null
+      },
+      pages: [
+        {
+          id: "page-foto",
+          condominiumId,
+          documentVersionId: record.documentVersionId,
+          pageIndex: 0,
+          pageNumber: 1,
+          extractedText,
+          extractionMethod: "image_vision",
+          qualityScore: 1,
+          contentSha256: contentSha256ForChunk,
+          multimodalEmbeddings: [
+            {
+              ...geminiImageEmbeddingProfile,
+              contentSha256: contentSha256ForChunk,
+              values: Array(768).fill(0.125)
+            }
+          ]
+        }
+      ],
+      extractionSummary: {
+        expectedPageCount: 1,
+        processedPageCount: 1,
+        searchablePageCount: 1,
+        unreadablePageNumbers: [],
+        extractionCompleteness: 1,
+        extractionMethod: "image_vision",
+        ocrQualityScore: null
+      }
+    };
+    const repository = createPostgresDocumentProcessingRepository(fixture.pool, {
+      async readOriginal() {
+        return Buffer.from("original sintético");
+      }
+    });
+
+    await repository.saveProcessingResult({
+      condominiumId,
+      documentVersionId: record.documentVersionId,
+      jobId: "55555555-5555-4555-8555-555555555555",
+      attemptCount: 1,
+      outcome
+    });
+
+    expect(embeddingProfiles).toHaveLength(2);
+    expect(embeddingProfiles).toContain(geminiImageEmbeddingProfile.embeddingProfile);
+    expect(fixture.queries.some((sql) => sql.includes("INSERT INTO app.document_chunks"))).toBe(
+      true
+    );
     expect(fixture.queries.at(-1)).toBe("COMMIT");
   });
 

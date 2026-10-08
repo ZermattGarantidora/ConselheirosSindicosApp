@@ -57,6 +57,7 @@ function createRecord(): UploadedDocumentRecord {
     storageKey: "tenants/synthetic/objects/33333333-3333-4333-8333-333333333333",
     title: "Convenção sintética",
     documentType: "convention",
+    mediaType: "application/pdf",
     contentSha256: "a".repeat(64),
     sizeBytes: 128,
     uploadedByUserId: createUserId("11111111-1111-4111-8111-111111111111"),
@@ -181,6 +182,7 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
         documentType: "convention",
         versionNumber: 2,
         sizeBytes: 4096,
+        mediaType: "application/pdf",
         processingStatus: "ready",
         validityStatus: "confirmed",
         createdAt: "2026-09-23T10:00:00.000Z",
@@ -202,6 +204,7 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
         documentType: "regulation",
         versionNumber: 1,
         sizeBytes: 2048,
+        mediaType: "application/pdf",
         processingStatus: "processing",
         validityStatus: "pending",
         createdAt: "2026-09-22T10:00:00.000Z",
@@ -317,6 +320,8 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
       }
     ]);
     expect(archivedFake.queries[4]?.sql).toContain("app.document_original_contents");
+    expect(archivedFake.queries[4]?.sql).toContain("archived_at > now() - interval '30 days'");
+    expect(archivedFake.queries[4]?.sql).toContain("app.document_purge_receipts");
 
     const restoreFake = createFakeClient();
     const restoreRepository = createPostgresDocumentUploadRepository(
@@ -333,6 +338,11 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
     expect(
       restoreFake.queries.some((query) => query.sql.includes("app.document_original_contents"))
     ).toBe(true);
+    const restoreQuery = restoreFake.queries.find((query) =>
+      query.sql.includes("SET status = 'active', archived_at = NULL")
+    );
+    expect(restoreQuery?.sql).toContain("archived_at > now() - interval '30 days'");
+    expect(restoreQuery?.sql).toContain("app.document_purge_receipts");
   });
 
   it("faz rollback quando o registro persistido falha", async () => {

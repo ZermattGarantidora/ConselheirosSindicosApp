@@ -39,7 +39,8 @@ import {
 import {
   DocumentUploadForbiddenError,
   InvalidDocumentUploadError,
-  maximumPdfUploadBytes,
+  maximumDocumentUploadBytes,
+  maximumImageUploadBytes,
   uploadDocument,
   type DocumentUploadRepository
 } from "../documents/upload-document.js";
@@ -73,6 +74,8 @@ import {
   serializeClearedAccountSessionCookie,
   type AccountAuthService
 } from "../identity/account-auth.js";
+import type { AccountActionDelivery } from "../identity/account-action-delivery.js";
+import type { AccountSecurityService } from "../identity/account-security.js";
 import {
   createGoogleOAuthState,
   googleOAuthStatesMatch,
@@ -103,6 +106,7 @@ export type CreateApiOptions = Readonly<{
   now?: () => Date;
   version?: string;
   documentStorage?: PrivateDocumentStorage;
+  imageUploadsEnabled?: boolean;
   documentUploadRepository?: DocumentUploadRepository;
   documentCatalogRepository?: DocumentCatalogRepository;
   answerUseCase?: AnswerUseCase;
@@ -113,6 +117,8 @@ export type CreateApiOptions = Readonly<{
   developmentMembershipRegistry?: DevelopmentMembershipRegistry;
   developmentDocumentMemory?: DevelopmentDocumentMemory;
   accountAuth?: AccountAuthService;
+  accountSecurity?: AccountSecurityService;
+  accountActionDelivery?: AccountActionDelivery;
   googleOAuth?: GoogleOAuthClient;
   condominiumDirectory?: CondominiumDirectory;
   condominiumProfileRepository?: CondominiumProfileRepository;
@@ -182,6 +188,44 @@ function isLoginAccountBody(value: unknown): value is LoginAccountBody {
     "password" in value &&
     typeof value.password === "string"
   );
+}
+
+function hasStringFields<T extends readonly string[]>(
+  value: unknown,
+  fields: T
+): value is Record<T[number], string> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    fields.every(
+      (field) => field in value && typeof value[field as keyof typeof value] === "string"
+    )
+  );
+}
+
+function accountDeviceLabel(userAgent: string | undefined): string {
+  if (userAgent === undefined || userAgent.trim().length === 0) return "Navegador";
+  const browser = /Edg\//u.test(userAgent)
+    ? "Edge"
+    : /Firefox\//u.test(userAgent)
+      ? "Firefox"
+      : /Chrome\//u.test(userAgent)
+        ? "Chrome"
+        : /Safari\//u.test(userAgent)
+          ? "Safari"
+          : "Navegador";
+  const system = /Android/u.test(userAgent)
+    ? "Android"
+    : /iPhone|iPad/u.test(userAgent)
+      ? "iOS"
+      : /Windows/u.test(userAgent)
+        ? "Windows"
+        : /Mac OS/u.test(userAgent)
+          ? "macOS"
+          : /Linux/u.test(userAgent)
+            ? "Linux"
+            : "dispositivo";
+  return `${browser} em ${system}`;
 }
 
 function isCreateTestCondominiumBody(value: unknown): value is CreateTestCondominiumBody {
@@ -305,6 +349,11 @@ function accountAuthErrorResponse(
     if (code === "temporarily_unavailable") {
       return reply.code(503).send({ message });
     }
+    if (code === "email_unverified") {
+      return reply.code(403).send({ message, code: "email_unverified" });
+    }
+    if (code === "invalid_token") return reply.code(400).send({ message });
+    if (code === "invalid_mfa") return reply.code(401).send({ message });
     if (code === "invalid_credentials") return reply.code(401).send({ message });
   }
   console.error("Falha inesperada na autenticação", {
@@ -320,7 +369,7 @@ function accountAuthErrorResponse(
 }
 
 export function createApi(options: CreateApiOptions): FastifyInstance {
-  const app = Fastify({ logger: false, bodyLimit: maximumPdfUploadBytes });
+  const app = Fastify({ logger: false, bodyLimit: maximumDocumentUploadBytes });
   const now = options.now ?? (() => new Date());
   const version = options.version ?? "0.1.0";
   const aiProvider = options.aiProvider ?? "local";
@@ -346,6 +395,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     | undefined
   >();
   const accountAuth = options.accountAuth;
+  const accountSecurity = options.accountSecurity;
   const adminDashboard = options.adminDashboard;
   const adminUserIds = new Set(
     (options.adminUserIds ?? []).map((userId) => userId.trim().toLocaleLowerCase("en-US"))
@@ -401,6 +451,15 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
   app.addContentTypeParser("application/pdf", { parseAs: "buffer" }, (_request, body, done) => {
     done(null, body);
   });
+  for (const mediaType of ["image/jpeg", "image/png"] as const) {
+    app.addContentTypeParser(
+      mediaType,
+      { parseAs: "buffer", bodyLimit: maximumImageUploadBytes },
+      (_request, body, done) => {
+        done(null, body);
+      }
+    );
+  }
 
   const runtimeInformation = () => ({
     status: "ok",
@@ -408,7 +467,9 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     aiProvider,
     authMode: accountAuth === undefined ? "development" : "real",
     googleAuthEnabled: accountAuth !== undefined && options.googleOAuth !== undefined,
-    authSessionRestore: accountAuth !== undefined && authSessionRestore
+    authSessionRestore: accountAuth !== undefined && authSessionRestore,
+    accountSecurityEnabled: accountSecurity !== undefined,
+    developmentAuthActions: options.accountActionDelivery !== undefined
   });
 
   app.get("/health", async () => runtimeInformation());
@@ -426,6 +487,21 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       return reply.code(400).send({ message: "Informe nome, e-mail e senha." });
     }
     try {
+      if (accountSecurity !== undefined) {
+        if (options.accountActionDelivery === undefined) {
+          return reply.code(503).send({
+            message: "A entrega de verificação de e-mail ainda não está configurada."
+          });
+        }
+        const registration = await accountSecurity.register(request.body);
+        const delivery = await options.accountActionDelivery.deliver(registration.action);
+        return reply.code(202).send({
+          user: publicAccountResponse(registration.account, isAdminAccount(registration.account)),
+          verificationRequired: true,
+          expiresAt: registration.action.expiresAt.toISOString(),
+          ...delivery
+        });
+      }
       const session = await accountAuth.register(request.body);
       return reply
         .header("set-cookie", serializeAccountSessionCookie(session.token, secureCookies))
@@ -449,6 +525,25 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       return reply.code(400).send({ message: "Informe e-mail e senha." });
     }
     try {
+      if (accountSecurity !== undefined) {
+        const result = await accountSecurity.login({
+          ...request.body,
+          deviceLabel: accountDeviceLabel(request.headers["user-agent"])
+        });
+        if (result.mfaRequired) {
+          return reply.code(202).send({
+            mfaRequired: true,
+            challengeId: result.challengeId,
+            expiresAt: result.expiresAt.toISOString()
+          });
+        }
+        return reply
+          .header("set-cookie", serializeAccountSessionCookie(result.token, secureCookies))
+          .send({
+            user: publicAccountResponse(result.account, isAdminAccount(result.account)),
+            expiresAt: result.expiresAt.toISOString()
+          });
+      }
       const session = await accountAuth.login(request.body);
       return reply
         .header("set-cookie", serializeAccountSessionCookie(session.token, secureCookies))
@@ -456,6 +551,275 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           user: publicAccountResponse(session.account, isAdminAccount(session.account)),
           expiresAt: session.expiresAt.toISOString()
         });
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.post<{ Body: unknown }>("/v1/auth/verify-email/request", async (request, reply) => {
+    if (accountSecurity === undefined || !hasStringFields(request.body, ["email"] as const)) {
+      return reply.code(accountSecurity === undefined ? 404 : 400).send({
+        message:
+          accountSecurity === undefined
+            ? "Verificação de e-mail indisponível."
+            : "Informe o e-mail."
+      });
+    }
+    try {
+      const action = await accountSecurity.requestEmailVerification(request.body.email);
+      const delivery =
+        action === undefined || options.accountActionDelivery === undefined
+          ? {}
+          : await options.accountActionDelivery.deliver(action);
+      return reply.code(202).send({
+        message: "Se a conta puder ser verificada, enviaremos as instruções.",
+        ...delivery
+      });
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.post<{ Body: unknown }>("/v1/auth/verify-email/confirm", async (request, reply) => {
+    if (accountSecurity === undefined || !hasStringFields(request.body, ["token"] as const)) {
+      return reply.code(accountSecurity === undefined ? 404 : 400).send({
+        message:
+          accountSecurity === undefined ? "Verificação de e-mail indisponível." : "Informe o token."
+      });
+    }
+    try {
+      await accountSecurity.confirmEmail(request.body.token, now());
+      return reply.code(204).send();
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.post<{ Body: unknown }>("/v1/auth/password-reset/request", async (request, reply) => {
+    if (accountSecurity === undefined || !hasStringFields(request.body, ["email"] as const)) {
+      return reply.code(accountSecurity === undefined ? 404 : 400).send({
+        message:
+          accountSecurity === undefined ? "Recuperação de senha indisponível." : "Informe o e-mail."
+      });
+    }
+    try {
+      const action = await accountSecurity.requestPasswordReset(request.body.email);
+      const delivery =
+        action === undefined || options.accountActionDelivery === undefined
+          ? {}
+          : await options.accountActionDelivery.deliver(action);
+      return reply.code(202).send({
+        message: "Se existir uma conta compatível, enviaremos as instruções.",
+        ...delivery
+      });
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.post<{ Body: unknown }>("/v1/auth/password-reset/confirm", async (request, reply) => {
+    if (
+      accountSecurity === undefined ||
+      !hasStringFields(request.body, ["token", "password"] as const)
+    ) {
+      return reply.code(accountSecurity === undefined ? 404 : 400).send({
+        message:
+          accountSecurity === undefined
+            ? "Recuperação de senha indisponível."
+            : "Informe token e nova senha."
+      });
+    }
+    try {
+      await accountSecurity.resetPassword(request.body.token, request.body.password, now());
+      return reply
+        .header("set-cookie", serializeClearedAccountSessionCookie(secureCookies))
+        .code(204)
+        .send();
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.post<{ Body: unknown }>("/v1/auth/mfa/challenge", async (request, reply) => {
+    if (
+      accountSecurity === undefined ||
+      !hasStringFields(request.body, ["challengeId", "code"] as const)
+    ) {
+      return reply.code(accountSecurity === undefined ? 404 : 400).send({
+        message: accountSecurity === undefined ? "MFA indisponível." : "Informe desafio e código."
+      });
+    }
+    try {
+      const session = await accountSecurity.completeMfaChallenge(
+        request.body.challengeId,
+        request.body.code,
+        now()
+      );
+      return reply
+        .header("set-cookie", serializeAccountSessionCookie(session.token, secureCookies))
+        .send({
+          user: publicAccountResponse(session.account, isAdminAccount(session.account)),
+          expiresAt: session.expiresAt.toISOString()
+        });
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  const requireSecuritySessionToken = (request: FastifyRequest): string | undefined =>
+    accountSecurity === undefined ? undefined : getAccountSessionCookie(request.headers.cookie);
+
+  app.post<{ Body: unknown }>("/v1/auth/password/change", async (request, reply) => {
+    const token = requireSecuritySessionToken(request);
+    if (
+      accountSecurity === undefined ||
+      token === undefined ||
+      !hasStringFields(request.body, ["currentPassword", "newPassword"] as const)
+    ) {
+      return reply.code(token === undefined ? 401 : 400).send({
+        message:
+          token === undefined ? "Sessão não autenticada." : "Informe a senha atual e a nova senha."
+      });
+    }
+    try {
+      await accountSecurity.changePassword(
+        token,
+        request.body.currentPassword,
+        request.body.newPassword,
+        now()
+      );
+      return reply.code(204).send();
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.post("/v1/auth/mfa/setup", async (request, reply) => {
+    const token = requireSecuritySessionToken(request);
+    if (accountSecurity === undefined || token === undefined) {
+      return reply.code(accountSecurity === undefined ? 404 : 401).send({
+        message: accountSecurity === undefined ? "MFA indisponível." : "Sessão não autenticada."
+      });
+    }
+    try {
+      return reply.send(await accountSecurity.beginMfaSetup(token, now()));
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.post<{ Body: unknown }>("/v1/auth/mfa/enable", async (request, reply) => {
+    const token = requireSecuritySessionToken(request);
+    if (
+      accountSecurity === undefined ||
+      token === undefined ||
+      !hasStringFields(request.body, ["code"] as const)
+    ) {
+      return reply.code(token === undefined ? 401 : 400).send({
+        message: token === undefined ? "Sessão não autenticada." : "Informe o código."
+      });
+    }
+    try {
+      return reply.send(await accountSecurity.enableMfa(token, request.body.code, now()));
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.post<{ Body: unknown }>("/v1/auth/mfa/disable", async (request, reply) => {
+    const token = requireSecuritySessionToken(request);
+    if (
+      accountSecurity === undefined ||
+      token === undefined ||
+      !hasStringFields(request.body, ["password", "code"] as const)
+    ) {
+      return reply.code(token === undefined ? 401 : 400).send({
+        message: token === undefined ? "Sessão não autenticada." : "Informe senha e código."
+      });
+    }
+    try {
+      await accountSecurity.disableMfa(token, request.body.password, request.body.code, now());
+      return reply.code(204).send();
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.get("/v1/auth/security", async (request, reply) => {
+    const token = requireSecuritySessionToken(request);
+    if (accountSecurity === undefined || token === undefined) {
+      return reply.code(accountSecurity === undefined ? 404 : 401).send({
+        message:
+          accountSecurity === undefined
+            ? "Segurança da conta indisponível."
+            : "Sessão não autenticada."
+      });
+    }
+    try {
+      return reply.send(await accountSecurity.getStatus(token, now()));
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.get("/v1/auth/sessions", async (request, reply) => {
+    const token = requireSecuritySessionToken(request);
+    if (accountSecurity === undefined || token === undefined) {
+      return reply.code(accountSecurity === undefined ? 404 : 401).send({
+        message:
+          accountSecurity === undefined ? "Sessões indisponíveis." : "Sessão não autenticada."
+      });
+    }
+    try {
+      const sessions = await accountSecurity.listSessions(token, now());
+      return reply.send({
+        sessions: sessions.map((session) => ({
+          ...session,
+          createdAt: session.createdAt.toISOString(),
+          lastSeenAt: session.lastSeenAt.toISOString(),
+          expiresAt: session.expiresAt.toISOString()
+        }))
+      });
+    } catch (error: unknown) {
+      return accountAuthErrorResponse(error, reply);
+    }
+  });
+
+  app.delete<{ Params: Readonly<{ sessionId: string }> }>(
+    "/v1/auth/sessions/:sessionId",
+    async (request, reply) => {
+      const token = requireSecuritySessionToken(request);
+      if (accountSecurity === undefined || token === undefined) {
+        return reply.code(accountSecurity === undefined ? 404 : 401).send({
+          message:
+            accountSecurity === undefined ? "Sessões indisponíveis." : "Sessão não autenticada."
+        });
+      }
+      try {
+        const result = await accountSecurity.revokeSession(token, request.params.sessionId);
+        if (result.currentRevoked) {
+          return reply
+            .header("set-cookie", serializeClearedAccountSessionCookie(secureCookies))
+            .send(result);
+        }
+        return reply.send(result);
+      } catch (error: unknown) {
+        return accountAuthErrorResponse(error, reply);
+      }
+    }
+  );
+
+  app.post("/v1/auth/sessions/revoke-others", async (request, reply) => {
+    const token = requireSecuritySessionToken(request);
+    if (accountSecurity === undefined || token === undefined) {
+      return reply.code(accountSecurity === undefined ? 404 : 401).send({
+        message:
+          accountSecurity === undefined ? "Sessões indisponíveis." : "Sessão não autenticada."
+      });
+    }
+    try {
+      await accountSecurity.revokeOtherSessions(token);
+      return reply.code(204).send();
     } catch (error: unknown) {
       return accountAuthErrorResponse(error, reply);
     }
@@ -1196,14 +1560,21 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         );
         const reader = documentStorage as Partial<PrivateDocumentReader>;
         if (document?.storageObjectId === undefined || reader.readOriginal === undefined) {
-          return reply.code(404).send({ message: "PDF não está disponível para visualização." });
+          return reply
+            .code(404)
+            .send({ message: "Arquivo não está disponível para visualização." });
         }
         const content = await reader.readOriginal({
           condominiumId: context.condominiumId,
           objectId: document.storageObjectId,
           userId: context.userId
         });
-        return reply.type("application/pdf").header("content-disposition", "inline").send(content);
+        return reply
+          .type(document.mediaType ?? "application/pdf")
+          .header("content-disposition", "inline")
+          .header("x-content-type-options", "nosniff")
+          .header("cache-control", "private, no-store")
+          .send(content);
       } catch (error) {
         if (error instanceof AccessDeniedError || error instanceof DocumentCatalogForbiddenError) {
           return reply.code(403).send({ message: "Acesso não autorizado." });
@@ -1211,7 +1582,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         if (error instanceof DocumentOriginalNotFoundError) {
           return reply.code(404).send({ message: error.message });
         }
-        return reply.code(500).send({ message: "Não foi possível abrir o PDF com segurança." });
+        return reply.code(500).send({ message: "Não foi possível abrir o arquivo com segurança." });
       }
     }
   );
@@ -1224,6 +1595,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       "x-document-type"?: string;
       "x-document-id"?: string;
       "x-document-validity-confirmed"?: string;
+      "content-type"?: string;
     };
     Body: Buffer;
   }>("/v1/condominiums/:condominiumId/documents", async (request, reply) => {
@@ -1243,6 +1615,20 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         userId: context.userId,
         now: now()
       });
+      const mediaType = request.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase();
+      if (
+        mediaType !== "application/pdf" &&
+        mediaType !== "image/jpeg" &&
+        mediaType !== "image/png"
+      ) {
+        throw new InvalidDocumentUploadError("Envie um PDF, uma imagem JPEG ou PNG.");
+      }
+      if (mediaType !== "application/pdf" && options.imageUploadsEnabled !== true) {
+        return reply.code(503).send({
+          message:
+            "O envio de fotos será liberado quando o processamento seguro estiver configurado."
+        });
+      }
       const uploaded = await uploadDocument(documentStorage, documentUploadRepository, context, {
         title: decodeDocumentTitle(request.headers["x-document-title"] ?? ""),
         documentType: request.headers["x-document-type"] ?? "",
@@ -1250,6 +1636,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           ? {}
           : { documentId: request.headers["x-document-id"] }),
         content: request.body,
+        mediaType,
         validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
       });
       const memoryStatus = await options.developmentDocumentMemory?.indexUploaded({

@@ -30,7 +30,9 @@ describe("seleção de condomínio", () => {
       aiProvider: "local",
       authMode: "development",
       googleAuthEnabled: false,
-      authSessionRestore: false
+      authSessionRestore: false,
+      accountSecurityEnabled: false,
+      developmentAuthActions: false
     });
 
     const runtime = await app.inject({ method: "GET", url: "/v1/runtime" });

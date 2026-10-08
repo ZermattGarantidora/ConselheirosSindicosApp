@@ -10,14 +10,14 @@ Esta spec implementa a primeira fatia recomendada pelo briefing e permanece deli
 
 | Dimensão da visão | Seções do briefing | Como esta spec se alinha |
 |---|---|---|
-| Visão e problema | §§1, 2 e 4 | Entrega consulta operacional baseada primeiro na legislação oficial compartilhada e depois no contexto autorizado do condomínio, testando respostas confiáveis com evidência. |
-| Público inicial | §3 | Prioriza o síndico profissional que administra mais de um condomínio. |
-| Proposta de valor | §5 | Reduz procura e releitura de documentos, permitindo verificar documento, página e trecho. |
-| Prioridades do MVP | §§7 e 14 | Cobre separação por condomínio, PDF/OCR, organização documental, chat fundamentado, citações, feedback e trilha. |
-| Diferenciação e experiência | §§10 e 11 | Implementa memória isolada, fontes precisas, versão/vigência e resposta estruturada. |
-| Segurança e especialistas | §§12 e 13 | Exige abstenção, separa evidência de interpretação, trata conflitos e encaminha situações de alto risco. |
-| Estratégia técnica e custo | §15 | Recupera apenas contexto relevante, permite troca de provedor, mede custo e reserva escalonamento para tarefas que exigem maior capacidade. |
-| Validação | §§16, 17 e 21 | Mede correção, citação, abstenção, confiança, custo e utilidade do núcleo documental antes de automações. |
+| Visão e problema            | §§1, 2 e 4         | Entrega consulta operacional baseada primeiro na legislação oficial compartilhada e depois no contexto autorizado do condomínio, testando respostas confiáveis com evidência. |
+| Público inicial             | §3                 | Prioriza o síndico profissional que administra mais de um condomínio.                                                                                                         |
+| Proposta de valor           | §5                 | Reduz procura e releitura de documentos, permitindo verificar documento, página e trecho.                                                                                     |
+| Prioridades do MVP          | §§7 e 14           | Cobre separação por condomínio, PDF/OCR, organização documental, chat fundamentado, citações, feedback e trilha.                                                              |
+| Diferenciação e experiência | §§10 e 11          | Implementa memória isolada, fontes precisas, versão/vigência e resposta estruturada.                                                                                          |
+| Segurança e especialistas   | §§12 e 13          | Exige abstenção, separa evidência de interpretação, trata conflitos e encaminha situações de alto risco.                                                                      |
+| Estratégia técnica e custo  | §15                | Recupera apenas contexto relevante, permite troca de provedor, mede custo e reserva escalonamento para tarefas que exigem maior capacidade.                                   |
+| Validação                   | §§16, 17 e 21      | Mede correção, citação, abstenção, confiança, custo e utilidade do núcleo documental antes de automações.                                                                     |
 
 ### Limites respeitados
 
@@ -119,11 +119,15 @@ O catálogo deve permitir abrir o PDF original somente após validar leitura no 
 original deve ser persistido e lido do banco de dados protegido, com RLS por condomínio; a API não
 deve depender de arquivo local para exibir ou processar documentos persistidos.
 O síndico com permissão de envio pode remover da memória qualquer documento do condomínio ativo,
-mediante confirmação explícita. A remoção deve impedir novas consultas, manter o PDF original no
-armazenamento protegido por 30 dias para recuperação e informar esse prazo claramente. Após 30 dias,
-um processo interno deve apagar o original; a recuperação não pode alcançar outro condomínio. Ao enviar
-outra ata, a interface deve perguntar separadamente se uma ata anterior deve ser removida; a nova versão
-nunca substitui a anterior silenciosamente.
+mediante confirmação explícita. A remoção deve impedir novas consultas, manter original e derivados
+no armazenamento protegido por 30 dias para recuperação e informar esse prazo claramente. Após 30 dias,
+um processo interno deve apagar o original e os dados usados para localizar e consultar o documento
+no banco ativo. Perguntas, respostas, claims, feedback e citações já mostradas permanecem no chat;
+citações cujo original foi removido são marcadas como históricas, com o trecho preservado, sem prometer
+acesso ao PDF. A recuperação não pode alcançar outro condomínio. A expiração dos backups e a
+reconciliação após restauração seguem gate próprio antes de dados reais. Ao enviar outra ata, a interface deve
+perguntar separadamente se uma ata anterior deve ser removida; a nova versão nunca substitui a anterior
+silenciosamente.
 
 ### RQ-003 — Versão e vigência
 

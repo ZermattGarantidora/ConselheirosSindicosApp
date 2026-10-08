@@ -64,6 +64,7 @@ export type AnswerCitation = Readonly<{
   page: number;
   excerpt: string;
   sourceScope?: EvidenceSourceScope;
+  sourceRemoved?: boolean;
   startOffset: number;
   endOffset: number;
 }>;
