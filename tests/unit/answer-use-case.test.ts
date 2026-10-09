@@ -253,6 +253,36 @@ describe("caso de uso de consulta documental", () => {
     });
   });
 
+  it("remove uma afirmação categórica de inexistência e preserva a orientação geral", async () => {
+    const tangentialEvidence = createEvidence({
+      content: "O documento registra somente a eleição da administração."
+    });
+    const gateway = generalGuidanceGateway(
+      generalGuidanceAnswer(
+        "O condomínio não possui um protocolo aprovado para pouso de helicópteros. Como o tema envolve segurança de voo e risco estrutural, consulte um engenheiro civil e a autoridade de aviação competente."
+      )
+    );
+    const useCase = createAnswerUseCase({
+      retriever: retrieverFor(createRetrievalResult([tangentialEvidence])),
+      gateway,
+      persistence: createInMemoryAnswerPersistence(fixedIdFactory("safe-abstention"), fixedNow),
+      now: fixedNow,
+      idFactory: fixedIdFactory("safe-abstention-interaction")
+    });
+
+    const answer = await useCase.ask(managerContext, {
+      question: "Qual é o protocolo aprovado para pouso de helicópteros no telhado?",
+      requestId: "request-safe-abstention"
+    });
+
+    expect(answer).toMatchObject({ answerMode: "abstained", citations: [] });
+    expect(answer.answer).not.toMatch(/condomínio não possui/iu);
+    expect(answer.answer).toContain("consulte um engenheiro civil");
+    expect(answer.attentionPoints.join(" ")).toContain(
+      "Os trechos encontrados não sustentam uma resposta documental segura"
+    );
+  });
+
   it("reutiliza a resposta quando a mesma chave idempotente é reenviada", async () => {
     const evidence = createEvidence({ content: "A regra sintética permite o uso da área comum." });
     const retrieval = retrieverFor(createRetrievalResult([evidence]));

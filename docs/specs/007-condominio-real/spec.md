@@ -1,6 +1,6 @@
 # Spec 007 — Criação real de condomínio pelo síndico
 
-**Status:** aprovada para implementação local  
+**Status:** fluxo de tela substituído pela Spec 016; criação futura pertence ao Bloco 4
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-09-23
 

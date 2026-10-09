@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   InvalidCondominiumProfileError,
   decodeCondominiumProfilePhoto,
+  learnCondominiumProfileFromConversation,
   maximumCondominiumProfilePhotoBytes,
   validateCondominiumProfileUpdate
 } from "../../apps/api/identity/condominium-profile.js";
@@ -33,6 +34,33 @@ function encoded(content: Buffer): string {
 }
 
 describe("validação de perfil do condomínio", () => {
+  it("aprende somente declarações explícitas confirmadas na conversa", () => {
+    const current = Object.freeze({
+      condominiumId: "alameda",
+      cnpj: null,
+      ...validateCondominiumProfileUpdate(completeProfile)!
+    });
+
+    const learned = learnCondominiumProfileFromConversation(
+      current,
+      "Meu nome é Ana Souza, meu e-mail é ana@example.test e o condomínio tem 84 unidades."
+    );
+
+    expect(learned?.learnedFields).toEqual([
+      "nome do síndico",
+      "e-mail do síndico",
+      "quantidade de unidades"
+    ]);
+    expect(learned?.profile.contact).toMatchObject({
+      managerName: "Ana Souza",
+      email: "ana@example.test"
+    });
+    expect(learned?.profile.unitCount).toBe(84);
+    expect(
+      learnCondominiumProfileFromConversation(current, "Como está o condomínio?")
+    ).toBeUndefined();
+  });
+
   it("normaliza os campos obrigatórios e opcionais", () => {
     expect(validateCondominiumProfileUpdate(completeProfile)).toEqual({
       name: "Residencial Horizonte",

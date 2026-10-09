@@ -1,6 +1,6 @@
 # Spec 006 — Autenticação real por e-mail e senha
 
-**Status:** aprovada para implementação local
+**Status:** interface substituída pela Spec 016; infraestrutura interna preservada para autorização
 **Responsável:** produto e engenharia
 **Atualizado em:** 2026-09-23
 

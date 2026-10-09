@@ -104,6 +104,7 @@ Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser cali
 **Então** `answerMode` é `abstained`  
 **E** a resposta não apresenta conhecimento geral como regra do condomínio  
 **E** pode oferecer orientação geral formulada para a pergunta, claramente identificada como não confirmada nos documentos e sem citação
+**E** não conclui que uma regra, protocolo, decisão ou registro inexiste apenas porque não foi recuperado
 **E** sugere o documento ou validação necessários.
 
 ## AC-015 — Abster-se com evidência fraca (P0)

@@ -1,6 +1,6 @@
 # Spec 009 — Configurações do condomínio, documentos e exclusão
 
-**Status:** aprovada para implementação local controlada  
+**Status:** telas substituídas pela Spec 016; documentos permanecem acessíveis pelo chat
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-06
 

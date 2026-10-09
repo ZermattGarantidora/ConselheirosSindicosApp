@@ -5,6 +5,7 @@ import { createAnswerService } from "../../apps/api/answers/answer-service.js";
 import { createLocalExtractiveGateway } from "../../apps/api/answers/local-extractive-gateway.js";
 import { startServer } from "../../apps/api/app/server.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
+import { createSyntheticElectionMinutesPdf } from "../fixtures/synthetic-pdfs.js";
 
 describe("consulta documental", () => {
   it("AC-010 e AC-018: responde no condomínio autorizado com contrato e citação verificável", async () => {
@@ -43,6 +44,74 @@ describe("consulta documental", () => {
         "specialist"
       ])
     );
+    await app.close();
+  });
+
+  it("AC-004, AC-010 e AC-030: consulta um PDF enviado ao condomínio criado no modo de teste", async () => {
+    const app = await startServer(0, { DEMO_MODE: "true" });
+    const headers = { "x-development-user-id": "sindico-demo" } as const;
+    const condominiumId = "teste-upload-consulta";
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/development/test-condominiums",
+      headers,
+      payload: {
+        condominiumId,
+        name: "Residencial Teste de Consulta",
+        cnpj: "11.111.111/1111-11",
+        administrationCompany: "Administradora Sintética",
+        unitCount: 48,
+        address: {
+          postalCode: "01001-000",
+          street: "Rua de Teste",
+          number: "100",
+          complement: "",
+          neighborhood: "Centro",
+          city: "São Paulo",
+          state: "SP"
+        },
+        contact: {
+          managerName: "Gestor Sintético",
+          email: "gestor@example.test",
+          phone: "(00) 00000-0000"
+        }
+      }
+    });
+    const uploaded = await app.inject({
+      method: "POST",
+      url: `/v1/condominiums/${condominiumId}/documents`,
+      headers: {
+        ...headers,
+        "content-type": "application/pdf",
+        "x-document-title": encodeURIComponent("Ata sintética de constituição"),
+        "x-document-type": "meeting_minutes",
+        "x-document-validity-confirmed": "true"
+      },
+      payload: createSyntheticElectionMinutesPdf()
+    });
+    const answer = await app.inject({
+      method: "POST",
+      url: `/v1/condominiums/${condominiumId}/questions`,
+      headers,
+      payload: { question: "Quem foi eleita síndica e qual é o período do mandato?" }
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(uploaded.statusCode).toBe(202);
+    expect(uploaded.json()).toMatchObject({ memoryStatus: "ready" });
+    expect(answer.statusCode).toBe(200);
+    expect(answer.json()).toMatchObject({
+      answerMode: "grounded",
+      answer: expect.stringMatching(/Marina Vieira.*15\/09\/2026.*14\/09\/2027/iu),
+      citations: [
+        {
+          title: "Ata sintética de constituição",
+          page: 1,
+          excerpt: expect.stringContaining("Marina Vieira")
+        }
+      ]
+    });
     await app.close();
   });
 

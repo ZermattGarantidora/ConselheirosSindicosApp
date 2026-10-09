@@ -157,7 +157,7 @@ O trecho exibido deve existir no texto processado da página indicada.
 
 ### RQ-007 — Abstenção
 
-Quando não houver evidência suficiente, a resposta deve declarar a limitação, informar o que foi consultado e sugerir qual documento ou validação pode resolver a dúvida. O modelo pode oferecer uma orientação geral útil e formulada para a pergunta, mas deve separá-la da base documental, não usar citações e nunca apresentá-la como regra, fato ou decisão do condomínio. Temas jurídicos, técnicos, contábeis ou de segurança preservam a indicação de validação humana.
+Quando não houver evidência suficiente, a resposta deve declarar a limitação, informar o que foi consultado e sugerir qual documento ou validação pode resolver a dúvida. O modelo pode oferecer uma orientação geral útil e formulada para a pergunta, mas deve separá-la da base documental, não usar citações e nunca apresentá-la como regra, fato ou decisão do condomínio. A ausência de evidência recuperada não autoriza afirmar categoricamente que uma regra, um protocolo, uma decisão ou outro registro local não existe; essa parte deve ser removida ou reformulada como limitação da busca. Temas jurídicos, técnicos, contábeis ou de segurança preservam a indicação de validação humana.
 
 ### RQ-008 — Conflitos documentais
 

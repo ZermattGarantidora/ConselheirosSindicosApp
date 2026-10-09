@@ -1,7 +1,5 @@
 import { Pool } from "pg";
 
-import { createPostgresAdminDashboard, parseAdminUserIds } from "../admin/admin-dashboard.js";
-
 import {
   createFallbackAnswerGateway,
   createLocalSyntheticAnswerGateway
@@ -226,8 +224,6 @@ export async function startServer(
     accountAuth: createPostgresAccountAuth(pool),
     accountSecurity,
     ...(accountActionDelivery === undefined ? {} : { accountActionDelivery }),
-    adminDashboard: createPostgresAdminDashboard(pool),
-    adminUserIds: parseAdminUserIds(environment.ADMIN_USER_IDS),
     ...(googleOAuth === undefined ? {} : { googleOAuth }),
     condominiumDirectory: createPostgresCondominiumDirectory(pool),
     condominiumProfileRepository: createPostgresCondominiumProfileRepository(pool),

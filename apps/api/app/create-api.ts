@@ -3,8 +3,6 @@ import { performance } from "node:perf_hooks";
 
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 
-import type { AdminDashboardService } from "../admin/admin-dashboard.js";
-
 import { createAnswerUseCase, type AnswerUseCase } from "../answers/answer-use-case.js";
 import { createFailedAnswer, type AnswerService } from "../answers/answer-service.js";
 import { createLocalSyntheticAnswerGateway } from "../answers/answer-gateway.js";
@@ -26,6 +24,7 @@ import {
   CondominiumProfilePhotoLimitError,
   InvalidCondominiumProfileError,
   decodeCondominiumProfilePhoto,
+  learnCondominiumProfileFromConversation,
   validateCondominiumProfileUpdate,
   type CondominiumProfileRepository
 } from "../identity/condominium-profile.js";
@@ -126,8 +125,6 @@ export type CreateApiOptions = Readonly<{
   authSessionRestore?: boolean;
   processPendingDocuments?: () => Promise<void>;
   tenantWorkLimiter?: TenantWorkLimiter;
-  adminDashboard?: AdminDashboardService;
-  adminUserIds?: readonly string[];
 }>;
 
 type AskBody = Readonly<{ question: string }>;
@@ -308,14 +305,12 @@ function parseHistoryLimit(value: string | undefined): number | undefined {
 }
 
 function publicAccountResponse(
-  account: Readonly<{ userId: string; email: string; displayName: string }>,
-  isAdmin: boolean
+  account: Readonly<{ userId: string; email: string; displayName: string }>
 ) {
   return {
     userId: account.userId,
     email: account.email,
-    displayName: account.displayName,
-    isAdmin
+    displayName: account.displayName
   };
 }
 
@@ -396,10 +391,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
   >();
   const accountAuth = options.accountAuth;
   const accountSecurity = options.accountSecurity;
-  const adminDashboard = options.adminDashboard;
-  const adminUserIds = new Set(
-    (options.adminUserIds ?? []).map((userId) => userId.trim().toLocaleLowerCase("en-US"))
-  );
+  const mfaEnrollmentAvailable = options.accountActionDelivery?.channel === "external_email";
   const secureCookies = options.secureCookies ?? false;
   const authSessionRestore = options.authSessionRestore ?? true;
   const unauthenticatedMessage =
@@ -422,10 +414,6 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         token === undefined ? undefined : await accountAuth.authenticate(token, now());
       authenticatedAccounts.set(request, account);
     });
-  }
-
-  function isAdminAccount(account: Readonly<{ userId: string }>): boolean {
-    return adminUserIds.has(account.userId.trim().toLocaleLowerCase("en-US"));
   }
 
   function requestUserId(request: FastifyRequest): ReturnType<typeof createUserId> | undefined {
@@ -469,12 +457,135 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     googleAuthEnabled: accountAuth !== undefined && options.googleOAuth !== undefined,
     authSessionRestore: accountAuth !== undefined && authSessionRestore,
     accountSecurityEnabled: accountSecurity !== undefined,
-    developmentAuthActions: options.accountActionDelivery !== undefined
+    developmentAuthActions: options.accountActionDelivery?.channel === "development_preview"
   });
 
   app.get("/health", async () => runtimeInformation());
   app.get("/v1/runtime", async (_request, reply) =>
     reply.header("cache-control", "no-store").send(runtimeInformation())
+  );
+
+  app.get<{ Headers: { "x-development-user-id"?: string } }>(
+    "/v1/chat/bootstrap",
+    async (request, reply) => {
+      const userId = requestUserId(request);
+      if (userId === undefined) return reply.code(401).send({ message: unauthenticatedMessage });
+
+      try {
+        const condominiumIds =
+          accountAuth === undefined
+            ? [
+                "alameda",
+                "bosque",
+                ...(options.developmentMembershipRegistry
+                  ?.listTestCondominiums(userId)
+                  .map((item) => item.condominiumId) ?? [])
+              ]
+            : ((await options.condominiumDirectory?.listAuthorized(userId)) ?? []).map(
+                (item) => item.condominiumId
+              );
+
+        for (const candidate of [...new Set(condominiumIds)]) {
+          try {
+            const context = await resolveAuthorizedCondominiumContext(
+              options.membershipRepository,
+              {
+                userId,
+                condominiumId: createCondominiumId(candidate),
+                now: now()
+              }
+            );
+            return reply.header("cache-control", "no-store").send({
+              condominiumId: context.condominiumId,
+              role: context.roleKey,
+              permissions: context.permissions
+            });
+          } catch (error: unknown) {
+            if (!(error instanceof AccessDeniedError)) throw error;
+          }
+        }
+
+        return reply
+          .code(404)
+          .send({ message: "Nenhum contexto autorizado está disponível para esta conversa." });
+      } catch {
+        return reply
+          .code(500)
+          .send({ message: "Não foi possível preparar a conversa com segurança." });
+      }
+    }
+  );
+
+  app.get<{ Headers: { "x-development-user-id"?: string } }>(
+    "/v1/chat/condominiums",
+    async (request, reply) => {
+      const userId = requestUserId(request);
+      if (userId === undefined) return reply.code(401).send({ message: unauthenticatedMessage });
+
+      try {
+        const candidates =
+          accountAuth === undefined
+            ? [
+                {
+                  condominiumId: "alameda",
+                  name: "Residencial Alameda",
+                  detail: "Condomínio autorizado"
+                },
+                {
+                  condominiumId: "bosque",
+                  name: "Condomínio Bosque",
+                  detail: "Condomínio autorizado"
+                },
+                ...(options.developmentMembershipRegistry
+                  ?.listTestCondominiums(userId)
+                  .map((item) => ({
+                    condominiumId: item.condominiumId,
+                    name: item.name,
+                    detail: `${item.address.city}/${item.address.state} · Condomínio autorizado`
+                  })) ?? [])
+              ]
+            : ((await options.condominiumDirectory?.listAuthorized(userId)) ?? []).map((item) => ({
+                condominiumId: item.condominiumId,
+                name: item.name,
+                detail: item.detail
+              }));
+        const authorized = [] as Array<{
+          condominiumId: string;
+          name: string;
+          detail: string;
+          role: string;
+          permissions: readonly string[];
+        }>;
+
+        for (const candidate of candidates) {
+          try {
+            const context = await resolveAuthorizedCondominiumContext(
+              options.membershipRepository,
+              {
+                userId,
+                condominiumId: createCondominiumId(candidate.condominiumId),
+                now: now()
+              }
+            );
+            authorized.push({
+              condominiumId: context.condominiumId,
+              name: candidate.name,
+              detail: candidate.detail,
+              role: context.roleKey,
+              permissions: context.permissions
+            });
+          } catch (error: unknown) {
+            if (!(error instanceof AccessDeniedError)) throw error;
+          }
+        }
+
+        return reply.header("cache-control", "no-store").send({ condominiums: authorized });
+      } catch {
+        return reply
+          .code(500)
+          .send({ message: "Não foi possível carregar os condomínios autorizados." });
+      }
+    }
   );
 
   app.post<{ Body: unknown }>("/v1/auth/register", async (request, reply) => {
@@ -496,7 +607,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         const registration = await accountSecurity.register(request.body);
         const delivery = await options.accountActionDelivery.deliver(registration.action);
         return reply.code(202).send({
-          user: publicAccountResponse(registration.account, isAdminAccount(registration.account)),
+          user: publicAccountResponse(registration.account),
           verificationRequired: true,
           expiresAt: registration.action.expiresAt.toISOString(),
           ...delivery
@@ -507,7 +618,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         .header("set-cookie", serializeAccountSessionCookie(session.token, secureCookies))
         .code(201)
         .send({
-          user: publicAccountResponse(session.account, isAdminAccount(session.account)),
+          user: publicAccountResponse(session.account),
           expiresAt: session.expiresAt.toISOString()
         });
     } catch (error: unknown) {
@@ -540,7 +651,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         return reply
           .header("set-cookie", serializeAccountSessionCookie(result.token, secureCookies))
           .send({
-            user: publicAccountResponse(result.account, isAdminAccount(result.account)),
+            user: publicAccountResponse(result.account),
             expiresAt: result.expiresAt.toISOString()
           });
       }
@@ -548,7 +659,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       return reply
         .header("set-cookie", serializeAccountSessionCookie(session.token, secureCookies))
         .send({
-          user: publicAccountResponse(session.account, isAdminAccount(session.account)),
+          user: publicAccountResponse(session.account),
           expiresAt: session.expiresAt.toISOString()
         });
     } catch (error: unknown) {
@@ -658,7 +769,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       return reply
         .header("set-cookie", serializeAccountSessionCookie(session.token, secureCookies))
         .send({
-          user: publicAccountResponse(session.account, isAdminAccount(session.account)),
+          user: publicAccountResponse(session.account),
           expiresAt: session.expiresAt.toISOString()
         });
     } catch (error: unknown) {
@@ -701,6 +812,11 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         message: accountSecurity === undefined ? "MFA indisponível." : "Sessão não autenticada."
       });
     }
+    if (!mfaEnrollmentAvailable) {
+      return reply.code(503).send({
+        message: "A autenticação em duas etapas será liberada com o envio real de e-mails."
+      });
+    }
     try {
       return reply.send(await accountSecurity.beginMfaSetup(token, now()));
     } catch (error: unknown) {
@@ -717,6 +833,11 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     ) {
       return reply.code(token === undefined ? 401 : 400).send({
         message: token === undefined ? "Sessão não autenticada." : "Informe o código."
+      });
+    }
+    if (!mfaEnrollmentAvailable) {
+      return reply.code(503).send({
+        message: "A autenticação em duas etapas será liberada com o envio real de e-mails."
       });
     }
     try {
@@ -756,7 +877,10 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       });
     }
     try {
-      return reply.send(await accountSecurity.getStatus(token, now()));
+      return reply.send({
+        ...(await accountSecurity.getStatus(token, now())),
+        mfaEnrollmentAvailable
+      });
     } catch (error: unknown) {
       return accountAuthErrorResponse(error, reply);
     }
@@ -834,7 +958,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     const token = getAccountSessionCookie(request.headers.cookie);
     const account = token === undefined ? undefined : await accountAuth.authenticate(token, now());
     if (account === undefined) return reply.code(401).send({ message: "Sessão não encontrada." });
-    return reply.send({ user: publicAccountResponse(account, isAdminAccount(account)) });
+    return reply.send({ user: publicAccountResponse(account) });
   });
 
   app.post("/v1/auth/logout", async (request, reply) => {
@@ -846,38 +970,6 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       .header("set-cookie", serializeClearedAccountSessionCookie(secureCookies))
       .code(204)
       .send();
-  });
-
-  app.get("/v1/admin/dashboard", async (request, reply) => {
-    const account = authenticatedAccounts.get(request);
-    if (account === undefined) {
-      return reply.code(401).send({ message: "Sessão não autenticada." });
-    }
-    if (!isAdminAccount(account)) {
-      return reply.code(403).send({ message: "Acesso administrativo não autorizado." });
-    }
-    if (adminDashboard === undefined) {
-      return reply.code(503).send({ message: "Painel administrativo indisponível." });
-    }
-
-    const generatedAt = now();
-    const since = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000);
-    try {
-      const [metrics, accounts] = await Promise.all([
-        adminDashboard.readMetrics(since),
-        adminDashboard.readAccounts(100)
-      ]);
-      return reply.header("cache-control", "no-store").send({
-        metrics,
-        generatedAt: generatedAt.toISOString(),
-        commercialOpportunities: { collectionActive: false },
-        accounts
-      });
-    } catch {
-      return reply
-        .code(500)
-        .send({ message: "Não foi possível carregar os indicadores da Zermatt." });
-    }
   });
 
   if (accountAuth !== undefined) {
@@ -1763,6 +1855,24 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           ? {}
           : { idempotencyKey: request.headers["idempotency-key"] })
       });
+
+      if (context.roleKey === "manager" && options.condominiumProfileRepository !== undefined) {
+        const currentProfile = await options.condominiumProfileRepository.getProfile({
+          userId: context.userId,
+          condominiumId: context.condominiumId
+        });
+        const learned =
+          currentProfile === undefined
+            ? undefined
+            : learnCondominiumProfileFromConversation(currentProfile, request.body.question);
+        if (learned !== undefined) {
+          await options.condominiumProfileRepository.updateProfile({
+            userId: context.userId,
+            condominiumId: context.condominiumId,
+            profile: learned.profile
+          });
+        }
+      }
 
       return reply.code(200).send(toPublicAnswer(answer));
     } catch (error: unknown) {

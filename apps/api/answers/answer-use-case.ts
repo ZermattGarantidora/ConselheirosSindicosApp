@@ -241,6 +241,29 @@ function documentaryLimitation(
   return "Não encontrei essa informação nos documentos do condomínio. A resposta abaixo é uma orientação geral.";
 }
 
+const safeGuidanceFallback =
+  "Confirme a informação no documento aplicável ou com o responsável competente antes de decidir.";
+
+function isUnsupportedLocalAssertion(sentence: string): boolean {
+  const plain = sentence.replaceAll("**", "").trim().normalize("NFC");
+  return (
+    /^(?:(?:segundo|conforme)\s+)?(?:o|a|este|esta|esse|essa)\s+(?:condom[íi]nio|conven[çc][aã]o|regimento|ata|documentos?|legisla[çc][aã]o)\b.{0,180}\b(?:n[aã]o\s+)?(?:possui|tem|prev[eê]|permite|pro[íi]be|determina|estabelece|informa|registra)\b/iu.test(
+      plain
+    ) ||
+    /^(?:n[aã]o\s+(?:h[aá]|existe)|inexiste|nenhum[a]?)\b.{0,180}\b(?:regra|protocolo|decis[aã]o|delibera[çc][aã]o|previs[aã]o|autoriza[çc][aã]o|proibi[çc][aã]o|obriga[çc][aã]o|registro)\b/iu.test(
+      plain
+    )
+  );
+}
+
+function safeAbstainedGuidance(answer: string): string {
+  const sentences = answer.match(/[^.!?]+(?:[.!?]+|$)/gu) ?? [answer];
+  const safeSentences = sentences
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0 && !isUnsupportedLocalAssertion(sentence));
+  return safeSentences.join(" ").trim() || safeGuidanceFallback;
+}
+
 function isRelevantServiceDegradation(point: string): boolean {
   return /(?:extraída localmente dos documentos porque o provedor de IA está temporariamente indisponível|modo documental local)/iu.test(
     point
@@ -517,7 +540,9 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
       : Object.freeze([]);
     return Object.freeze({
       payload: freezeAnswerPayload({
-        answer: validated.answer,
+        answer: includeDocumentaryLimitation
+          ? safeAbstainedGuidance(validated.answer)
+          : validated.answer,
         answerMode: "abstained",
         citations: Object.freeze([]),
         attentionPoints,
@@ -667,7 +692,7 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
           payload =
             validated.answerMode === "abstained"
               ? freezeAnswerPayload({
-                  answer: validated.answer,
+                  answer: safeAbstainedGuidance(validated.answer),
                   answerMode: "abstained",
                   citations: Object.freeze([]),
                   attentionPoints: Object.freeze([

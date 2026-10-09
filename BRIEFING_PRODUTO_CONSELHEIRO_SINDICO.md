@@ -1,542 +1,206 @@
-# Briefing de produto — Conselheiro virtual para síndicos
+# Briefing de produto — Alvitra
+
+**Status:** visão canônica aprovada
+**Atualizado em:** 2026-10-09
 
 ## 1. Visão do produto
 
-Construir um conselheiro de IA robusto, fácil de usar, acessível e confiável para síndicos. O produto deve reunir profundidade documental e inteligência operacional em uma experiência intuitiva: o usuário explica sua necessidade em linguagem natural e o sistema encontra o contexto autorizado do condomínio, apresenta a resposta, as evidências, os pontos de atenção e o próximo passo aplicável.
+A Alvitra é uma assistente de IA que ajuda síndicos a cuidar dos condomínios por meio de uma única
+experiência: a conversa. O aplicativo abre diretamente no chat, sem landing page, onboarding,
+cadastro ou formulários longos visíveis. O único controle de acesso apresentado nessa página é um
+botão “Entrar”. Informações, documentos e ações entram na experiência de modo contextual, quando a
+conversa precisar deles.
 
-O produto pode ser sofisticado em suas capacidades, mas não deve transferir essa complexidade ao síndico. A IA deve compreender conversas, localizar e cruzar os documentos e versões corretos, produzir recomendações fundamentadas, gerar alertas relevantes e reconhecer situações de risco, conflito ou incerteza.
-
-O produto não deve ser apenas um “ChatGPT com documentos”. Seu valor precisa estar em transformar documentos dispersos em respostas fundamentadas, tarefas acompanháveis e alertas úteis, reduzindo tempo, esquecimento e risco operacional.
-
-Para a Zermatt Garantidora, o aplicativo será um canal de aquisição, relacionamento e construção de confiança com síndicos. Seu principal indicador de sucesso econômico é o número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial da Zermatt. A assinatura deve viabilizar o uso recorrente e ajudar a cobrir os custos do aplicativo; maximizar a margem do software não é o objetivo principal.
-
-As respostas, recomendações e alertas da IA devem permanecer independentes do interesse comercial da Zermatt. A utilidade vem antes da oferta: uma oportunidade comercial só pode ser apresentada separadamente quando houver relação legítima com a necessidade do usuário, e nenhum contato pode ocorrer sem uma ação ou confirmação clara do síndico.
-
-O produto deve operar com **o menor custo sustentável capaz de preservar o piso de qualidade**. A acessibilidade de preço é parte da proposta de valor e da arquitetura, não uma otimização posterior. Cada tarefa deve usar o caminho mais econômico que alcance o nível mínimo exigido de precisão, segurança e qualidade. A redução de custo nunca pode justificar uma resposta menos confiável.
+O produto deve parecer simples para o síndico mesmo quando executa trabalho documental complexo.
+A Alvitra conversa em linguagem natural, consulta somente o contexto autorizado, mostra a base das
+afirmações documentais, reconhece quando não há evidência suficiente e ajuda a definir o próximo
+passo.
 
 ## 2. Hipótese central
 
-Síndicos perdem tempo procurando informações, interpretando regras, cobrando fornecedores, acompanhando prazos e redigindo comunicações. Um conselheiro com memória específica do condomínio pode reduzir esse esforço e ajudar o síndico a decidir com mais segurança.
+Síndicos perdem tempo procurando informações, interpretando documentos e comparando períodos. Uma
+assistente conversacional que aprende o contexto aos poucos e usa uma memória documental
+verificável pode reduzir esse esforço sem exigir que o usuário aprenda uma estrutura de sistema.
 
-Esta é uma hipótese a validar. Não assumir que chat é necessariamente a melhor interface, que o síndico pagará pelo produto ou que confiará em recomendações jurídicas e financeiras feitas por IA.
+A hipótese de experiência é que uma única conversa reduz atrito e torna o valor perceptível mais
+cedo do que onboarding, formulários e telas paralelas.
 
-Também é hipótese a validar que utilidade recorrente e confiança no aplicativo podem gerar interesse comercial qualificado pelos serviços da Zermatt sem tornar a experiência invasiva, enviesar recomendações ou reduzir a confiança do síndico.
+## 3. Público inicial
 
-## 3. Público inicial recomendado
+- síndicos profissionais independentes e pequenas empresas de sindicatura;
+- síndicos moradores que precisam consultar e organizar informações do próprio condomínio.
 
-### Principal
+## 4. Problema inicial
 
-Síndicos profissionais independentes ou pequenas empresas de sindicatura que administram aproximadamente 3 a 20 condomínios.
-
-Motivos:
-
-- o problema se repete em vários condomínios;
-- economia de tempo tem valor financeiro direto;
-- possuem maior frequência de uso;
-- tendem a ter processos e documentos mais organizados;
-- um cliente pode ativar vários condomínios;
-- conseguem avaliar melhor a qualidade das respostas.
-
-### Público secundário
-
-- síndicos moradores de condomínios médios e grandes;
-- administradoras que desejam aumentar a produtividade de gerentes e atendentes;
-- conselheiros, subsíndicos e funcionários, com permissões limitadas.
-
-Administradoras grandes não devem ser o primeiro público: normalmente exigem integrações, segurança, implantação, suporte e vendas mais complexas.
-
-## 4. Problema inicial a resolver
-
-**Encontrar, cruzar e explicar informações específicas do condomínio com evidência documental.**
+Permitir que o síndico peça ajuda em linguagem natural e receba uma resposta útil, sustentada pelos
+documentos autorizados quando a resposta envolver fatos, regras ou números do condomínio.
 
 Exemplos:
 
-- “O que a convenção diz sobre locação por temporada?”
-- “Quem pode votar nesta assembleia?”
-- “Esta decisão exige assembleia ou pode ser tomada pelo síndico?”
-- “Qual foi a última decisão registrada sobre vagas de garagem?”
-- “Quando este contrato vence e como funciona a rescisão?”
-
-As respostas devem:
-
-1. consultar a legislação oficial compartilhada como base principal e usar somente documentos autorizados do condomínio como contexto complementar;
-2. mostrar documento, página e trecho que sustentam a resposta;
-3. separar fatos do condomínio, interpretação e recomendação;
-4. declarar quando não houver evidência suficiente;
-5. recomendar especialista quando houver risco jurídico, contábil, técnico ou de segurança.
+- entender uma regra da convenção ou do regimento;
+- localizar uma decisão em ata;
+- analisar um documento enviado durante a conversa;
+- comparar balancetes e identificar variações quando houver histórico suficiente.
 
 ## 5. Proposta de valor
 
-> Converse naturalmente com uma IA que entende o contexto do condomínio, encontra a fonte correta e ajuda a tomar decisões e acompanhar obrigações com segurança.
+> Converse com a Alvitra para cuidar do condomínio; ela pede o contexto necessário no momento certo,
+> consulta os documentos disponíveis e ajuda a transformar o que encontrou em próximos passos.
 
-Benefícios esperados:
+## 6. Experiência principal
 
-- menos tempo procurando e relendo documentos;
-- menos dependência de memória pessoal e mensagens antigas;
-- menor risco de perder prazos ou contrariar regras internas;
-- comunicação mais rápida e consistente;
-- histórico organizado para troca de gestão;
-- ganho de escala para síndicos profissionais.
-- experiência fácil de usar, sem exigir conhecimento técnico ou comandos complexos;
-- preço acessível, viabilizado por uso eficiente e seletivo de modelos de IA.
+O aplicativo é o chat com a Alvitra. Não há onboarding obrigatório nem telas de trabalho paralelas.
 
-### Valor para a Zermatt
+1. A página inicial abre diretamente na conversa, com um único botão “Entrar”.
+2. Depois de entrar, o síndico escreve o que precisa.
+3. A Alvitra responde ou pede, de forma natural, a informação ou o documento que falta.
+4. Documentos enviados pelo chat são processados, vetorizados e ficam disponíveis para consultas
+   posteriores autorizadas.
+5. Informações aprendidas na conversa podem alimentar o perfil do síndico e do condomínio quando a
+   capacidade correspondente for implementada.
 
-- relacionamento recorrente com síndicos antes de qualquer abordagem comercial;
-- oportunidades qualificadas geradas por interesse explícito do usuário;
-- fortalecimento da confiança e da lembrança da marca por utilidade real;
-- aprendizado sobre as necessidades dos síndicos sem usar documentos confidenciais para prospecção oculta;
-- custo de aquisição mensurável em relação ao uso e às oportunidades consentidas.
+Em uma etapa futura, “Entrar” pedirá somente o número de telefone do síndico e validará um código
+enviado pelo WhatsApp. Na jornada normal, essa será a única autenticação explícita: a sessão ficará
+persistente. Recuperação de acesso, troca de aparelho e revogação de sessão serão detalhadas antes
+da integração para preservar a segurança.
 
-## 6. Principais oportunidades
+Controles auxiliares podem aparecer sobre o chat apenas quando previstos nos blocos abaixo. Eles
+não se tornam fluxos de onboarding nem substituem a conversa como interface principal.
 
-1. **Consulta documental com fontes:** responder sobre convenção, regimento, atas e contratos citando a origem.
-2. **Memória institucional:** preservar decisões e contexto quando muda o síndico ou a administradora.
-3. **Agenda de obrigações:** extrair vencimentos, reajustes, inspeções, renovações e compromissos.
-4. **Análise de contratos:** resumir obrigações, multas, reajustes, riscos e condições de rescisão.
-5. **Comparação de orçamentos:** normalizar escopos, apontar itens ausentes e evitar comparação apenas pelo preço.
-6. **Comunicação assistida:** criar comunicados consistentes com as regras e o histórico do condomínio.
-7. **Preparação de assembleias:** pauta, convocação, documentos de apoio, perguntas previsíveis e resumo posterior.
-8. **Triagem de ocorrências:** identificar recorrência, urgência, responsável e próximo passo.
-9. **Gestão proativa:** alertar sobre itens atrasados ou próximos do vencimento.
-10. **Escalonamento seguro:** reconhecer situações que precisam de advogado, contador, engenheiro, seguradora ou administradora.
+## 7. Escopo por blocos
 
-## 7. Funcionalidades priorizadas
+### Bloco 1 — limpeza e nova página inicial
 
-### Prioridade 1 — MVP
+- remover cadastro, senha, e-mail e formulários de login, mantendo apenas o botão “Entrar”;
+- deixar a coleta de telefone e o código pelo WhatsApp para uma implementação futura;
+- remover da experiência a criação de condomínio;
+- remover landing page, onboarding, painel administrativo, configurações e outras telas paralelas;
+- abrir a página inicial diretamente no chat;
+- manter envio, processamento, recuperação e vetorização de documentos;
+- manter evidências, citações, abstenção, conflitos, feedback e recomendações de validação humana
+  dentro da conversa.
 
-1. Cadastro de condomínios separados, sem mistura de dados.
-2. Upload de PDF, DOCX, planilhas e imagens digitalizadas.
-3. Organização por tipo de documento e data de vigência.
-4. Chat com respostas fundamentadas nos documentos.
-5. Citação clicável com documento, página e trecho.
-6. Resumo estruturado de convenções, atas e contratos.
-7. Geração de comunicados a partir do contexto recuperado.
-8. Extração de datas, obrigações e responsáveis para uma lista de pendências.
-9. Feedback do usuário: correto, incorreto, incompleto ou desatualizado.
-10. Registro das fontes e do raciocínio operacional apresentado ao usuário.
-11. Caminho comercial separado e opcional para que o usuário solicite conhecer ou simular os serviços da Zermatt, sempre com confirmação explícita.
-12. Análise assistida de balancetes e preparação de rascunho de prestação de contas, com valores recalculados por código, evidências por página e revisão humana obrigatória.
+### Bloco 2 — personalidade da Alvitra
 
-### Prioridade 2 — após validação
+- definir um tom casual, humano, franco e prestativo;
+- apontar o que está bom e o que está ruim;
+- quando algo estiver ruim, oferecer próximos passos claros;
+- apresentar o system prompt ao usuário antes de aplicá-lo.
 
-- comparação estruturada de orçamentos;
-- análise de contratos com checklist de riscos;
-- preparação e resumo de assembleias;
-- gestão de fornecedores;
-- permissões para conselho e equipe;
-- integração com e-mail, calendário e sistemas de administradoras;
-- painel multi-condomínio para síndicos profissionais.
+### Bloco 3 — múltiplos chats e barra lateral
 
-### Próxima fatia autorizada do MVP
+- permitir vários chats;
+- manter a lista na lateral esquerda, escondida por padrão;
+- oferecer novo chat, histórico, renomear e excluir;
+- usar painel deslizante no desktop e overlay no celular.
 
-Por decisão explícita do usuário em 2026-10-06, após a conclusão da leitura integral de PDFs, a
-próxima fatia passa a permitir que o síndico envie fotos pelo chat para interpretação visual. A
-imagem original, a descrição visual identificada como gerada por IA, o texto legível reconhecido e
-os embeddings multimodais devem preservar página, condomínio, versão e origem; somente fontes
-confirmadas e processadas podem fundamentar respostas. A imagem é enviada à Gemini API apenas no
-serviço pago, após aviso visível e clique explícito de envio. A cota gratuita é proibida para este
-fluxo. A interpretação descreve o que é visível e suas incertezas; não diagnostica defeitos,
-conformidade, causa ou segurança. Dados reais e pilotos continuam bloqueados até a aprovação dos
-gates de LGPD, fornecedores, retenção e resposta a incidentes.
+### Bloco 4 — menu sanduíche
 
-“Despesas e balancetes” foi antecipado por decisão explícita de produto em 2026-09-24. A fatia
-segue à interpretação visual de fotos e permite analisar PDFs financeiros, confirmar competência e dados extraídos, recalcular totais,
-explicar divergências e preparar um rascunho de prestação de contas. Ela não aprova contas, não
-realiza auditoria, não executa conciliação bancária sem todos os extratos e não movimenta dinheiro.
+- abrir no canto superior direito um menu com “Condomínios”, “Meus dados” e “Preferências”;
+- listar os condomínios do síndico e oferecer criação opcional;
+- permitir que a criação também aconteça pela conversa.
 
-Antes dela, o produto deve concluir a leitura integral de PDFs: contabilizar todas as páginas,
-preservar a estrutura útil do texto e impedir que arquivos com páginas vazias, ilegíveis ou não
-processadas sejam apresentados como prontos. O estado e a qualidade de cada página devem ficar
-visíveis para o usuário.
+### Bloco 5 — perfil construído pela conversa
 
-### Não construir inicialmente
+- coletar informações do síndico aos poucos e somente quando fizer sentido;
+- alimentar “Meus dados” e os dados do condomínio com o que foi confirmado na conversa.
 
-- contabilidade completa;
-- emissão de boletos e gestão bancária;
-- aplicativo completo para moradores;
-- controle de acesso e portaria;
+### Bloco 6 — documentos sob demanda
+
+- nenhum documento é obrigatório;
+- pedir cada documento somente quando ele for necessário;
+- vetorizar os documentos enviados e disponibilizá-los à Alvitra nas conversas autorizadas.
+
+### Bloco 7 — análise de documentos e raio-X de balancetes
+
+- analisar a qualidade do material recebido e sugerir melhorias;
+- comparar balancetes com meses anteriores;
+- destacar variações, pontos de atenção e sinais saudáveis;
+- pedir os meses anteriores quando o histórico não estiver disponível.
+
+### Bloco 8 — base para níveis da conta
+
+- manter um campo de nível na conta;
+- calcular o nível a partir das informações confirmadas do perfil;
+- deixar regras finais e telas elaboradas para decisão posterior.
+
+Os blocos devem ser implementados somente quando solicitados explicitamente. A autorização de um
+bloco não antecipa os seguintes, salvo quando o usuário autorizar explicitamente blocos compatíveis
+em paralelo. Mesmo nesse caso, cada bloco mantém seu próprio escopo, validação e aprovação final.
+
+## 8. Memória documental e vetorização
+
+A vetorização de documentos é parte permanente do produto e não pode ser removida na
+reestruturação. Todo documento enviado deve manter:
+
+- vínculo com um `condominium_id` autorizado;
+- original privado e metadados de procedência;
+- versão, página e trecho recuperável quando aplicável;
+- estado de processamento e qualidade;
+- embeddings e derivados isolados pelo mesmo condomínio;
+- política de retenção e exclusão coerente para original e derivados.
+
+Conteúdo de documento é dado não confiável e nunca instrução de sistema.
+
+## 9. Respostas e evidências
+
+- uma afirmação documental exige evidência recuperada;
+- toda citação aponta para documento, versão, página e trecho verificáveis;
+- conflitos de versão ou vigência são exibidos, nunca resolvidos silenciosamente;
+- quando a evidência for insuficiente, a Alvitra se abstém da conclusão documental e explica o que
+  falta;
+- fatos do condomínio, interpretação e recomendação permanecem distinguíveis;
+- temas jurídicos, contábeis, técnicos, financeiros ou de segurança de maior risco recomendam
+  validação humana.
+
+## 10. Segurança e confiança
+
+- toda operação de domínio parte de um `condominium_id` autorizado;
+- banco, arquivos, busca vetorial, cache, jobs e logs não misturam condomínios;
+- nenhuma ação externa é executada sem confirmação humana;
+- dados reais e pessoais não entram em fixtures, testes ou evals;
+- documentos não são usados para treinamento sem consentimento específico;
+- respostas não podem inventar regras, valores ou fontes;
+- a simplificação visual não enfraquece autenticação interna, autorização, auditoria, retenção ou
+  proteção de dados.
+
+## 11. Fora do escopo
+
+- onboarding e cadastro obrigatórios;
+- telas públicas de login com e-mail, senha ou cadastro de conta;
+- integração com WhatsApp, coleta de telefone e validação de código no Bloco 1;
+- formulário longo para criar condomínio;
+- dashboards, painéis administrativos ou módulos paralelos ao chat;
+- contabilidade completa, emissão de boletos ou movimentação bancária;
+- portaria, controle de acesso ou aplicativo de moradores;
 - marketplace de fornecedores;
-- automação irreversível de decisões;
 - parecer jurídico definitivo;
-- integração com muitos sistemas antes de comprovar uso recorrente.
-- prospecção automática baseada no conteúdo confidencial dos documentos;
-- contato comercial sem solicitação ou confirmação do usuário;
-- recomendação comercial disfarçada de orientação imparcial da IA.
-
-## 8. Funcionalidades proativas
-
-1. **Manutenções atrasadas:** identificar tarefas vencidas ou sem comprovação de execução.
-2. **Contratos e seguros:** avisar sobre vencimento, renovação automática, reajuste e janela de cancelamento.
-3. **Gastos anormais:** sinalizar aumentos relevantes ou despesas fora do padrão histórico.
-4. **Problemas recorrentes:** agrupar ocorrências semelhantes e indicar possíveis causas ou fornecedores envolvidos.
-5. **Resumo semanal:** apresentar prioridades, riscos, pendências, compromissos e decisões necessárias naquela semana.
-
-Toda sugestão proativa deve mostrar por que o alerta foi criado, quais dados foram usados e qual é o nível de confiança.
-
-## 9. Dados e documentos necessários
-
-### Essenciais para o MVP
-
-- legislação brasileira oficial, compartilhada, versionada e separada dos dados dos condomínios, iniciando pela Constituição Federal;
-- convenção condominial e alterações;
-- regimento interno;
-- atas de assembleias;
-- contratos ativos;
-- orçamentos e propostas;
-- cronogramas e relatórios de manutenção;
-- cadastro básico de fornecedores;
-- lista de pendências informada pelo síndico.
-- balancetes e demonstrativos financeiros enviados pelo síndico para análise assistida, sempre com procedência, competência e revisão humana.
-
-### Posteriores
-
-- apólices e sinistros;
-- chamados e ocorrências;
-- laudos, certificados e garantias;
-- e-mails e comunicados;
-- calendário de obrigações;
-- histórico de aprovações e responsáveis.
-
-Os documentos precisam ter versão, vigência e procedência. Um documento mais recente não deve substituir silenciosamente outro sem registrar a relação entre eles.
-
-## 10. Diferencial em relação a ChatGPT, Gemini e Claude
-
-O diferencial não pode ser apenas permitir perguntas. O produto deve oferecer:
-
-- base de legislação oficial compartilhada, com origem e versão verificáveis, consultada antes dos documentos internos nas perguntas substantivas;
-- separação segura entre condomínios;
-- memória persistente, estruturada e controlável;
-- respostas com fontes precisas;
-- controle de versões e vigência dos documentos;
-- permissões por condomínio e função;
-- alertas e acompanhamento de obrigações;
-- fluxos específicos de contratos, atas, orçamentos e manutenções;
-- histórico auditável;
-- critérios explícitos para encaminhamento a especialistas;
-- experiência multi-condomínio.
-- conversa natural e contextual sem exigir que o síndico aprenda a formular prompts;
-- experiência fácil de usar apesar da complexidade documental e operacional tratada pelo sistema.
-
-Se essas capacidades não forem claramente melhores do que carregar arquivos em uma IA genérica, o produto terá pouco poder de diferenciação.
-
-## 11. Experiência principal
-
-### Entrada
-
-1. Usuário cria o condomínio.
-2. Envia um conjunto pequeno de documentos essenciais.
-3. Sistema classifica os arquivos, extrai datas e aponta documentos ausentes ou duplicados.
-4. Usuário confirma o que está vigente.
-
-O onboarding deve exigir poucos passos, explicar claramente o estado de cada documento e permitir que o síndico comece sem treinamento técnico.
-
-### Uso
-
-1. Usuário pergunta ou seleciona uma tarefa.
-2. Sistema recupera apenas o contexto relevante daquele condomínio.
-3. Resposta apresenta conclusão, evidências, ressalvas e próximo passo.
-4. Usuário pode abrir a fonte, corrigir a resposta ou transformar o resultado em comunicado ou pendência.
-5. Quando houver relação legítima com os serviços da Zermatt, a interface pode apresentar separadamente um convite opcional para conhecer o serviço ou solicitar uma simulação.
-
-Fotos escolhidas no chat permanecem anexadas até o usuário clicar em enviar. Antes desse ato, a
-interface informa que a foto será armazenada no banco do condomínio e transmitida à Gemini API
-paga para interpretação visual; o sistema não envia a foto automaticamente ao selecioná-la.
-
-### Formato recomendado da resposta
-
-- **Resposta direta**
-- **Base documental**
-- **Pontos de atenção**
-- **Próximo passo sugerido**
-- **Quando consultar um especialista**
-
-## 12. Princípios de segurança e confiança
-
-- Nunca apresentar orientação jurídica como certeza quando houver interpretação possível.
-- Não inventar regras ausentes nos documentos.
-- Informar conflitos entre convenção, regimento, atas e contratos.
-- Permitir que o usuário veja e corrija os dados extraídos.
-- Exigir confirmação humana antes de enviar mensagens, alterar prazos ou executar ações externas.
-- Registrar acesso, alterações, respostas e fontes utilizadas.
-- Criptografar dados em trânsito e armazenados.
-- Implementar exclusão, exportação, retenção e controle de acesso compatíveis com a LGPD.
-- Não usar documentos dos clientes para treinamento sem consentimento específico.
-- Para interpretação visual de fotos, transmitir somente a imagem escolhida e enviada explicitamente
-  pelo usuário à Gemini API sob serviço pago e aviso claro; nunca usar cota gratuita. A descrição e
-  os embeddings derivados permanecem vinculados ao mesmo condomínio e sujeitos à retenção e purge
-  dos documentos. Essa autorização de produto não libera dados reais ou pilotos antes dos gates de
-  LGPD, avaliação do fornecedor e resposta a incidentes.
-- Separar claramente “informação encontrada”, “interpretação da IA” e “recomendação”.
-- Não alterar respostas ou recomendações para favorecer uma oportunidade comercial da Zermatt.
-- Não usar o conteúdo dos documentos para qualificação ou prospecção comercial sem consentimento específico, claro e informado.
-- Separar visualmente a orientação da IA de qualquer convite comercial.
-- Não iniciar contato comercial sem confirmação humana explícita, nem reduzir a utilidade do produto quando uma oferta for recusada.
-
-## 13. Situações que exigem especialista
-
-O produto deve recomendar validação humana em temas como:
-
-- disputas jurídicas ou risco de processo;
-- aplicação de multas controvertidas;
-- acidentes, obras estruturais e segurança;
-- interpretação legal sem base documental suficiente;
-- questões trabalhistas e tributárias;
-- suspeita de fraude ou desvio;
-- sinistros e cobertura securitária;
-- contratos de alto valor ou rescisões relevantes;
-- proteção de dados pessoais;
-- decisões que possam gerar responsabilidade civil ou criminal.
-
-## 14. MVP mais simples possível
-
-Uma aplicação web com:
-
-- autenticação;
-- criação de um ou mais condomínios;
-- upload de documentos;
-- processamento de texto e OCR;
-- busca semântica com isolamento por condomínio;
-- chat com citações de página;
-- geração de comunicado;
-- extração de datas e pendências;
-- feedback sobre as respostas;
-- painel básico de documentos e obrigações.
-- análise de balancete com números principais, cálculos reproduzíveis, evidências e rascunho imprimível de prestação de contas pendente de revisão.
-- interpretação visual limitada de fotos enviadas explicitamente pelo síndico, com descrição de IA
-  identificada, origem consultável e vetor multimodal isolado por condomínio.
-- acesso separado e opcional para solicitar informações ou uma simulação dos serviços da Zermatt.
-
-Não automatizar ações externas no MVP. O objetivo inicial é provar que as respostas são confiáveis, economizam tempo e geram uso recorrente.
-
-## 15. Estratégia técnica inicial
-
-- Arquitetura preparada para trocar ou combinar provedores de IA.
-- Modelo econômico para classificação, extração e redação simples.
-- Modelo mais capaz para interpretação de documentos e decisões complexas.
-- Recuperação combinada da legislação oficial compartilhada e do contexto autorizado por condomínio, documento, versão, data e nível de permissão.
-- Respostas geradas somente após localizar evidências suficientes.
-- OCR com indicador de qualidade para documentos escaneados.
-- interpretação e embeddings multimodais com provedor configurável; nenhuma imagem real pode ser
-  transmitida sem aviso, autorização explícita, serviço pago confirmado e gates de privacidade.
-- Avaliação automatizada e humana de precisão, citação, cobertura e alucinação.
-
-### Arquitetura orientada a custo
-
-- Não enviar todos os documentos a cada pergunta; recuperar somente páginas e trechos relevantes.
-- Não delegar aritmética financeira ao modelo: valores monetários devem ser normalizados em centavos e os cálculos devem ser reproduzidos por código determinístico.
-- Usar cache de prompts, resultados de OCR, resumos, embeddings e conteúdos recorrentes.
-- Processar documentos uma vez e reutilizar texto, metadados, datas e entidades extraídas.
-- Usar modelos pequenos para classificação, roteamento, extração, títulos, comunicados simples e identificação inicial de datas.
-- Escalar para um modelo intermediário apenas quando a pergunta exigir interpretação ou cruzamento de fontes.
-- Reservar modelos premium para situações raras, complexas ou de maior risco.
-- Permitir que regras determinísticas resolvam tarefas que não precisam de LLM, como comparação de datas e disparo de vencimentos.
-- Limitar respostas desnecessariamente longas e controlar o orçamento máximo de tokens por tarefa.
-- Executar rotinas não urgentes, quando possível, em horários ou modalidades de processamento mais baratos.
-- Manter compatibilidade com múltiplos provedores para aproveitar melhor relação entre preço e qualidade e evitar dependência comercial.
-- Registrar custo estimado por pergunta, funcionalidade, condomínio, modelo e provedor.
-- Criar limites de gasto e alertas internos para impedir consumo anormal.
-
-### Política de seleção de modelos
-
-Escolher modelos por **custo total para produzir uma resposta correta**, e não apenas pelo preço nominal de 1 milhão de tokens. Um modelo barato que exige várias tentativas, contexto excessivo ou revisão humana pode custar mais no resultado final.
-
-Antes da escolha, montar um conjunto de pelo menos 100 casos reais e comparar os modelos em:
-
-- precisão da resposta;
-- fidelidade à convenção, atas e contratos;
-- qualidade das citações;
-- taxa de alucinação;
-- qualidade em português;
-- capacidade de reconhecer incerteza e necessidade de especialista;
-- latência;
-- custo médio por resposta aprovada;
-- requisitos de privacidade e tratamento de dados;
-- estabilidade e disponibilidade da API.
-
-O modelo vencedor pode variar por tarefa. A arquitetura deve aceitar um roteamento semelhante a:
-
-| Tipo de tarefa | Classe de modelo recomendada |
-|---|---|
-| Classificar documento, extrair datas e gerar etiquetas | Econômico |
-| Escrever comunicado simples a partir de fatos confirmados | Econômico |
-| Localizar trechos e responder perguntas diretas | Econômico, com escalonamento se necessário |
-| Cruzar convenção, regimento e atas | Intermediário |
-| Comparar contratos ou orçamentos complexos | Intermediário |
-| Tema jurídico sensível, conflito documental ou alto risco | Avançado e validação humana |
-
-Não escolher o provedor apenas pelo preço dos tokens. O preço é fundamental, mas existe um piso inegociável de qualidade, privacidade e segurança. Avaliar qualidade em português, fidelidade às fontes, proteção de dados, disponibilidade, latência e estabilidade comercial.
-
-## 16. Validação contínua durante a construção
-
-Por decisão explícita de produto em 2026-09-24, a conclusão de um piloto formal não é pré-condição
-para continuar desenvolvendo o aplicativo. O produto avança em fatias verticais completas, testadas
-pelo usuário durante a construção. Os passos abaixo permanecem como formas recomendadas de
-aprendizado e podem ocorrer em paralelo, sem bloquear a próxima funcionalidade aprovada.
-
-1. Entrevistar de 15 a 25 síndicos profissionais e moradores.
-2. Solicitar documentos anonimizados de 5 a 10 condomínios.
-3. Reunir pelo menos 100 perguntas reais já enfrentadas por esses síndicos.
-4. Criar um protótipo assistido: o usuário envia pergunta e documentos; a equipe usa IA e revisa a resposta manualmente.
-5. Medir tempo atual versus tempo com o protótipo.
-6. Avaliar as respostas às cegas com síndicos e especialistas.
-7. Testar cobrança e disposição de pagamento quando o fluxo comercial estiver pronto.
-8. Observar uso durante quatro a oito semanas, não apenas intenção declarada.
-9. Medir se usuários satisfeitos solicitam voluntariamente conhecer a Zermatt e se a presença da oferta comercial afeta sua percepção de confiança.
-
-### Métrica principal de negócio
-
-> Número de oportunidades comerciais qualificadas e consentidas entregues ao time comercial da Zermatt.
-
-Uma oportunidade só deve ser contabilizada quando o usuário solicitar contato, informações ou uma simulação e o condomínio atender aos critérios mínimos de qualificação definidos com o time comercial. Impressões de oferta, cliques isolados, assuntos de perguntas e conteúdo de documentos não contam como oportunidade.
-
-### Métricas de produto, confiança e eficiência
-
-- percentual de respostas consideradas corretas e fundamentadas;
-- percentual de citações que realmente sustentam a resposta;
-- redução de tempo por tarefa;
-- perguntas por condomínio por semana;
-- retorno semanal dos usuários;
-- documentos adicionados por usuário;
-- correções e respostas rejeitadas;
-- alertas considerados úteis;
-- conversão de piloto gratuito para pago;
-- disposição de indicar o produto.
-- custo de IA por condomínio ativo;
-- custo médio por resposta aprovada;
-- percentual de tarefas resolvidas por modelos econômicos;
-- percentual de perguntas escaladas para modelos mais caros;
-- tempo até o usuário obter valor na primeira sessão;
-- percentual de usuários ativos que solicitam conhecer ou simular os serviços da Zermatt;
-- percentual de solicitações aceitas como oportunidades qualificadas pelo time comercial;
-- conversão de oportunidades em conversas, propostas e contratos;
-- custo do aplicativo por usuário ativo e por oportunidade qualificada;
-- percepção do usuário de que a abordagem comercial é transparente e não invasiva;
-
-## 17. Critérios de continuidade
-
-Continuar investindo se houver evidência de que:
-
-- usuários retornam espontaneamente toda semana;
-- o produto economiza tempo mensurável;
-- respostas com fontes aumentam a confiança;
-- pelo menos um segmento aceita pagar;
-- profissionais ativam vários condomínios;
-- erros graves são raros, detectáveis e controláveis.
-- o preço acessível ajuda a cobrir o custo variável do aplicativo sem reduzir o uso útil;
-- usuários satisfeitos geram oportunidades comerciais voluntárias e qualificadas para a Zermatt.
-
-Reavaliar a hipótese se:
-
-- o chat for usado somente ocasionalmente;
-- usuários preferirem encaminhar tudo à administradora ou ao advogado;
-- a preparação dos documentos exigir esforço excessivo;
-- a IA não conseguir distinguir versões e regras conflitantes;
-- usuários não confiarem em enviar dados;
-- o custo de aquisição e suporte superar o valor percebido.
-- a abordagem comercial reduzir a confiança ou a recorrência;
-- o aplicativo atrair uso, mas não gerar interesse qualificado pelos serviços da Zermatt.
-
-## 18. Modelo de cobrança a testar
-
-- assinatura acessível por condomínio;
-- assinatura por carteira, com faixas de condomínios e limites justos de utilização;
-- plano profissional com usuários adicionais;
-- taxa opcional de implantação para organização inicial dos documentos;
-- plano corporativo para administradoras, somente após validação.
-
-O aplicativo não será gratuito por padrão. O preço deve ajudar a cobrir os custos de inteligência artificial, infraestrutura, suporte e operação, além de desestimular abuso, sem buscar maximizar a margem direta do software. Evitar cobrança por mensagem na interface, pois pode desestimular o uso; preferir uma assinatura compreensível, com limites justos, roteamento de modelos e cache.
-
-O preço-alvo deve ser definido depois dos pilotos. A equação econômica deve considerar o custo por usuário ativo, o custo por resposta aprovada e o custo por oportunidade comercial qualificada. O usuário não precisa saber qual modelo respondeu; ele deve receber a melhor resposta dentro do padrão de qualidade contratado.
-
-## 19. Riscos principais
-
-### Produto
-
-- baixa frequência de uso;
-- percepção de ser apenas um chat genérico;
-- onboarding trabalhoso;
-- alertas excessivos ou irrelevantes.
-- oferta comercial percebida como insistente, oculta ou conflitante com o interesse do síndico;
-- preço tão baixo que atraia abuso ou impeça manter a qualidade esperada.
-
-### Técnicos
-
-- alucinações;
-- OCR incorreto;
-- recuperação da versão errada;
-- mistura de dados entre condomínios;
-- falhas em documentos longos ou mal digitalizados;
-- dependência de um único fornecedor de IA.
-
-### Jurídicos e de confiança
-
-- vazamento de dados pessoais e financeiros;
-- orientação interpretada como parecer profissional;
-- decisão errada baseada em resposta incompleta;
-- ausência de consentimento ou base legal para determinados dados;
-- falta de transparência sobre armazenamento e uso das informações.
-- uso indevido de documentos ou comportamento do usuário para prospecção comercial;
-- confusão entre recomendação independente da IA e oferta de serviços da Zermatt.
-
-## 20. Decisões que ainda precisam ser validadas
-
-- qual segmento sente a dor com maior intensidade;
-- quem paga: síndico, condomínio ou administradora;
-- se a interface principal deve ser chat, painel de prioridades ou uma combinação;
-- quais três tarefas geram uso recorrente;
-- nível de revisão humana necessário;
-- quais integrações realmente influenciam a compra;
-- preço aceitável por condomínio;
-- modelo de IA com melhor relação entre qualidade, privacidade e custo.
-- custo máximo de IA aceitável por condomínio ativo e por resposta aprovada;
-- quais tarefas podem usar modelos econômicos sem perda relevante de confiança;
-- qual preço acessível ajuda a cobrir o custo variável sem prejudicar adoção e recorrência;
-- o que caracteriza uma oportunidade comercial qualificada para a Zermatt;
-- em qual momento e formato uma oferta opcional é útil sem ser invasiva;
-- quais sinais comerciais podem ser usados com consentimento sem analisar documentos confidenciais para prospecção.
-
-## 21. Recomendação do que construir primeiro
-
-Construir primeiro um **consultor documental com fontes e memória por condomínio**, acompanhado de extração simples de obrigações.
-
-O primeiro fluxo deve permitir que o síndico envie convenção, regimento, algumas atas e contratos; faça perguntas; receba respostas com página e trecho; e transforme a resposta em um comunicado ou pendência.
-
-Esse núcleo testa as premissas mais importantes:
-
-- os documentos contêm contexto suficiente;
-- a IA consegue responder com precisão;
-- o usuário confia em respostas citadas;
-- há economia real de tempo;
-- o uso se repete;
-- existe disposição de pagamento.
-
-Adicionar os próximos módulos em fatias completas e seguras, com testes e revisão a cada entrega;
-um piloto formal não bloqueia essa sequência.
-
-Por decisão explícita de produto em 2026-10-06, a interpretação visual de fotos enviadas no chat
-passa a ser a próxima capacidade vertical depois da leitura integral de PDFs e antes de balancetes.
-Ela deve reutilizar upload, isolamento, evidência e retenção, usar Gemini exclusivamente em serviço
-pago com envio iniciado pelo usuário e validar utilidade com imagens sintéticas. Em seguida, a
-análise assistida de balancetes continua autorizada: reutiliza upload, leitura integral, isolamento
-e citações, valida utilidade com dados sintéticos e permanece sujeita à revisão humana. Nenhuma
-dessas decisões autoriza dados reais antes do gate de privacidade. Contabilidade completa,
-conciliação sem extratos, aprovação de contas e ações financeiras externas continuam fora do escopo.
-
-Quando estiver pronto, um caminho comercial mínimo e separado da conversa da IA pode ser testado
-durante o uso contínuo do aplicativo, sem depender de um piloto formal. O síndico deve solicitar
-voluntariamente informações ou uma simulação; esse fluxo não pode alterar a resposta, usar
-documentos para prospecção oculta nem iniciar contato sem confirmação explícita.
-
-## 22. Instrução resumida para o Codex
-
-> Desenvolva um MVP web de um conselheiro de IA robusto e fácil de usar para síndicos. O sistema deve manter dados completamente separados por condomínio, receber documentos, processar PDFs e imagens, controlar versão e vigência, responder perguntas usando apenas fontes recuperadas daquele condomínio e citar documento, página e trecho. Também deve gerar comunicados e extrair datas e obrigações para uma lista de pendências. Não implemente contabilidade, boletos, portaria, marketplace ou envio automático de mensagens. Priorize conversa natural, confiança, baixo custo operacional, rastreabilidade, LGPD, confirmação humana e capacidade de trocar ou combinar provedores de IA. Implemente roteamento por complexidade, cache, recuperação apenas dos trechos relevantes, limites de tokens e medição do custo por tarefa e condomínio. Use o caminho mais econômico que alcance o nível mínimo de qualidade e escale somente quando necessário. Toda resposta deve separar conclusão, evidência, ressalvas e próximo passo, declarando quando não houver base suficiente ou quando for necessário consultar um especialista. O aplicativo deve cobrar um preço acessível para ajudar a cobrir seus custos e funcionar como canal de relacionamento da Zermatt, com qualquer oferta comercial separada da orientação da IA, opcional e dependente de confirmação explícita. Não use documentos confidenciais para prospecção oculta.
-
-## 23. Referências de mercado e preços consultadas
-
-- OpenAI, comparação de modelos: <https://developers.openai.com/api/docs/models/compare>
-- DeepSeek, modelos e preços: <https://api-docs.deepseek.com/quick_start/pricing/>
-- Estimativa setorial de condomínios baseada no Censo Condominial uCondo: <https://portal.crea-sc.org.br/premio-sindicos-planning-2026-abre-inscricoes-e-destaca-categorias-alinhadas-ao-crescimento-do-setor-condominial-em-sc/>
-- Pesquisa Datafolha/Superlógica sobre profissionalização dos síndicos: <https://blog.superlogica.com/imprensa/releases/46-dos-sindicos-ja-sao-profissionais/>
-
-Os números de mercado devem ser tratados como estimativas setoriais, pois não há uma contagem nacional consolidada de pessoas únicas atuando como síndico. Para dimensionamento comercial, preferir número de condomínios e carteiras administradas.
+- ações irreversíveis ou contato externo sem confirmação humana.
+
+## 12. Estratégia técnica
+
+- TypeScript/Node, Fastify, React/Vite e PostgreSQL com RLS/pgvector permanecem a base;
+- recuperação semântica usa somente trechos relevantes e autorizados;
+- OCR, texto, metadados e embeddings são processados uma vez e reutilizados;
+- cálculos financeiros futuros devem ser determinísticos e reproduzíveis;
+- provedores de IA permanecem substituíveis;
+- o caminho mais econômico pode ser usado desde que preserve o piso de qualidade e segurança.
+
+## 13. Métricas de validação
+
+- tempo até a primeira conversa útil;
+- retorno semanal ao chat;
+- tarefas resolvidas ou encaminhadas com próximo passo claro;
+- respostas documentais corretas e fundamentadas;
+- citações que sustentam as afirmações;
+- abstenções corretas;
+- documentos pedidos somente quando necessários;
+- incidentes de isolamento, com tolerância zero;
+- custo médio por resposta aprovada.
+
+## 14. Critério de continuidade
+
+A reestruturação avança bloco a bloco por padrão. Blocos compatíveis só podem avançar em paralelo
+com autorização explícita do usuário. Cada bloco termina somente quando comportamento,
+documentação, testes e rastreabilidade estão coerentes e o usuário aprova ou pede ajustes. A
+ausência dessa aprovação impede iniciar blocos não autorizados.

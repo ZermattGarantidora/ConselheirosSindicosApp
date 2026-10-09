@@ -66,7 +66,42 @@ export function createFallbackAnswerGateway(
   return Object.freeze({
     async generate(input: AnswerGatewayInput): Promise<AnswerGatewayResult> {
       try {
-        return await primary.generate(input);
+        const primaryResult = await primary.generate(input);
+        if (
+          primaryResult.output.answerMode !== "abstained" ||
+          input.evidence.length === 0 ||
+          input.task !== "grounded_answer" ||
+          input.riskClass === "high" ||
+          !hasDeterministicElectionFact(input)
+        ) {
+          return primaryResult;
+        }
+
+        try {
+          const localResult = await fallback.generate(input);
+          if (
+            localResult.output.answerMode !== "grounded" ||
+            localResult.output.citations.length === 0
+          ) {
+            return primaryResult;
+          }
+          return Object.freeze({
+            output: Object.freeze({
+              ...localResult.output,
+              attentionPoints: Object.freeze([
+                ...localResult.output.attentionPoints,
+                "Modo documental local: a resposta foi extraída diretamente da fonte após a abstenção do provedor principal."
+              ])
+            }),
+            telemetry: Object.freeze({
+              ...localResult.telemetry,
+              routingReason:
+                "fallback documental local após abstenção do provedor primário em fato direto"
+            })
+          });
+        } catch {
+          return primaryResult;
+        }
       } catch (error: unknown) {
         if (!(error instanceof AnswerGatewayUnavailableError)) {
           throw error;
@@ -93,6 +128,12 @@ export function createFallbackAnswerGateway(
       }
     }
   });
+}
+
+function hasDeterministicElectionFact(input: AnswerGatewayInput): boolean {
+  return input.evidence.some(
+    (evidence) => electionFact(input.question, evidence.content) !== undefined
+  );
 }
 
 const modelKey = "deterministic-synthetic-answer";
@@ -167,9 +208,7 @@ function evidenceQuestionScore(question: string, evidence: RetrievalEvidence): n
   }
   if (
     /(?:quem.*(?:sub)?s[íi]ndic|per[íi]odo.*mandato.*s[íi]ndic)/iu.test(question) &&
-    /(?:sub)?s[íi]ndic[ao]?\s+[\p{L}\s]+\d{2}\/\d{2}\/\d{4}\s+a\s+\d{2}\/\d{2}\/\d{4}/iu.test(
-      evidence.content
-    )
+    electionFact(question, evidence.content) !== undefined
   ) {
     score += 5;
   }
@@ -181,11 +220,12 @@ function compactExcerpt(candidate: string, question: string): string {
   if (candidate.length <= maximumLength) return candidate;
 
   const normalized = candidate.toLocaleLowerCase("pt-BR");
+  const structuredFactPosition = electionFact(question, candidate)?.startOffset;
   const positions = relevantTerms(question)
     .map((term) => normalized.indexOf(term))
     .filter((position) => position >= 0)
     .sort((left, right) => left - right);
-  const anchor = positions[0] ?? 0;
+  const anchor = structuredFactPosition ?? positions[0] ?? 0;
   let start = Math.max(0, anchor - 120);
   let end = Math.min(candidate.length, start + maximumLength);
   if (end - start < maximumLength) start = Math.max(0, end - maximumLength);
@@ -305,7 +345,42 @@ function closestValue(question: string, content: string, expression: RegExp): st
     ?.trim();
 }
 
+function electionFact(
+  question: string,
+  content: string
+):
+  | Readonly<{
+      role: "síndica" | "subsíndico";
+      name: string;
+      validFrom: string;
+      validUntil: string;
+      startOffset: number;
+    }>
+  | undefined {
+  const asksForDeputy = /subs[íi]ndic/iu.test(question);
+  const rolePattern = asksForDeputy ? "Subs[íi]ndic[oa]" : "S[íi]ndic[oa]";
+  const match = new RegExp(
+    `\\b${rolePattern}\\s+([\\p{L}][\\p{L}'’.\\-]*(?:\\s+[\\p{L}][\\p{L}'’.\\-]*){0,5})\\s+(?:unidade\\s+)?(?:\\d{1,5}\\s+)?(\\d{2}\\/\\d{2}\\/\\d{4})\\s+a\\s+(\\d{2}\\/\\d{2}\\/\\d{4})`,
+    "iu"
+  ).exec(content);
+  if (match?.[1] === undefined || match[2] === undefined || match[3] === undefined) {
+    return undefined;
+  }
+  return Object.freeze({
+    role: asksForDeputy ? "subsíndico" : "síndica",
+    name: match[1].trim(),
+    validFrom: match[2],
+    validUntil: match[3],
+    startOffset: match.index
+  });
+}
+
 function structuredFallbackAnswer(question: string, excerpt: string): string | undefined {
+  const election = electionFact(question, excerpt);
+  if (election !== undefined) {
+    const elected = election.role === "síndica" ? "eleita síndica" : "eleito subsíndico";
+    return `${election.name} foi ${elected} para o mandato de ${election.validFrom} a ${election.validUntil}.`;
+  }
   const subject = fallbackSubject(question);
   const quotedSubject = subject.length > 0 ? ` para “${subject}”` : "";
   if (/\b(?:valor|quanto|cota|taxa|or[cç]amento|contribui)/iu.test(question)) {

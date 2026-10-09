@@ -21,6 +21,8 @@ Enviar e-mail por um fornecedor específico alteraria custo, subprocessadores e 
 - Sessões guardam rótulo genérico de dispositivo, criação, último uso, expiração e revogação. IP e user-agent completo não são persistidos.
 - A entrega de e-mail é um adaptador. No desenvolvimento explícito, a API pode devolver uma URL local de ação para testes; isso é proibido em produção.
 - Nenhum fornecedor de e-mail é adotado por esta decisão. Produção permanece bloqueada até ADR de fornecedor, região, retenção e contrato.
+- Por decisão de produto em 2026-10-08, a prévia local não libera novas configurações ou ativações de MFA. Essa capacidade só volta a ser oferecida quando houver um adaptador de entrega real de e-mail aprovado e a experiência de recuperação tiver sido revista.
+- Contas que já ativaram MFA continuam exigindo o segundo fator e podem desativá-lo; o adiamento não reduz silenciosamente a proteção existente nem bloqueia o acesso dessas contas.
 - Contas locais existentes são marcadas como verificadas na migration para evitar bloqueio retroativo; novas contas obedecem ao novo fluxo. Contas Google continuam dependendo do e-mail verificado pelo provedor.
 
 ## Consequências
@@ -37,6 +39,7 @@ Enviar e-mail por um fornecedor específico alteraria custo, subprocessadores e 
 - A equipe passa a custodiar uma chave criptográfica adicional.
 - Perder a chave torna segredos TOTP existentes inutilizáveis e exige recuperação por senha/e-mail.
 - A prévia local valida o fluxo, mas não valida entrega, reputação, bounce ou disponibilidade de um provedor real.
+- O código TOTP permanece disponível para proteger contas já ativadas, mas sua configuração fica dormente até a decisão do provedor e da experiência de recuperação.
 - TOTP não oferece a resistência a phishing de passkeys; passkeys ficam para decisão posterior.
 
 ## Alternativas consideradas

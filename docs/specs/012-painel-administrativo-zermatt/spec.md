@@ -1,6 +1,6 @@
 # Spec 012 — Painel administrativo da Zermatt
 
-**Status:** aprovada para implementação local controlada  
+**Status:** interface retirada pela Spec 016 e fora da visão canônica atual
 **Responsável:** produto, segurança e operação  
 **Atualizado em:** 2026-09-22
 

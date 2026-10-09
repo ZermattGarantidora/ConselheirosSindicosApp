@@ -1,6 +1,6 @@
 # Spec 015 — Verificação, recuperação, MFA e sessões da conta
 
-**Status:** implementada em ambiente local/controlado; entrega real de e-mail pendente de provedor aprovado
+**Status:** interface substituída pela Spec 016; controles internos permanecem preservados
 **Responsável:** produto e engenharia
 **Atualizado em:** 2026-10-08
 
@@ -8,13 +8,13 @@
 
 ### Partes do briefing atendidas
 
-| Dimensão da visão | Seções do briefing | Como esta spec contribui |
+| Dimensão da visão | Seções do briefing | Como esta spec contribui                                                                                                                        |
 | --------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Problema e hipótese   | §§1, 2 e 11        | Permite que o síndico retorne com segurança ao histórico e aos condomínios autorizados, sem transferir complexidade técnica para a experiência. |
 | Público               | §3                 | Protege contas de síndicos profissionais e moradores que podem administrar vários condomínios.                                                  |
 | Proposta de valor     | §§5 e 10           | Aumenta confiança, continuidade e controle da memória persistente do usuário.                                                                   |
 | Prioridades do MVP    | §§7 e 14           | Detalha a autenticação já prevista no MVP; não antecipa módulos operacionais posteriores.                                                       |
-| Segurança e confiança | §§12, 15 e 19      | Verifica posse do e-mail, permite recuperar acesso, adiciona segundo fator e torna sessões revogáveis por dispositivo.                          |
+| Segurança e confiança | §§12, 15 e 19      | Verifica posse do e-mail, permite recuperar acesso, preserva segundo fator já ativo e torna sessões revogáveis por dispositivo.                 |
 | Validação e métricas  | §§16 e 17          | Reduz abandono por perda de acesso e permite testar retorno recorrente com contas protegidas.                                                   |
 
 ### Limites respeitados
@@ -22,6 +22,7 @@
 - A decisão explícita do usuário em 2026-10-08 antecipa os controles de conta que a Spec 006 tratava como pré-requisitos para piloto público.
 - Nenhum documento, pergunta ou dado de condomínio é enviado pelo fluxo de e-mail.
 - Nenhum fornecedor de e-mail é escolhido silenciosamente. A implementação local usa uma prévia explícita e substituível; produção permanece bloqueada sem adaptador aprovado.
+- A decisão explícita do usuário em 2026-10-08 adia novas ativações de MFA até existir entrega real de e-mail aprovada; a prévia local não libera a configuração.
 - MFA limita-se a TOTP e códigos de recuperação. SMS, WhatsApp, push, passkeys e biometria ficam fora desta fatia.
 - Gerenciamento de sessões permite listar e revogar acessos; não coleta localização precisa, IP persistido nem impressão digital do dispositivo.
 - A fatia não libera dados reais nem piloto público sem os demais gates de LGPD, retenção, fornecedor, incidentes e segurança.
@@ -42,7 +43,7 @@ Nenhuma. A autenticação faz parte do MVP; esta spec aumenta o piso de seguran�
 
 ## 1. Objetivo
 
-Permitir que uma pessoa comprove a posse do e-mail, recupere ou troque a senha, proteja a conta com TOTP e encerre sessões de outros dispositivos sem perder seus condomínios ou histórico autorizado.
+Permitir que uma pessoa comprove a posse do e-mail, recupere ou troque a senha e encerre sessões de outros dispositivos sem perder seus condomínios ou histórico autorizado. O segundo fator já implementado permanece seguro para contas que o ativaram, mas novas ativações só serão oferecidas quando houver entrega real de e-mail aprovada.
 
 ## 2. Promessa testada
 
@@ -58,7 +59,8 @@ Síndico profissional ou morador que usa uma conta persistente e precisa manter 
 - Reenvio de verificação com resposta que não revela contas de terceiros.
 - Solicitação e confirmação de redefinição de senha por token de uso único.
 - Troca de senha autenticada mediante confirmação da senha atual.
-- MFA por TOTP de seis dígitos, com ativação confirmada e códigos de recuperação de uso único.
+- MFA por TOTP de seis dígitos preservado para contas que já o ativaram.
+- Configuração e ativação de novo MFA condicionadas a um adaptador de entrega real de e-mail; a prévia local não atende essa condição.
 - Desafio MFA após senha correta, antes de criar a sessão.
 - Listagem de sessões com rótulo reduzido de dispositivo, criação, último uso e expiração.
 - Revogação de uma sessão ou de todas as outras sessões.
@@ -78,7 +80,7 @@ Síndico profissional ou morador que usa uma conta persistente e precisa manter 
 - PostgreSQL com a migration da fatia aplicada.
 - URL pública de ação configurada no servidor.
 - Chave de 32 bytes configurada no servidor para criptografar segredos MFA.
-- Produção possui adaptador de e-mail aprovado; a prévia local não pode ser ativada em produção.
+- Produção possui adaptador de e-mail aprovado; a prévia local não pode ser ativada em produção nem liberar nova configuração de MFA.
 
 ## 7. Requisitos funcionais
 
@@ -96,7 +98,7 @@ O token de recuperação expira em 30 minutos, só pode ser usado uma vez e a re
 
 ### RQ-1504 — Proteger com MFA
 
-O usuário autenticado recebe um segredo TOTP pendente, confirma um código válido e só então ativa o MFA. A ativação entrega códigos de recuperação uma única vez. Senha correta em conta com MFA cria apenas um desafio curto; a sessão nasce após TOTP ou código de recuperação válido.
+Enquanto não houver entrega real de e-mail aprovada, a interface não oferece nova configuração de MFA e os endpoints de preparação e ativação falham fechados. A prévia local de links não libera essa capacidade. Contas que já possuem MFA ativo continuam exigindo desafio após a senha e podem desativá-lo com as confirmações existentes. Quando um adaptador real for aprovado, o fluxo de ativação poderá ser reaberto após revisão da experiência de recuperação.
 
 ### RQ-1505 — Gerenciar sessões
 
@@ -116,7 +118,9 @@ Tokens expirados, consumidos ou inválidos, excesso de tentativas MFA e configur
 - `POST /v1/auth/password/change` exige sessão e recebe `{ currentPassword, newPassword }`.
 - `POST /v1/auth/login` retorna sessão normal ou `202` com desafio MFA sem cookie de sessão.
 - `POST /v1/auth/mfa/challenge` recebe `{ challengeId, code }` e cria a sessão somente após validação.
-- `POST /v1/auth/mfa/setup`, `/enable` e `/disable` exigem sessão válida.
+- `GET /v1/auth/security` informa `mfaEnrollmentAvailable`; o valor só é verdadeiro com entrega real de e-mail configurada.
+- `POST /v1/auth/mfa/setup` e `/enable` exigem sessão válida e retornam `503` enquanto `mfaEnrollmentAvailable` for falso.
+- `POST /v1/auth/mfa/disable` permanece disponível para contas com MFA já ativo e exige sessão válida.
 - `GET /v1/auth/sessions`, `DELETE /v1/auth/sessions/:sessionId` e `POST /v1/auth/sessions/revoke-others` exigem sessão válida.
 - Respostas de desenvolvimento podem conter `developmentActionUrl` somente quando a prévia local estiver explicitamente ativa e `APP_ENV` não for `production`.
 
@@ -136,15 +140,18 @@ Tokens expirados, consumidos ou inválidos, excesso de tentativas MFA e configur
 - Usuário recupera acesso com token válido e todos os acessos anteriores deixam de funcionar.
 - Conta com MFA não recebe sessão apenas com a senha.
 - Código de recuperação funciona uma única vez.
+- Nenhuma nova configuração ou ativação de MFA ocorre enquanto o sistema usa somente a prévia local de e-mail.
+- Conta que já tinha MFA ativo mantém o desafio de login e a opção de desativação durante o adiamento.
 - Usuário consegue identificar e revogar outra sessão sem afetar contas de terceiros.
 - Testes cobrem expiração, reuso, enumeração, tentativas, criptografia e isolamento.
 
 ## 11. Questões em aberto
 
 - Qual fornecedor, região e política de retenção serão aprovados para entrega de e-mail em produção?
-- MFA será opcional ou obrigatório para administradores e para o piloto público?
+- Depois da aprovação do e-mail, MFA será opcional ou obrigatório para administradores e para o piloto público?
+- Antes de reabrir a ativação, a experiência continuará com TOTP e códigos de recuperação ou será substituída por um fluxo mais simples apoiado pelo e-mail?
 - Qual política de recuperação assistida será adotada quando o usuário perder e-mail e códigos?
 
 ## Gate para mudar o status
 
-A fatia só pode ser considerada pronta quando migration, serviço, rotas, interface, testes determinísticos, rastreabilidade e gate de visão passarem; produção continua bloqueada sem entrega de e-mail aprovada e exercício de recuperação de conta.
+A fatia só pode ser considerada pronta quando migration, serviço, rotas, interface, testes determinísticos, rastreabilidade e gate de visão passarem; produção e novas ativações de MFA continuam bloqueadas sem entrega de e-mail aprovada e exercício de recuperação de conta.

@@ -1,6 +1,6 @@
 # Spec 005 — Método de atuação da Alvitra
 
-**Status:** rascunho para revisão
+**Status:** substituída pelo sequenciamento do Bloco 2; nenhum prompt pode ser aplicado sem apresentação prévia
 **Responsável:** produto e engenharia
 **Atualizado em:** 2026-09-24
 

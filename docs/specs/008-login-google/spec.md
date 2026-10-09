@@ -1,6 +1,6 @@
 # Spec 008 — Login com Google
 
-**Status:** aprovada para implementação local controlada; interface pausada temporariamente  
+**Status:** interface substituída pela Spec 016; integração interna não é exposta no chat
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-09-17
 

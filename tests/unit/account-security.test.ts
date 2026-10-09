@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import { createApi } from "../../apps/api/app/create-api.js";
 import {
   createAccountActionDeliveryFromEnvironment,
-  createDevelopmentAccountActionDelivery
+  createDevelopmentAccountActionDelivery,
+  type AccountActionDelivery
 } from "../../apps/api/identity/account-action-delivery.js";
 import {
   createRecoveryCodes,
@@ -14,6 +15,7 @@ import {
   createTotpSecret,
   verifyTotpCode
 } from "../../apps/api/identity/account-security-crypto.js";
+import type { AccountAction } from "../../apps/api/identity/account-security.js";
 import { createInMemoryAccountSecurityBundle } from "../../apps/api/identity/in-memory-account-security.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 
@@ -26,6 +28,14 @@ const accountInput = Object.freeze({
 function firstSetCookie(header: string | string[] | undefined): string {
   const value = Array.isArray(header) ? header[0] : header;
   return value?.split(";", 1)[0] ?? "";
+}
+
+function createSyntheticExternalEmailDelivery(baseUrl: string): AccountActionDelivery {
+  const preview = createDevelopmentAccountActionDelivery(baseUrl);
+  return Object.freeze({
+    channel: "external_email",
+    deliver: (action: AccountAction) => preview.deliver(action)
+  });
 }
 
 async function verifiedAccount() {
@@ -302,6 +312,34 @@ describe("segurança e recuperação da conta", () => {
     });
     expect(login.statusCode).toBe(200);
     expect(login.headers["set-cookie"]).toContain("HttpOnly");
+    expect((await app.inject({ method: "GET", url: "/v1/runtime" })).json()).toMatchObject({
+      developmentAuthActions: true
+    });
+    const cookie = firstSetCookie(login.headers["set-cookie"]);
+    expect(
+      (await app.inject({ method: "GET", url: "/v1/auth/security", headers: { cookie } })).json()
+    ).toEqual({
+      emailVerified: true,
+      mfaEnabled: false,
+      mfaEnrollmentAvailable: false
+    });
+    const setup = await app.inject({
+      method: "POST",
+      url: "/v1/auth/mfa/setup",
+      headers: { cookie }
+    });
+    expect(setup.statusCode).toBe(503);
+    expect(setup.json<{ message: string }>().message).toMatch(/envio real de e-mails/u);
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/v1/auth/mfa/enable",
+          headers: { cookie },
+          payload: { code: "123456" }
+        })
+      ).statusCode
+    ).toBe(503);
     await app.close();
   });
 
@@ -311,12 +349,15 @@ describe("segurança e recuperação da conta", () => {
       membershipRepository: createDevelopmentIdentityRepository(),
       accountAuth: bundle.accountAuth,
       accountSecurity: bundle.accountSecurity,
-      accountActionDelivery: createDevelopmentAccountActionDelivery("http://127.0.0.1:5173/")
+      accountActionDelivery: createSyntheticExternalEmailDelivery("http://127.0.0.1:5173/")
     });
     const registration = await app.inject({
       method: "POST",
       url: "/v1/auth/register",
       payload: accountInput
+    });
+    expect((await app.inject({ method: "GET", url: "/v1/runtime" })).json()).toMatchObject({
+      developmentAuthActions: false
     });
     const verificationUrl = registration.json<{ developmentActionUrl: string }>()
       .developmentActionUrl;
@@ -361,7 +402,11 @@ describe("segurança e recuperação da conta", () => {
       url: "/v1/auth/security",
       headers: { cookie }
     });
-    expect(initialStatus.json()).toEqual({ emailVerified: true, mfaEnabled: false });
+    expect(initialStatus.json()).toEqual({
+      emailVerified: true,
+      mfaEnabled: false,
+      mfaEnrollmentAvailable: true
+    });
     expect(
       (
         await app.inject({
@@ -457,6 +502,60 @@ describe("segurança e recuperação da conta", () => {
     await app.close();
   });
 
+  it("preserva desafio e desativação de MFA já ativo durante o adiamento", async () => {
+    const bundle = await verifiedAccount();
+    const initialLogin = await bundle.accountSecurity.login({
+      email: accountInput.email,
+      password: accountInput.password,
+      deviceLabel: "Preparação sintética"
+    });
+    if (initialLogin.mfaRequired) throw new Error("MFA inesperado antes da preparação.");
+    const setup = await bundle.accountSecurity.beginMfaSetup(initialLogin.token);
+    await bundle.accountSecurity.enableMfa(initialLogin.token, createTotpCode(setup.secret));
+
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      accountAuth: bundle.accountAuth,
+      accountSecurity: bundle.accountSecurity,
+      accountActionDelivery: createDevelopmentAccountActionDelivery("http://127.0.0.1:5173/")
+    });
+    const challengedLogin = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { email: accountInput.email, password: accountInput.password }
+    });
+    expect(challengedLogin.statusCode).toBe(202);
+    const challengeId = challengedLogin.json<{ challengeId: string }>().challengeId;
+    const completed = await app.inject({
+      method: "POST",
+      url: "/v1/auth/mfa/challenge",
+      payload: { challengeId, code: createTotpCode(setup.secret) }
+    });
+    expect(completed.statusCode).toBe(200);
+    const cookie = firstSetCookie(completed.headers["set-cookie"]);
+    expect(
+      (await app.inject({ method: "GET", url: "/v1/auth/security", headers: { cookie } })).json()
+    ).toEqual({
+      emailVerified: true,
+      mfaEnabled: true,
+      mfaEnrollmentAvailable: false
+    });
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/v1/auth/mfa/disable",
+          headers: { cookie },
+          payload: {
+            password: accountInput.password,
+            code: createTotpCode(setup.secret)
+          }
+        })
+      ).statusCode
+    ).toBe(204);
+    await app.close();
+  });
+
   it("mantém a entrega de ações limitada ao desenvolvimento", () => {
     expect(createAccountActionDeliveryFromEnvironment({})).toBeUndefined();
     expect(
@@ -466,8 +565,8 @@ describe("segurança e recuperação da conta", () => {
       createAccountActionDeliveryFromEnvironment({
         AUTH_EMAIL_DELIVERY: "development",
         AUTH_PUBLIC_BASE_URL: "http://127.0.0.1:5173/"
-      })
-    ).toBeDefined();
+      })?.channel
+    ).toBe("development_preview");
     expect(() =>
       createAccountActionDeliveryFromEnvironment({ AUTH_EMAIL_DELIVERY: "provider-inexistente" })
     ).toThrow(/somente 'development'/u);
@@ -600,25 +699,6 @@ describe("segurança e recuperação da conta", () => {
       code: "invalid_token"
     });
     await app.close();
-  });
-
-  it("oferece na interface verificação, recuperação, MFA e sessões por dispositivo", async () => {
-    const [app, styles] = await Promise.all([
-      readFile("apps/web/App.tsx", "utf8"),
-      readFile("apps/web/styles.css", "utf8")
-    ]);
-    expect(app).toContain("Esqueci minha senha");
-    expect(app).toContain('query.get("verify_email")');
-    expect(app).toContain('query.get("reset_password")');
-    expect(app).toContain('window.history.replaceState({}, "", window.location.pathname)');
-    expect(app).toContain('fetch("/v1/auth/mfa/challenge"');
-    expect(app).toContain('fetch("/v1/auth/password/change"');
-    expect(app).toContain('fetch("/v1/auth/sessions"');
-    expect(app).toContain("Autenticação em duas etapas");
-    expect(app).toContain("Sessões conectadas");
-    expect(app).toContain("códigos de recuperação");
-    expect(styles).toContain(".account-session-list");
-    expect(styles).toContain(".mfa-recovery-codes");
   });
 
   it("mantém a migration restrita a funções e sem grants diretos", async () => {

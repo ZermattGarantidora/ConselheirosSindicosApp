@@ -78,6 +78,9 @@ function queryTerms(query: string): readonly string[] {
 }
 
 function expandRetrievalQuery(query: string): string {
+  if (/(?:sub)?s[íi]ndic/iu.test(query) && /mandato|per[íi]odo/iu.test(query)) {
+    return /subs[íi]ndic/iu.test(query) ? "subsíndico mandato" : "síndica mandato";
+  }
   const expansions: string[] = [];
   if (/multa|cobrança|processar|contesta/iu.test(query)) {
     expansions.push("notificação manifestação contestação cobrança");

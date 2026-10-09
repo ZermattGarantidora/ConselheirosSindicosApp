@@ -5,12 +5,14 @@ export type AccountActionDeliveryResult = Readonly<{
 }>;
 
 export interface AccountActionDelivery {
+  readonly channel: "development_preview" | "external_email";
   deliver(action: AccountAction): Promise<AccountActionDeliveryResult>;
 }
 
 export function createDevelopmentAccountActionDelivery(baseUrl: string): AccountActionDelivery {
   const normalizedBaseUrl = new URL(baseUrl);
   const delivery: AccountActionDelivery = {
+    channel: "development_preview",
     async deliver(action) {
       const url = new URL(normalizedBaseUrl);
       url.searchParams.set(
