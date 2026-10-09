@@ -1,6 +1,6 @@
 # Critérios de aceitação — Spec 015
 
-**Status:** implementado e validado localmente; entrega real de e-mail permanece bloqueada
+**Status:** implementado e validado localmente; novas ativações de MFA adiadas até a entrega real de e-mail
 **Atualizado em:** 2026-10-08
 
 ## AC-1501 — Nova conta exige verificação (P0)
@@ -62,16 +62,17 @@
 **E** todas as outras sessões são revogadas
 **E** a senha anterior deixa de autenticar.
 
-## AC-1509 — Preparar MFA sem ativar (P0)
+## AC-1509 — Adiar nova ativação de MFA sem e-mail real (P0)
 
-**Dado** uma sessão válida
-**Quando** a pessoa inicia a configuração TOTP
-**Então** recebe chave e URI de configuração
-**E** o MFA continua desativado até um código válido ser confirmado.
+**Dado** uma sessão válida e somente a prévia local de e-mail configurada
+**Quando** a pessoa abre a segurança da conta ou tenta preparar ou ativar MFA
+**Então** a interface explica que a capacidade será liberada com o envio real de e-mails
+**E** não exibe chave, URI ou códigos de recuperação
+**E** os endpoints de preparação e ativação retornam indisponibilidade sem persistir um novo segredo.
 
 ## AC-1510 — Ativar MFA e emitir recuperação (P0)
 
-**Dado** um segredo pendente e código TOTP válido
+**Dado** entrega real de e-mail aprovada, um segredo pendente e código TOTP válido
 **Quando** a ativação é confirmada
 **Então** o MFA fica ativo
 **E** códigos de recuperação são exibidos uma única vez
@@ -101,7 +102,7 @@
 
 ## AC-1514 — Desativar MFA com confirmação (P0)
 
-**Dado** MFA ativo
+**Dado** MFA ativo, inclusive quando novas ativações estão temporariamente indisponíveis
 **Quando** a pessoa confirma senha e TOTP ou recuperação válidos
 **Então** segredo e códigos deixam de autenticar
 **E** outras sessões são revogadas.

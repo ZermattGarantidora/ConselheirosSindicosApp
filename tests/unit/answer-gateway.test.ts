@@ -5,6 +5,7 @@ import {
   createFallbackAnswerGateway,
   createLocalSyntheticAnswerGateway
 } from "../../apps/api/answers/answer-gateway.js";
+import type { SpecialistType } from "../../apps/api/answers/answer-contract.js";
 import type { RetrievalEvidence } from "../../apps/api/retrieval/retrieval-contract.js";
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 
@@ -176,14 +177,17 @@ describe("gateway de respostas", () => {
     ["Qual obrigação tributária se aplica?", "contador"],
     ["Como interpretar o sinistro da apólice?", "seguradora"],
     ["Como tratar dados pessoais pela LGPD?", "especialista em proteção de dados"]
-  ] as const)("encaminha tema de alto risco para %s", async (question, specialist) => {
-    const gateway = createLocalSyntheticAnswerGateway();
-    const result = await gateway.generate(
-      input(question, "specialist_review", [evidence("A regra documental exige validação.")])
-    );
+  ] as const)(
+    "encaminha tema de alto risco para %s",
+    async (question: string, specialist: SpecialistType) => {
+      const gateway = createLocalSyntheticAnswerGateway();
+      const result = await gateway.generate(
+        input(question, "specialist_review", [evidence("A regra documental exige validação.")])
+      );
 
-    expect(result.output.specialist).toMatchObject({ required: true, type: specialist });
-  });
+      expect(result.output.specialist).toMatchObject({ required: true, type: specialist });
+    }
+  );
 
   it("mantém a ressalva para obra estrutural", async () => {
     const gateway = createLocalSyntheticAnswerGateway();
@@ -219,6 +223,121 @@ describe("gateway de respostas", () => {
       providerKey: "local",
       routingReason: expect.stringContaining("fallback documental local")
     });
+  });
+
+  it("usa extração local citada quando o provedor se abstém de um fato direto bem suportado", async () => {
+    const gateway = createFallbackAnswerGateway(
+      {
+        async generate() {
+          return {
+            output: {
+              answer: "Não encontrei base suficiente.",
+              answerMode: "abstained",
+              citations: [],
+              attentionPoints: [],
+              suggestedNextStep: null,
+              specialist: { required: false, type: null, reason: null },
+              claims: []
+            },
+            telemetry: {
+              providerKey: "google",
+              modelKey: "synthetic-primary",
+              modelVersion: "1",
+              promptVersion: "answer-prompt-v18",
+              pipelineVersion: "answer-v1",
+              taskType: "grounded_answer",
+              riskClass: "low",
+              routingReason: "resposta documental estruturada",
+              status: "completed",
+              inputTokens: 10,
+              outputTokens: 5,
+              cachedInputTokens: 0,
+              latencyMs: 20,
+              estimatedCostMicrounits: 0,
+              costCurrency: "BRL",
+              inputHash: "a".repeat(64),
+              outputHash: "b".repeat(64),
+              errorCode: null
+            }
+          };
+        }
+      },
+      createLocalSyntheticAnswerGateway()
+    );
+
+    const result = await gateway.generate(
+      input("Quem foi eleita síndica e qual é o período do mandato?", "grounded_answer", [
+        evidence(
+          "Perguntas úteis para teste incluem: quem foi eleita síndica; qual é o período do mandato.",
+          { id: "question-list", rerankScore: 0.95, pageNumber: 9 }
+        ),
+        evidence(
+          `${"O tema foi registrado sem deliberação. ".repeat(24)}Cargo Pessoa eleita Unidade Mandato Votos. Síndica Marina Vieira 101 15/09/2026 a 14/09/2027 13 favoráveis e 1 abstenção.`,
+          { id: "election-table", rerankScore: 0.6, pageNumber: 3 }
+        )
+      ])
+    );
+
+    expect(result.output).toMatchObject({
+      answerMode: "grounded",
+      answer: expect.stringMatching(/Marina Vieira.*15\/09\/2026.*14\/09\/2027/iu),
+      citations: [{ evidenceId: "election-table", page: 3 }]
+    });
+    expect(result.telemetry.routingReason).toContain("abstenção do provedor primário");
+  });
+
+  it("preserva a abstenção do provedor quando não existe um fato eleitoral determinístico", async () => {
+    const fallbackGenerate = vi.fn();
+    const gateway = createFallbackAnswerGateway(
+      {
+        async generate() {
+          return {
+            output: {
+              answer: "O trecho não confirma a resposta com segurança.",
+              answerMode: "abstained",
+              citations: [],
+              attentionPoints: [],
+              suggestedNextStep: null,
+              specialist: { required: false, type: null, reason: null },
+              claims: []
+            },
+            telemetry: {
+              providerKey: "google",
+              modelKey: "synthetic-primary",
+              modelVersion: "1",
+              promptVersion: "answer-prompt-v18",
+              pipelineVersion: "answer-v1",
+              taskType: "grounded_answer",
+              riskClass: "low",
+              routingReason: "resposta documental estruturada",
+              status: "completed",
+              inputTokens: 10,
+              outputTokens: 5,
+              cachedInputTokens: 0,
+              latencyMs: 20,
+              estimatedCostMicrounits: 0,
+              costCurrency: "BRL",
+              inputHash: "a".repeat(64),
+              outputHash: "b".repeat(64),
+              errorCode: null
+            }
+          };
+        }
+      },
+      { generate: fallbackGenerate }
+    );
+
+    const result = await gateway.generate(
+      input("Quando vence o contrato?", "grounded_answer", [
+        evidence("O documento menciona uma reunião em 15/09/2026, sem informar o vencimento.")
+      ])
+    );
+
+    expect(result.output).toMatchObject({
+      answerMode: "abstained",
+      answer: "O trecho não confirma a resposta com segurança."
+    });
+    expect(fallbackGenerate).not.toHaveBeenCalled();
   });
 
   it("não inventa orientação geral local quando o provedor está indisponível", async () => {

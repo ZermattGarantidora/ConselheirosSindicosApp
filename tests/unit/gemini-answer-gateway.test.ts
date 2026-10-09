@@ -112,6 +112,10 @@ describe("gateway Gemini", () => {
       }>;
     };
     expect(body.contents[0]?.parts[0]?.text).toContain("EVIDENCE_DATA_START");
+    expect(body.contents[0]?.parts[0]?.text).toContain("muito gente boa e presente na conversa");
+    expect(body.contents[0]?.parts[0]?.text).toContain(
+      "Nunca invente fonte, citação, regra, valor, prazo, vigência ou decisão"
+    );
     expect(body.contents[0]?.parts[0]?.text).not.toContain("alameda");
     expect(body.generationConfig).toMatchObject({
       maxOutputTokens: 800,

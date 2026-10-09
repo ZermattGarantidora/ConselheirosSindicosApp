@@ -6,7 +6,7 @@ import type { AuthorizedCondominiumContext } from "../../apps/api/identity/autho
 import { geminiImageEmbeddingProfile } from "../../apps/api/retrieval/gemini-multimodal-embedding.js";
 import { createPostgresScopedRetrievalIndex } from "../../apps/api/retrieval/postgres-scoped-retrieval.js";
 
-function createFakeClient() {
+function createFakeClient(semanticScore = "0.8") {
   const queries: string[] = [];
   const query = vi.fn(async (sql: string) => {
     queries.push(sql);
@@ -32,7 +32,7 @@ function createFakeClient() {
             end_offset: "28",
             content: "A regra vale para a área comum.",
             content_sha256: "a".repeat(64),
-            semantic_score: "0.8",
+            semantic_score: semanticScore,
             extraction_method: "pdf_text",
             quality_score: "1",
             processing_status: "ready",
@@ -137,6 +137,22 @@ describe("índice PostgreSQL de retrieval", () => {
       })
     ).rejects.toThrow("retrieval unavailable");
     expect(fake.queries.at(-1)).toBe("ROLLBACK");
+  });
+
+  it("normaliza similaridade negativa antes de persistir a evidência", async () => {
+    const fake = createFakeClient("-0.23");
+    const index = createPostgresScopedRetrievalIndex({
+      connect: async () => fake.client as unknown as PoolClient
+    });
+
+    await expect(
+      index.findAuthorizedCandidates(context, {
+        query: "síndica mandato",
+        limit: 8,
+        minimumQualityScore: 0.7,
+        asOf: new Date("2026-09-01T00:00:00.000Z")
+      })
+    ).resolves.toMatchObject([{ id: "chunk-1", semanticScore: 0 }]);
   });
 
   it("só consulta Gemini quando há foto pronta e recupera pelo vetor no condomínio autorizado", async () => {

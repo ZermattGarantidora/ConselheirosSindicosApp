@@ -152,6 +152,31 @@ describe("retrieval textual escopado", () => {
     expect(result.sufficiency.status).toBe("sufficient");
   });
 
+  it("reduz a busca eleitoral aos termos presentes na ata antes de consultar o índice", async () => {
+    let querySentToIndex = "";
+    const retriever = createScopedTextRetriever({
+      async findAuthorizedCandidates(_context, input) {
+        querySentToIndex = input.query;
+        return [
+          candidate({
+            id: "election-table",
+            documentType: "meeting_minutes",
+            pageNumber: 3,
+            content:
+              "Síndica Marina Vieira 101 15/09/2026 a 14/09/2027. Mandato aprovado pela assembleia."
+          })
+        ];
+      }
+    });
+
+    const result = await retriever.search(context, {
+      query: "Quem foi eleita síndica e qual é o período do mandato?"
+    });
+
+    expect(querySentToIndex).toBe("síndica mandato");
+    expect(result.evidence).toMatchObject([{ id: "election-table", pageNumber: 3 }]);
+  });
+
   it("prioriza a legislação quando a relevância é equivalente", async () => {
     const retriever = createScopedTextRetriever({
       async findAuthorizedCandidates() {

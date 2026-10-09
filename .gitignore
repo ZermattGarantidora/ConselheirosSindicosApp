@@ -14,4 +14,5 @@ tmp/
 *.tsbuildinfo
 playwright-report/
 test-results/
+.vitest-temp/
 .local/

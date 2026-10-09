@@ -12,7 +12,6 @@
   "scripts": {
     "dev:api": "node --env-file-if-exists=.env.local --env-file-if-exists=.env.admin.local scripts/run-tsx.mjs --eval \"import('./apps/api/app/server.ts').then(({ startServer }) => startServer())\"",
     "dev:web": "vite --config vite.config.ts",
-    "review:synthetic": "vite --config vite.config.ts",
     "build:web": "vite build --config vite.config.ts",
     "worker": "tsx -e \"import('./apps/api/worker/worker.ts').then(({ startPersistentWorkerFromEnvironment }) => startPersistentWorkerFromEnvironment())\"",
     "db:up": "docker compose up -d database",

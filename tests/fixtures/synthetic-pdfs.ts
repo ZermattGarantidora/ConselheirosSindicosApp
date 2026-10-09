@@ -2,19 +2,24 @@ function escapePdfText(value: string): string {
   return value.replaceAll(/([()\\])/g, "\\$1");
 }
 
-function createSyntheticPdf(pages: readonly (string | null)[]): Buffer {
+function createSyntheticPdf(
+  pages: readonly (string | null)[],
+  options: Readonly<{ pageWidth?: number; fontSize?: number }> = {}
+): Buffer {
+  const pageWidth = options.pageWidth ?? 300;
+  const fontSize = options.fontSize ?? 12;
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     `<< /Type /Pages /Kids [${pages.map((_, index) => `${index + 3} 0 R`).join(" ")}] /Count ${pages.length} >>`,
     ...pages.map((_, index) => {
       const contentObjectNumber = pages.length + 3 + index;
-      return `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Resources << /Font << /F1 ${pages.length + 3 + pages.length} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
+      return `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} 144] /Resources << /Font << /F1 ${pages.length + 3 + pages.length} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
     }),
     ...pages.map((text) => {
       const stream =
         text === null
           ? "q 0 0 300 144 re S Q"
-          : `BT /F1 12 Tf 72 72 Td (${escapePdfText(text)}) Tj ET`;
+          : `BT /F1 ${fontSize} Tf 72 72 Td (${escapePdfText(text)}) Tj ET`;
       return `<< /Length ${Buffer.byteLength(stream, "ascii")} >>\nstream\n${stream}\nendstream`;
     }),
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
@@ -39,6 +44,16 @@ function createSyntheticPdf(pages: readonly (string | null)[]): Buffer {
 
 export function createSyntheticTextPdf(): Buffer {
   return createSyntheticPdf(["Regra da primeira pagina", "Regra da segunda pagina"]);
+}
+
+export function createSyntheticElectionMinutesPdf(): Buffer {
+  return createSyntheticPdf(
+    [
+      "Cargo Pessoa eleita Unidade Mandato Votos. Sindica Marina Vieira 101 15/09/2026 a 14/09/2027 13 favoraveis e 1 abstencao.",
+      "Perguntas uteis para teste incluem: quem foi eleita sindica; qual e o periodo do mandato."
+    ],
+    { pageWidth: 1_200, fontSize: 10 }
+  );
 }
 
 export function createSyntheticScannedPdf(pageCount = 1): Buffer {

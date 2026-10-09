@@ -69,6 +69,15 @@ async function setRuntimeContext(
   await client.query("SELECT set_config('app.condominium_id', $1, true)", [context.condominiumId]);
 }
 
+function normalizeSemanticScore(value: RetrievalRow["semantic_score"]): number | null {
+  if (value === null || value === undefined) return null;
+  const score = Number(value);
+  if (!Number.isFinite(score)) {
+    throw new Error("O banco retornou um score semântico inválido.");
+  }
+  return Math.min(1, Math.max(0, score));
+}
+
 function mapRow(row: RetrievalRow): RetrievableChunk {
   return Object.freeze({
     id: row.chunk_id,
@@ -86,10 +95,7 @@ function mapRow(row: RetrievalRow): RetrievableChunk {
     endOffset: Number(row.end_offset),
     content: row.content,
     contentSha256: row.content_sha256,
-    semanticScore:
-      row.semantic_score === null || row.semantic_score === undefined
-        ? null
-        : Number(row.semantic_score),
+    semanticScore: normalizeSemanticScore(row.semantic_score),
     extractionMethod: row.extraction_method,
     qualityScore: Number(row.quality_score),
     processingStatus: row.processing_status,

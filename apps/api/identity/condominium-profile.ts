@@ -25,6 +25,11 @@ export type CondominiumProfile = Readonly<{
 
 export type CondominiumProfileUpdate = Omit<CondominiumProfile, "condominiumId" | "cnpj">;
 
+export type ConversationalProfileLearning = Readonly<{
+  profile: CondominiumProfileUpdate;
+  learnedFields: readonly string[];
+}>;
+
 export type CondominiumProfilePhoto = Readonly<{
   photoId: string;
   mediaType: "image/jpeg" | "image/png" | "image/webp";
@@ -180,6 +185,111 @@ export function validateCondominiumProfileUpdate(
     }),
     description: description ?? ""
   });
+}
+
+function capture(message: string, expression: RegExp, maximumLength: number): string | undefined {
+  const value = expression.exec(message)?.[1]?.trim();
+  return value === undefined || value.length === 0 || value.length > maximumLength
+    ? undefined
+    : value;
+}
+
+/**
+ * Aprende somente declarações explícitas feitas pela pessoa. Não infere dados pessoais a partir de
+ * documentos nem de perguntas ambíguas; a confirmação continua visível em "Meus dados".
+ */
+export function learnCondominiumProfileFromConversation(
+  current: CondominiumProfile,
+  message: string
+): ConversationalProfileLearning | undefined {
+  let managerName = current.contact.managerName;
+  let email = current.contact.email;
+  let phone = current.contact.phone;
+  let unitCount = current.unitCount;
+  let name = current.name;
+  let administrationCompany = current.administrationCompany;
+  const learnedFields: string[] = [];
+
+  const learnedManagerName = capture(
+    message,
+    /\b(?:me chamo|meu nome (?:é|e))\s+([^.,;!?\n]{2,100})/iu,
+    100
+  );
+  if (learnedManagerName !== undefined && learnedManagerName !== managerName) {
+    managerName = learnedManagerName;
+    learnedFields.push("nome do síndico");
+  }
+
+  const learnedEmail = capture(
+    message,
+    /\b(?:meu e-?mail (?:é|e)|meu contato é)\s+([^\s,;!?]+@[^\s,;!?]+)/iu,
+    160
+  );
+  if (
+    learnedEmail !== undefined &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(learnedEmail) &&
+    learnedEmail !== email
+  ) {
+    email = learnedEmail;
+    learnedFields.push("e-mail do síndico");
+  }
+
+  const learnedPhone = capture(
+    message,
+    /\b(?:meu (?:telefone|celular) (?:é|e)|pode me ligar no)\s+([0-9+()\s-]{8,30})/iu,
+    30
+  );
+  if (learnedPhone !== undefined && learnedPhone !== phone) {
+    phone = learnedPhone;
+    learnedFields.push("telefone do síndico");
+  }
+
+  const units = capture(
+    message,
+    /\b(?:o |este )?condom[ií]nio (?:tem|possui)\s+(\d{1,6})\s+unidades?\b/iu,
+    6
+  );
+  if (units !== undefined && Number(units) > 0 && Number(units) !== unitCount) {
+    unitCount = Number(units);
+    learnedFields.push("quantidade de unidades");
+  }
+
+  const condominiumName = capture(
+    message,
+    /\b(?:o nome do condom[ií]nio (?:é|e)|o condom[ií]nio se chama)\s+([^.,;!?\n]{2,120})/iu,
+    120
+  );
+  if (condominiumName !== undefined && condominiumName !== name) {
+    name = condominiumName;
+    learnedFields.push("nome do condomínio");
+  }
+
+  const learnedAdministrationCompany = capture(
+    message,
+    /\b(?:a administradora (?:é|e)|nossa administradora (?:é|e))\s+([^.,;!?\n]{2,120})/iu,
+    120
+  );
+  if (
+    learnedAdministrationCompany !== undefined &&
+    learnedAdministrationCompany !== administrationCompany
+  ) {
+    administrationCompany = learnedAdministrationCompany;
+    learnedFields.push("administradora");
+  }
+
+  return learnedFields.length === 0
+    ? undefined
+    : Object.freeze({
+        profile: Object.freeze({
+          name,
+          address: Object.freeze({ ...current.address }),
+          administrationCompany,
+          unitCount,
+          contact: Object.freeze({ managerName, email, phone }),
+          description: current.description
+        }),
+        learnedFields: Object.freeze(learnedFields)
+      });
 }
 
 export function decodeCondominiumProfilePhoto(value: unknown):
