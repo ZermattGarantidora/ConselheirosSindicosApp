@@ -2,7 +2,7 @@
 
 **Status:** implementada; aguardando validação final do usuário  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-09
+**Atualizado em:** 2026-10-13
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -81,7 +81,7 @@ Quando houver base, ela reconhece explicitamente aspectos saudáveis. Quando ide
 
 ### RQ-1703 — Verdade documental antes de estilo
 
-A personalidade nunca autoriza afirmar fato, regra, número ou decisão do condomínio sem evidência recuperada e citação verificável. Sem base suficiente, ela se abstém e explica o que falta.
+A personalidade nunca autoriza afirmar fato, regra, número ou decisão do condomínio sem evidência recuperada e citação verificável. Sem base suficiente, ela se abstém e explica o que falta de forma natural no texto da resposta. O estado interno de abstenção permanece auditável, mas a interface não o traduz em etiqueta técnica nem repete a limitação em um bloco automático de atenção.
 
 ### RQ-1704 — Limites e validação humana
 
@@ -109,6 +109,7 @@ O prompt completo é apresentado ao usuário antes de qualquer alteração no ga
 - avaliadores identificam tom natural e direto sem perda de precisão;
 - respostas com problema apresentam próximo passo acionável quando ele é necessário;
 - respostas sem evidência continuam se abstendo corretamente;
+- respostas sem evidência não exibem selo técnico nem repetem a limitação em um bloco automático;
 - citações, conflitos, isolamento e recomendações de especialista não regridem;
 - a comparação de evals não introduz falha P0 nem reduz o piso de qualidade acordado.
 

@@ -1,12 +1,12 @@
 # Critérios de aceitação — Spec 016
 
-## AC-1601 — Abrir direto no chat
+## AC-1601 — Entrar antes do chat
 
 **Dado** que a pessoa acessa a raiz do aplicativo  
 **Quando** o cliente é carregado  
-**Então** a conversa com a Alvitra aparece imediatamente  
-**E** o único controle de acesso é o botão “Entrar”  
-**E** não há landing page, formulário de login, cadastro, onboarding ou formulário de condomínio.
+**Então** aparece uma página mínima de apresentação com o botão “Entrar”
+**E** não há formulário de login, cadastro ou formulário de condomínio
+**E** a conversa só aparece depois da entrada.
 
 ## AC-1602 — Inicializar contexto autorizado
 
@@ -18,10 +18,10 @@
 
 ## AC-1603 — Falhar sem vazar dados
 
-**Dado** que não há sessão ou contexto autorizado  
+**Dado** que não há condomínio autorizado, mas a identidade é válida
 **Quando** a pessoa aciona “Entrar”  
-**Então** nenhuma conversa ou documento é carregado  
-**E** a interface mostra uma mensagem compreensível dentro do chat.
+**Então** nenhum documento é carregado
+**E** a conversa começa a configuração do primeiro condomínio.
 
 ## AC-1604 — Conversar e verificar fonte
 
@@ -43,9 +43,10 @@
 
 **Dado** o bundle principal do cliente  
 **Quando** suas rotas, estados e textos são inspecionados  
-**Então** não existem formulários de autenticação, cadastro, onboarding, criação/listagem de
-condomínio, perfil, configurações ou painel administrativo  
-**E** o único controle de autenticação visível é “Entrar”  
+**Então** não existem formulários de autenticação, cadastro, criação de condomínio, perfil,
+configurações ou painel administrativo
+**E** “Entrar” aparece somente na página anterior ao chat
+**E** configuração, listagem e dados documentais permanecem dentro da conversa e do menu contextual
 **E** não há rota alternativa de revisão sintética na aplicação principal.
 
 ## AC-1607 — Layout responsivo e acessível

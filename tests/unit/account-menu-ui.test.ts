@@ -3,14 +3,15 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("menu contextual da conta", () => {
-  it("AC-1901 e AC-1904: mantém as entradas no chat e inicia inclusão pela conversa", async () => {
+  it("AC-2405 e AC-1904: mostra Condomínios e Dados e inicia inclusão pela conversa", async () => {
     const app = await readFile("apps/web/App.tsx", "utf8");
     expect(app).toContain('aria-label="Abrir menu da conta"');
     expect(app).toContain("Condomínios");
-    expect(app).toContain("Meus dados");
-    expect(app).toContain("Preferências");
+    expect(app).toContain("Dados");
+    expect(app).not.toContain("Meus dados");
+    expect(app).not.toContain("Preferências");
     expect(app).toContain("function startCondominiumConversation(): void");
-    expect(app).toContain('setQuestion("Quero cadastrar outro condomínio.")');
+    expect(app).toContain('setSetupStage("condominium_name")');
   });
 
   it("AC-1902: carrega a lista autorizada e revalida a troca", async () => {
@@ -20,11 +21,24 @@ describe("menu contextual da conta", () => {
     expect(app).toContain("/context`");
   });
 
-  it("AC-2003: mostra em Meus dados somente informações confirmadas na conversa", async () => {
+  it("AC-2405: carrega documentos autorizados e os agrupa por tipo", async () => {
     const app = await readFile("apps/web/App.tsx", "utf8");
-    expect(app).toContain("Esses dados são atualizados aos poucos");
-    expect(app).toContain("}/profile`");
-    expect(app).toContain("conversationProfile.contact.managerName");
-    expect(app).toContain("conversationProfile.unitCount");
+    expect(app).toContain("}/documents`");
+    expect(app).toContain("groupedDocuments.map");
+    expect(app).toContain("document.condominiumName");
+    expect(app).toContain('documentType: "convention"');
+  });
+
+  it("AC-2406: abre uma tela documental com contexto calculado do condomínio atual", async () => {
+    const app = await readFile("apps/web/App.tsx", "utf8");
+    expect(app).toContain('className="current-condominium-menu-item"');
+    expect(app).toContain("Ver documentos deste condomínio");
+    expect(app).toContain("function openCurrentDocuments(): void");
+    expect(app).toContain('className="document-page"');
+    expect(app).toContain("function calculateKnowledgeProgress");
+    expect(app).toContain('role="progressbar"');
+    expect(app).toContain("Contexto da Alvitra");
+    expect(app).toContain("groupedCurrentCondominiumDocuments.map");
+    expect(app).toContain("document.condominiumId === context.condominiumId");
   });
 });

@@ -21,6 +21,8 @@
 **Quando** a pessoa cria uma nova conversa ou seleciona uma anterior  
 **Então** o novo chat fica ativo  
 **E** os turnos concluídos da conversa anterior permanecem preservados  
+**E** depois da primeira pergunta substantiva a Alvitra substitui “Nova conversa” por um título curto representativo do assunto
+**E** o título não é uma cópia integral da pergunta e não exige chamada adicional a um provedor
 **E** nenhuma pergunta, upload, citação ou feedback muda de `condominium_id`.
 
 ## AC-1704 — Renomear e excluir na interface

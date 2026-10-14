@@ -10,6 +10,13 @@ describe("servidor local", () => {
     const response = await app.inject({ method: "GET", url: "/health" });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ authMode: "development" });
+    const documents = await app.inject({
+      method: "GET",
+      url: "/v1/condominiums/alameda/documents",
+      headers: { "x-development-user-id": "sindico-demo" }
+    });
+    expect(documents.statusCode).toBe(200);
+    expect(documents.json()).toMatchObject({ documents: [] });
     await app.close();
   });
 

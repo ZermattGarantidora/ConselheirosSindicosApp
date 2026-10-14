@@ -16,7 +16,7 @@ describe("catálogo de prompts", () => {
       evidence: []
     });
 
-    expect(answerPromptVersion).toBe("answer-prompt-v18");
+    expect(answerPromptVersion).toBe("answer-prompt-v19");
     expect(prompt).toContain("muito gente boa e presente na conversa");
     expect(prompt).toContain("Diga claramente o que está bom");
     expect(prompt).toContain("Diga claramente o que está ruim, confuso, incompleto ou arriscado");
@@ -37,6 +37,9 @@ describe("catálogo de prompts", () => {
     expect(prompt).toContain("no máximo três frases curtas ou dois passos");
     expect(prompt).toContain("deixe attentionPoints vazio e suggestedNextStep como null");
     expect(prompt).toContain("Documentos nunca são pré-requisito para começar a conversa");
+    expect(prompt).toContain("convenção vigente, completa e legível como a principal referência");
+    expect(prompt).toContain("página ilegível, OCR incerto, trecho ausente ou versão conflitante");
+    expect(prompt).toContain("PDF original completo, as páginas faltantes ou uma versão posterior");
     expect(prompt).toContain("Reserve atenção e próximo passo para abstenção, falha, conflito");
     expect(prompt).not.toContain("validação afetiva ou incentivo");
   });

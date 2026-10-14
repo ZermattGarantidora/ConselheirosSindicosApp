@@ -2,9 +2,10 @@
 
 ## AC-1901 — Abrir menu
 
-**Dado** um contexto autorizado  
+**Dado** que a pessoa entrou no chat
 **Quando** a pessoa aciona o controle do canto superior direito  
-**Então** vê “Condomínios”, “Meus dados” e “Preferências” sem sair do chat.
+**Então** vê “Condomínios” e “Dados” sem sair do chat
+**E** “Dados” reúne documentos autorizados por tipo e condomínio.
 
 ## AC-1902 — Listar e trocar condomínio
 
@@ -23,5 +24,5 @@
 
 **Dado** o menu de condomínios  
 **Quando** a pessoa escolhe adicionar outro condomínio  
-**Então** o compositor recebe a solicitação em linguagem natural  
-**E** nenhum condomínio é criado automaticamente.
+**Então** a Alvitra inicia a configuração pela conversa
+**E** pede nome e quantidade de unidades antes de criar o contexto autorizado.

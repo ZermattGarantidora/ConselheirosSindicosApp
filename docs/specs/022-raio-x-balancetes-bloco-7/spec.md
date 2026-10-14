@@ -2,7 +2,7 @@
 
 **Status:** implementada e aguardando aprovação do usuário  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-09
+**Atualizado em:** 2026-10-13
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -39,7 +39,7 @@ Nenhuma. O usuário autorizou explicitamente o Bloco 7.
 
 ## 1. Objetivo
 
-Quando o síndico pedir a leitura de um balancete, a Alvitra deve produzir um raio-X financeiro fundamentado, comparar somente períodos equivalentes disponíveis e deixar explícito o que não foi possível verificar.
+Quando o síndico pedir a leitura de um balancete, a Alvitra deve produzir um raio-X financeiro fundamentado, comparar somente períodos equivalentes disponíveis e deixar explícito o que não foi possível verificar. Para a convenção, deve reconhecer sua prioridade como referência interna e orientar correções objetivas quando a qualidade técnica ou a completude comprovável do material impedir uma consulta segura.
 
 ## 2. Promessa testada
 
@@ -56,6 +56,8 @@ Síndico que precisa interpretar balancetes e prestações de contas sem receber
 - Exigir estados explícitos: `ok`, `atenção` ou `não foi possível verificar`.
 - Comparar somente períodos comparáveis com valores de origem, diferença absoluta e percentual válido.
 - Pedir o balancete de mês anterior específico quando a comparação não tiver base.
+- Tratar a convenção vigente, completa e legível como a referência interna prioritária, sem superar a legislação oficial.
+- Quando a convenção ficar em revisão ou a pessoa pedir sua avaliação, apontar somente problemas comprováveis de leitura, completude ou conflito de versões e sugerir a menor correção útil.
 - Versionar a skill `alvitra-balancete-analysis` junto ao projeto para orientar futuras análises e preservar o método aprovado.
 
 ## 5. Fora do escopo
@@ -63,6 +65,7 @@ Síndico que precisa interpretar balancetes e prestações de contas sem receber
 - Conclusão automática de fraude, irregularidade, conformidade contábil ou conciliação bancária.
 - Extração estruturada de planilhas, cálculos autônomos fora da evidência recuperada e auditoria profissional.
 - Envio de avisos, cobrança, aprovação de despesas ou qualquer ação externa.
+- Declaração de nulidade, validade jurídica, registro ou vigência da convenção sem evidência verificável.
 
 ## 6. Pré-condições
 
@@ -83,6 +86,10 @@ A comparação apresenta origem, diferença absoluta e percentual somente quando
 
 Não há afirmação de conciliação sem extrato ou equivalente. Risco financeiro relevante recebe recomendação de revisão humana; citações continuam limitadas à evidência recuperada e autorizada.
 
+### RQ-2204 — Convenção como referência interna prioritária
+
+Para regras internas, a Alvitra prioriza a convenção apenas quando a versão disponível for verificável, sem substituir a legislação oficial nem silenciar conflitos com regimento, atas ou versões posteriores. Se o processamento indicar revisão ou a evidência mostrar páginas ausentes, leitura incerta ou conflito de versões, explica o impacto e pede o menor complemento necessário. Não faz juízo sobre validade jurídica ou registro sem evidência.
+
 ## 8. Contratos
 
 O contrato de resposta existente continua responsável por validar `answerMode`, risco e citações. A especialização de balancete é ativada apenas por pergunta financeira identificada; ela não amplia permissões, fontes ou dados disponíveis ao gateway.
@@ -98,6 +105,7 @@ O contrato de resposta existente continua responsável por validar `answerMode`,
 
 - pedidos de balancete recebem um formato consistente, prudente e verificável;
 - ausência de histórico resulta em pedido do período específico, não em comparação inventada;
+- uma convenção recebida é reconhecida como referência principal e material em revisão recebe orientação técnica objetiva;
 - a análise preserva as regras de citação, abstenção e revisão humana do briefing.
 
 ## 11. Questões em aberto

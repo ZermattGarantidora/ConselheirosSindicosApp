@@ -1,15 +1,14 @@
 # Briefing de produto — Alvitra
 
 **Status:** visão canônica aprovada
-**Atualizado em:** 2026-10-09
+**Atualizado em:** 2026-10-13
 
 ## 1. Visão do produto
 
 A Alvitra é uma assistente de IA que ajuda síndicos a cuidar dos condomínios por meio de uma única
-experiência: a conversa. O aplicativo abre diretamente no chat, sem landing page, onboarding,
-cadastro ou formulários longos visíveis. O único controle de acesso apresentado nessa página é um
-botão “Entrar”. Informações, documentos e ações entram na experiência de modo contextual, quando a
-conversa precisar deles.
+experiência principal: a conversa. Antes dela existe somente uma página mínima de acesso, com a
+marca e o botão “Entrar”, sem cadastro ou formulários longos visíveis. Depois de entrar, informações,
+documentos e ações entram na experiência de modo contextual, quando a conversa precisar deles.
 
 O produto deve parecer simples para o síndico mesmo quando executa trabalho documental complexo.
 A Alvitra conversa em linguagem natural, consulta somente o contexto autorizado, mostra a base das
@@ -51,12 +50,18 @@ Exemplos:
 
 O aplicativo é o chat com a Alvitra. Não há onboarding obrigatório nem telas de trabalho paralelas.
 
-1. A página inicial abre diretamente na conversa, com um único botão “Entrar”.
-2. Depois de entrar, o síndico escreve o que precisa.
-3. A Alvitra responde ou pede, de forma natural, a informação ou o documento que falta.
-4. Documentos enviados pelo chat são processados, vetorizados e ficam disponíveis para consultas
+1. A página inicial mostra somente a entrada da Alvitra e o botão “Entrar”.
+2. Depois de entrar, a Alvitra dá boas-vindas e pergunta quantos condomínios o síndico administra.
+3. A configuração acontece na própria conversa. Se houver apenas um condomínio, a Alvitra pergunta
+   diretamente seu nome e quantidade de apartamentos, sem anunciar etapas ou contagem. Se houver
+   mais de um, configura um por vez e informa o progresso somente quando ele ajuda a orientar a pessoa.
+4. Nenhum documento é obrigatório. A Alvitra explica que mais contexto melhora a ajuda, sem impedir
+   que a pessoa continue.
+5. Depois da configuração inicial, o síndico escreve o que precisa e a Alvitra responde ou pede, de
+   forma natural, a informação ou o documento que falta.
+6. Documentos enviados pelo chat são processados, vetorizados e ficam disponíveis para consultas
    posteriores autorizadas.
-5. Informações aprendidas na conversa podem alimentar o perfil do síndico e do condomínio quando a
+7. Informações aprendidas na conversa podem alimentar o perfil do síndico e do condomínio quando a
    capacidade correspondente for implementada.
 
 Em uma etapa futura, “Entrar” pedirá somente o número de telefone do síndico e validará um código
@@ -75,7 +80,7 @@ não se tornam fluxos de onboarding nem substituem a conversa como interface pri
 - deixar a coleta de telefone e o código pelo WhatsApp para uma implementação futura;
 - remover da experiência a criação de condomínio;
 - remover landing page, onboarding, painel administrativo, configurações e outras telas paralelas;
-- abrir a página inicial diretamente no chat;
+- apresentar antes do chat uma página mínima com somente a marca e o botão “Entrar”;
 - manter envio, processamento, recuperação e vetorização de documentos;
 - manter evidências, citações, abstenção, conflitos, feedback e recomendações de validação humana
   dentro da conversa.
@@ -96,14 +101,18 @@ não se tornam fluxos de onboarding nem substituem a conversa como interface pri
 
 ### Bloco 4 — menu sanduíche
 
-- abrir no canto superior direito um menu com “Condomínios”, “Meus dados” e “Preferências”;
+- abrir no canto superior direito um menu sanduíche com “Condomínios” e “Dados”;
 - listar os condomínios do síndico e oferecer criação opcional;
 - permitir que a criação também aconteça pela conversa.
+- em “Dados”, listar os documentos autorizados enviados, organizados por tipo e identificados pelo
+  condomínio correspondente.
 
 ### Bloco 5 — perfil construído pela conversa
 
-- coletar informações do síndico aos poucos e somente quando fizer sentido;
-- alimentar “Meus dados” e os dados do condomínio com o que foi confirmado na conversa.
+- iniciar a conversa perguntando quantos condomínios o síndico administra;
+- pedir diretamente nome e quantidade de apartamentos quando houver um único condomínio;
+- quando houver mais de um, configurar um por vez e comunicar o progresso de forma útil;
+- alimentar os dados do condomínio com o que foi confirmado na conversa.
 
 ### Bloco 6 — documentos sob demanda
 
@@ -166,7 +175,7 @@ Conteúdo de documento é dado não confiável e nunca instrução de sistema.
 
 ## 11. Fora do escopo
 
-- onboarding e cadastro obrigatórios;
+- onboarding em formulário e cadastro obrigatório;
 - telas públicas de login com e-mail, senha ou cadastro de conta;
 - integração com WhatsApp, coleta de telefone e validação de código no Bloco 1;
 - formulário longo para criar condomínio;

@@ -1,8 +1,20 @@
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { isSimpleConversationMessage } from "../shared/conversation-intent.js";
+import {
+  getAnswerStatusPresentation,
+  isAutomaticDocumentaryLimitation
+} from "./answer-presentation.js";
+import {
+  buildConversationTitle,
+  buildConversationTitleFromQuestions
+} from "./conversation-title.js";
 import { requestDocumentUploadWithAuthorizationRecovery } from "./document-upload-request.js";
 import { splitBoldText } from "./message-format.js";
+import {
+  buildInitialCondominiumNamePrompt,
+  buildSetupCompletionMessage
+} from "./setup-conversation.js";
 
 type AuthMode = "development" | "real";
 type AiProvider = "gemini" | "local" | "unavailable";
@@ -62,24 +74,58 @@ type CondominiumListItem = Readonly<{
   permissions: readonly string[];
 }>;
 
-type ConversationProfile = Readonly<{
-  name: string;
-  administrationCompany: string;
-  unitCount: number | null;
-  contact: Readonly<{ managerName: string; email: string; phone: string }>;
+type DocumentListItem = Readonly<{
+  condominiumId: string;
+  condominiumName: string;
+  documentId: string;
+  title: string;
+  documentType: "convention" | "internal_rules" | "meeting_minutes" | "contract" | "other";
+  processingStatus: string;
 }>;
 
-type AccountMenuView = "home" | "condominiums" | "profile" | "preferences";
+type AccountMenuView = "home" | "condominiums" | "documents" | "current_documents";
+type DocumentScreen = "current";
+type AttachmentKind = "document" | "photo";
+type SetupStage =
+  "manager_name" | "condominium_count" | "condominium_name" | "unit_count" | "complete";
+type SetupMessage = Readonly<{
+  id: string;
+  role: "assistant" | "user";
+  text: string;
+}>;
 
 type FeedbackClassification = "correct" | "incorrect" | "incomplete" | "outdated";
 type DocumentMemoryStatus = "ready" | "pending_confirmation" | "needs_review" | "failed";
 
 const developmentUserId = "sindico-demo";
-const suggestedQuestions = [
-  "O que a convenção diz sobre animais?",
-  "Qual foi a última decisão sobre vagas de garagem?",
-  "Este tema precisa ser aprovado em assembleia?"
-] as const;
+const initialSetupMessage: SetupMessage = Object.freeze({
+  id: "setup-welcome",
+  role: "assistant",
+  text: "Oi! Que bom ter você por aqui. Antes de começarmos, como você prefere ser chamado(a)?"
+});
+const documentTypeLabels = Object.freeze({
+  convention: "Convenções",
+  internal_rules: "Regimentos internos",
+  meeting_minutes: "Atas",
+  contract: "Contratos",
+  other: "Outros documentos"
+});
+
+function calculateKnowledgeProgress(documents: readonly DocumentListItem[]): number {
+  const readyTypes = new Set(
+    documents
+      .filter((document) => document.processingStatus === "ready")
+      .map((document) => document.documentType)
+  );
+  const weights: Readonly<Record<DocumentListItem["documentType"], number>> = {
+    convention: 40,
+    internal_rules: 20,
+    meeting_minutes: 15,
+    contract: 10,
+    other: 15
+  };
+  return [...readyTypes].reduce((total, type) => total + weights[type], 0);
+}
 
 function requestHeaders(authMode: AuthMode | undefined): Readonly<Record<string, string>> {
   return authMode === "development" ? { "x-development-user-id": developmentUserId } : {};
@@ -134,18 +180,10 @@ function FormattedText({ text }: Readonly<{ text: string }>) {
   );
 }
 
-function AlvitraMark() {
-  return (
-    <span className="alvitra-mark" aria-hidden="true">
-      A
-    </span>
-  );
-}
-
-function UploadIcon() {
+function PlusIcon() {
   return (
     <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <path d="M12 16V4m-5 5 5-5 5 5M5 20h14" />
+      <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
@@ -167,12 +205,11 @@ function MenuIcon() {
   );
 }
 
-function MoreIcon() {
+function SidebarIcon() {
   return (
     <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-      <circle cx="5" cy="12" r="1.5" />
-      <circle cx="12" cy="12" r="1.5" />
-      <circle cx="19" cy="12" r="1.5" />
+      <rect x="4" y="4.5" width="16" height="15" rx="2.5" />
+      <path d="M9 5v14" />
     </svg>
   );
 }
@@ -237,14 +274,9 @@ function AnswerMessage({
 }>) {
   const isConversationalResponse = isSimpleConversationMessage(question);
   const attentionPoints = answer.attentionPoints.filter(
-    (point) => !isRelevantServiceDegradation(point)
+    (point) => !isRelevantServiceDegradation(point) && !isAutomaticDocumentaryLimitation(point)
   );
-  const answerStatus = {
-    grounded: { label: "Com fontes", tone: "grounded" },
-    abstained: { label: "Base insuficiente", tone: "abstained" },
-    conflict: { label: "Fontes em conflito", tone: "conflict" },
-    failed: { label: "Falha temporária", tone: "failed" }
-  }[answer.answerMode];
+  const answerStatus = getAnswerStatusPresentation(answer.answerMode);
   const showGuidance =
     !compact &&
     !isConversationalResponse &&
@@ -253,12 +285,11 @@ function AnswerMessage({
   return (
     <>
       <article className="assistant-message answer-message">
-        <div className="answer-meta">
-          <strong>Alvitra</strong>
-          {isConversationalResponse ? null : (
+        {isConversationalResponse || answerStatus === null ? null : (
+          <div className="answer-meta">
             <span className={`answer-status ${answerStatus.tone}`}>{answerStatus.label}</span>
-          )}
-        </div>
+          </div>
+        )}
         <p className="answer-copy">
           <FormattedText text={answer.answer} />
         </p>
@@ -293,18 +324,28 @@ function AnswerMessage({
 export function App() {
   const [authMode, setAuthMode] = useState<AuthMode>();
   const [aiProvider, setAiProvider] = useState<AiProvider>("unavailable");
+  const [entered, setEntered] = useState(false);
   const [context, setContext] = useState<ContextResponse>();
   const [chats, setChats] = useState<readonly Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [accountMenuView, setAccountMenuView] = useState<AccountMenuView>("home");
+  const [documentScreen, setDocumentScreen] = useState<DocumentScreen>();
   const [condominiums, setCondominiums] = useState<readonly CondominiumListItem[]>([]);
   const [condominiumsPending, setCondominiumsPending] = useState(false);
   const [condominiumsError, setCondominiumsError] = useState("");
-  const [conversationProfile, setConversationProfile] = useState<ConversationProfile>();
-  const [profilePending, setProfilePending] = useState(false);
-  const [profileError, setProfileError] = useState("");
+  const [documents, setDocuments] = useState<readonly DocumentListItem[]>([]);
+  const [documentsPending, setDocumentsPending] = useState(false);
+  const [documentsError, setDocumentsError] = useState("");
+  const [setupStage, setSetupStage] = useState<SetupStage>("manager_name");
+  const [setupMessages, setSetupMessages] = useState<readonly SetupMessage[]>([
+    initialSetupMessage
+  ]);
+  const [setupCondominiumTotal, setSetupCondominiumTotal] = useState(0);
+  const [setupCondominiumIndex, setSetupCondominiumIndex] = useState(1);
+  const [setupCondominiumName, setSetupCondominiumName] = useState("");
+  const [setupManagerName, setSetupManagerName] = useState("");
   const [question, setQuestion] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState("");
   const [answer, setAnswer] = useState<PublicAnswer>();
@@ -319,6 +360,8 @@ export function App() {
   const [chatDocumentMessage, setChatDocumentMessage] = useState("");
   const [chatDocumentMessageIsError, setChatDocumentMessageIsError] = useState(false);
   const [chatDocumentUploading, setChatDocumentUploading] = useState(false);
+  const [attachmentMenuOpen, setAttachmentMenuOpen] = useState(false);
+  const [attachmentPickerKind, setAttachmentPickerKind] = useState<AttachmentKind>("document");
   const composerInput = useRef<HTMLTextAreaElement>(null);
   const chatDocumentInput = useRef<HTMLInputElement>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
@@ -371,16 +414,63 @@ export function App() {
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [answer, busy, chatDocumentMessage, conversationError, submittedQuestion]);
+  }, [answer, busy, chatDocumentMessage, conversationError, setupMessages, submittedQuestion]);
 
   const canUpload = context?.permissions.includes("document:upload") === true;
+  const conversationStarted =
+    setupMessages.some((message) => message.role === "user") ||
+    conversationHistory.length > 0 ||
+    submittedQuestion !== "";
+  const groupedDocuments = useMemo(
+    () =>
+      Object.entries(documentTypeLabels)
+        .map(([type, label]) => ({
+          type,
+          label,
+          documents: documents.filter((document) => document.documentType === type)
+        }))
+        .filter((group) => group.documents.length > 0),
+    [documents]
+  );
+  const currentCondominium = condominiums.find(
+    (condominium) => condominium.condominiumId === context?.condominiumId
+  );
+  const currentCondominiumDocuments = useMemo(
+    () =>
+      context === undefined
+        ? []
+        : documents.filter((document) => document.condominiumId === context.condominiumId),
+    [context, documents]
+  );
+  const groupedCurrentCondominiumDocuments = useMemo(
+    () =>
+      Object.entries(documentTypeLabels)
+        .map(([type, label]) => ({
+          type,
+          label,
+          documents: currentCondominiumDocuments.filter(
+            (document) => document.documentType === type
+          )
+        }))
+        .filter((group) => group.documents.length > 0),
+    [currentCondominiumDocuments]
+  );
+  const currentKnowledgeProgress = useMemo(
+    () => calculateKnowledgeProgress(currentCondominiumDocuments),
+    [currentCondominiumDocuments]
+  );
   const serviceLabel = useMemo(() => {
     if (runtimePending) return "Preparando a conversa";
     if (entryPending) return "Entrando na conversa";
+    if (setupStage !== "complete") {
+      return setupCondominiumTotal === 1
+        ? "Configurando seu condomínio"
+        : "Configurando seus condomínios";
+    }
     if (context === undefined) return "Conversa indisponível";
     if (aiProvider === "gemini") return "Online · memória documental ativa";
     return "Online · memória documental local";
-  }, [aiProvider, context, entryPending, runtimePending]);
+  }, [aiProvider, context, entryPending, runtimePending, setupCondominiumTotal, setupStage]);
 
   async function enterConversation(): Promise<void> {
     if (authMode === undefined || runtimePending || entryPending) return;
@@ -393,6 +483,10 @@ export function App() {
         credentials: "same-origin",
         headers: requestHeaders(authMode)
       });
+      if (bootstrapResponse.status === 404) {
+        setEntered(true);
+        return;
+      }
       if (!bootstrapResponse.ok) {
         throw new Error(
           await readMessage(
@@ -404,6 +498,15 @@ export function App() {
 
       const authorizedContext = (await bootstrapResponse.json()) as ContextResponse;
       setContext(authorizedContext);
+      setSetupStage("complete");
+      setSetupMessages([
+        {
+          id: "returning-welcome",
+          role: "assistant",
+          text: "Oi! Estou por aqui para ajudar com o seu condomínio. O que você precisa resolver hoje?"
+        }
+      ]);
+      setEntered(true);
 
       const historyResponse = await fetch(
         `/v1/condominiums/${encodeURIComponent(authorizedContext.condominiumId)}/history?limit=50`,
@@ -420,7 +523,9 @@ export function App() {
         setChats([
           {
             id: "history",
-            title: history.entries[0]?.question ?? "Conversas anteriores",
+            title: buildConversationTitleFromQuestions(
+              history.entries.map((entry) => entry.question)
+            ),
             entries: history.entries
           }
         ]);
@@ -438,13 +543,13 @@ export function App() {
   }
 
   async function openAccountMenu(): Promise<void> {
-    if (context === undefined || authMode === undefined) return;
+    if (authMode === undefined) return;
     setAccountMenuOpen(true);
     setAccountMenuView("home");
     setCondominiumsPending(true);
     setCondominiumsError("");
-    setProfilePending(true);
-    setProfileError("");
+    setDocumentsPending(true);
+    setDocumentsError("");
     try {
       const response = await fetch("/v1/chat/condominiums", {
         cache: "no-store",
@@ -458,28 +563,36 @@ export function App() {
         condominiums: readonly CondominiumListItem[];
       }>;
       setCondominiums(body.condominiums);
-
-      const profileResponse = await fetch(
-        `/v1/condominiums/${encodeURIComponent(context.condominiumId)}/profile`,
-        { cache: "no-store", credentials: "same-origin", headers: requestHeaders(authMode) }
+      const documentLists = await Promise.all(
+        body.condominiums.map(async (item) => {
+          const documentResponse = await fetch(
+            `/v1/condominiums/${encodeURIComponent(item.condominiumId)}/documents`,
+            { cache: "no-store", credentials: "same-origin", headers: requestHeaders(authMode) }
+          );
+          if (!documentResponse.ok) {
+            throw new Error(
+              await readMessage(documentResponse, "Não foi possível carregar os documentos.")
+            );
+          }
+          const documentBody = (await documentResponse.json()) as Readonly<{
+            documents: readonly Omit<DocumentListItem, "condominiumId" | "condominiumName">[];
+          }>;
+          return documentBody.documents.map((document) => ({
+            ...document,
+            condominiumId: item.condominiumId,
+            condominiumName: item.name
+          }));
+        })
       );
-      if (!profileResponse.ok) {
-        setProfileError(
-          await readMessage(profileResponse, "Não foi possível carregar seus dados.")
-        );
-      } else {
-        const profileBody = (await profileResponse.json()) as Readonly<{
-          profile: ConversationProfile;
-        }>;
-        setConversationProfile(profileBody.profile);
-      }
+      setDocuments(documentLists.flat());
     } catch (error: unknown) {
-      setCondominiumsError(
-        error instanceof Error ? error.message : "Não foi possível carregar os condomínios."
-      );
+      const message =
+        error instanceof Error ? error.message : "Não foi possível carregar os dados da conta.";
+      setCondominiumsError(message);
+      setDocumentsError(message);
     } finally {
       setCondominiumsPending(false);
-      setProfilePending(false);
+      setDocumentsPending(false);
     }
   }
 
@@ -496,7 +609,6 @@ export function App() {
         throw new Error(await readMessage(contextResponse, "Acesso não autorizado."));
       }
       const authorizedContext = (await contextResponse.json()) as ContextResponse;
-      setConversationProfile(undefined);
       const historyResponse = await fetch(
         `/v1/condominiums/${encodeURIComponent(authorizedContext.condominiumId)}/history?limit=50`,
         { cache: "no-store", credentials: "same-origin", headers: requestHeaders(authMode) }
@@ -513,7 +625,9 @@ export function App() {
       setChats([
         {
           id: "history",
-          title: history.entries[0]?.question ?? "Conversas anteriores",
+          title: buildConversationTitleFromQuestions(
+            history.entries.map((entry) => entry.question)
+          ),
           entries: history.entries
         }
       ]);
@@ -529,10 +643,169 @@ export function App() {
     }
   }
 
+  function openCurrentDocuments(): void {
+    setAccountMenuOpen(false);
+    setDocumentScreen("current");
+  }
+
   function startCondominiumConversation(): void {
     setAccountMenuOpen(false);
-    setQuestion("Quero cadastrar outro condomínio.");
+    setSetupCondominiumTotal(1);
+    setSetupCondominiumIndex(1);
+    setSetupCondominiumName("");
+    setSetupStage("condominium_name");
+    setSetupMessages((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        text: "Vamos adicionar outro condomínio. Qual é o nome dele?"
+      }
+    ]);
+    setQuestion("");
     window.setTimeout(() => composerInput.current?.focus(), 0);
+  }
+
+  function appendSetupMessage(role: SetupMessage["role"], text: string): void {
+    setSetupMessages((current) => [...current, { id: crypto.randomUUID(), role, text }]);
+  }
+
+  function finishCurrentCondominium(): void {
+    if (setupCondominiumIndex < setupCondominiumTotal) {
+      const nextIndex = setupCondominiumIndex + 1;
+      setSetupCondominiumIndex(nextIndex);
+      setSetupCondominiumName("");
+      setSetupStage("condominium_name");
+      appendSetupMessage(
+        "assistant",
+        `Tudo certo com esse. Agora vamos ao condomínio ${nextIndex} de ${setupCondominiumTotal}: qual é o nome dele?`
+      );
+      return;
+    }
+
+    setSetupStage("complete");
+    appendSetupMessage(
+      "assistant",
+      buildSetupCompletionMessage(setupCondominiumTotal, setupManagerName)
+    );
+  }
+
+  async function createCondominiumFromSetup(name: string, unitCount: number): Promise<void> {
+    if (authMode === undefined) return;
+    const normalizedName = name
+      .normalize("NFD")
+      .replaceAll(/[\u0300-\u036f]/gu, "")
+      .toLocaleLowerCase("pt-BR")
+      .replaceAll(/[^a-z0-9]+/gu, "-")
+      .replaceAll(/^-|-$/gu, "")
+      .slice(0, 40);
+    const developmentCondominiumId = `${normalizedName || "condominio"}-${crypto.randomUUID().slice(0, 8)}`;
+    const endpoint =
+      authMode === "development" ? "/v1/development/test-condominiums" : "/v1/condominiums";
+    const payload =
+      authMode === "development"
+        ? { condominiumId: developmentCondominiumId, name, unitCount }
+        : { name, unitCount };
+    const response = await fetch(endpoint, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json", ...requestHeaders(authMode) },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      throw new Error(await readMessage(response, "Não consegui salvar esse condomínio agora."));
+    }
+    const created = (await response.json()) as ContextResponse;
+    setContext(created);
+    const chatId = crypto.randomUUID();
+    setChats([{ id: chatId, title: "Nova conversa", entries: [] }]);
+    setActiveChatId(chatId);
+    setAnswer(undefined);
+    setSubmittedQuestion("");
+    setSelectedCitation(undefined);
+    setFeedback(undefined);
+  }
+
+  async function advanceSetup(rawAnswer: string): Promise<void> {
+    const trimmedAnswer = rawAnswer.trim();
+    if (trimmedAnswer.length === 0 || busy) return;
+    appendSetupMessage("user", trimmedAnswer);
+    setQuestion("");
+    setConversationError("");
+
+    if (setupStage === "manager_name") {
+      if (trimmedAnswer.length < 2 || trimmedAnswer.length > 100) {
+        appendSetupMessage(
+          "assistant",
+          "Quero usar um nome com entre 2 e 100 caracteres. Como você prefere ser chamado(a)?"
+        );
+        return;
+      }
+      setSetupManagerName(trimmedAnswer);
+      setSetupStage("condominium_count");
+      appendSetupMessage(
+        "assistant",
+        `Prazer, ${trimmedAnswer}. Quantos condomínios você administra hoje?`
+      );
+      return;
+    }
+
+    if (setupStage === "condominium_count") {
+      const total = /^\d+$/u.test(trimmedAnswer) ? Number(trimmedAnswer) : Number.NaN;
+      if (!Number.isInteger(total) || total < 1 || total > 100) {
+        appendSetupMessage(
+          "assistant",
+          "Me diga apenas um número entre 1 e 100. Quantos condomínios você administra?"
+        );
+        return;
+      }
+      setSetupCondominiumTotal(total);
+      setSetupCondominiumIndex(1);
+      setSetupStage("condominium_name");
+      appendSetupMessage("assistant", buildInitialCondominiumNamePrompt(total));
+      return;
+    }
+
+    if (setupStage === "condominium_name") {
+      if (trimmedAnswer.length < 2 || trimmedAnswer.length > 120) {
+        appendSetupMessage(
+          "assistant",
+          "Preciso de um nome entre 2 e 120 caracteres. Como se chama esse condomínio?"
+        );
+        return;
+      }
+      setSetupCondominiumName(trimmedAnswer);
+      setSetupStage("unit_count");
+      appendSetupMessage("assistant", `Quantos apartamentos ou unidades há no ${trimmedAnswer}?`);
+      return;
+    }
+
+    if (setupStage === "unit_count") {
+      const unitCount = /^\d+$/u.test(trimmedAnswer) ? Number(trimmedAnswer) : Number.NaN;
+      if (!Number.isInteger(unitCount) || unitCount < 1 || unitCount > 100_000) {
+        appendSetupMessage(
+          "assistant",
+          "Informe uma quantidade de apartamentos ou unidades entre 1 e 100.000."
+        );
+        return;
+      }
+      setBusy(true);
+      try {
+        await createCondominiumFromSetup(setupCondominiumName, unitCount);
+        finishCurrentCondominium();
+      } catch (error: unknown) {
+        setConversationError(
+          error instanceof Error ? error.message : "Não consegui salvar esse condomínio agora."
+        );
+        appendSetupMessage(
+          "assistant",
+          "Não consegui salvar esse condomínio. Confira sua conexão e envie novamente a quantidade de apartamentos."
+        );
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
   }
 
   function selectChatDocument(file: File): void {
@@ -557,6 +830,12 @@ export function App() {
     setChatDocumentMessageIsError(false);
   }
 
+  function chooseAttachment(kind: AttachmentKind): void {
+    setAttachmentPickerKind(kind);
+    setAttachmentMenuOpen(false);
+    window.setTimeout(() => chatDocumentInput.current?.click(), 0);
+  }
+
   async function addChatDocument(file: File): Promise<void> {
     if (context === undefined || authMode === undefined) return;
     const mediaType = chatFileMediaType(file);
@@ -567,11 +846,12 @@ export function App() {
     setChatDocumentMessage("");
     setChatDocumentMessageIsError(false);
     try {
+      const documentType = inferDocumentType(file.name);
       const response = await requestDocumentUploadWithAuthorizationRecovery(fetch, {
         condominiumId: context.condominiumId,
         content: file,
         title: file.name,
-        documentType: inferDocumentType(file.name),
+        documentType,
         mediaType,
         authMode,
         developmentUserId
@@ -584,13 +864,17 @@ export function App() {
       }>;
       setPendingChatDocument(undefined);
       setChatDocumentMessage(
-        result.memoryStatus === "needs_review"
-          ? "Recebi o arquivo, mas ele precisa de revisão antes de fundamentar respostas."
-          : result.memoryStatus === "failed"
-            ? "Recebi o arquivo, mas não consegui incluí-lo na memória documental."
-            : result.memoryStatus === "ready"
-              ? "Recebi, processei e incluí o documento na memória desta conversa."
-              : "Recebi o documento. O processamento e a vetorização continuam em segundo plano."
+        documentType === "convention" && result.memoryStatus === "needs_review"
+          ? "Recebi a convenção, mas a leitura precisa de revisão antes de ela servir de base. Se puder, envie o PDF original completo e legível ou as páginas que ficaram difíceis de ler."
+          : documentType === "convention" && result.memoryStatus === "ready"
+            ? "Recebi e processei a convenção. Ela é a principal referência interna deste condomínio; se houver uma versão posterior, envie-a também para eu comparar a vigência."
+            : result.memoryStatus === "needs_review"
+              ? "Recebi o arquivo, mas ele precisa de revisão antes de fundamentar respostas."
+              : result.memoryStatus === "failed"
+                ? "Recebi o arquivo, mas não consegui incluí-lo na memória documental."
+                : result.memoryStatus === "ready"
+                  ? "Recebi, processei e incluí o documento na memória desta conversa."
+                  : "Recebi o documento. O processamento e a vetorização continuam em segundo plano."
       );
       setChatDocumentMessageIsError(result.memoryStatus === "failed");
     } catch (error: unknown) {
@@ -619,6 +903,15 @@ export function App() {
     setAnswer(undefined);
     setBusy(true);
     setSubmittedQuestion(trimmedQuestion);
+    if (activeChatId !== undefined) {
+      setChats((current) =>
+        current.map((chat) =>
+          chat.id === activeChatId && chat.title === "Nova conversa"
+            ? { ...chat, title: buildConversationTitle(trimmedQuestion) }
+            : chat
+        )
+      );
+    }
     setQuestion("");
     setSelectedCitation(undefined);
     setFeedback(undefined);
@@ -664,7 +957,8 @@ export function App() {
           ? chat
           : {
               ...chat,
-              title: chat.entries.length === 0 ? turn.question : chat.title,
+              title:
+                chat.title === "Nova conversa" ? buildConversationTitle(turn.question) : chat.title,
               entries: [
                 ...chat.entries.filter((entry) => entry.answer.answerId !== turn.answer.answerId),
                 turn
@@ -737,13 +1031,17 @@ export function App() {
       void addChatDocument(pendingChatDocument);
       return;
     }
+    if (setupStage !== "complete") {
+      void advanceSetup(question);
+      return;
+    }
     void askQuestion();
   }
 
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
-    if (!busy && !chatDocumentUploading && question.trim().length > 0) void askQuestion();
+    if (!busy && !chatDocumentUploading && question.trim().length > 0) sendComposer();
   }
 
   async function submitFeedback(classification: FeedbackClassification): Promise<void> {
@@ -772,8 +1070,100 @@ export function App() {
     }
   }
 
+  if (!entered) {
+    return (
+      <main className="login-page">
+        <section className="login-card" aria-labelledby="login-title">
+          <div className="login-brand">
+            <strong>Alvitra</strong>
+          </div>
+          <div>
+            <p className="login-kicker">Sua assistente para cuidar do condomínio</p>
+            <h1 id="login-title">Cuidar bem começa com uma boa conversa.</h1>
+            <p>Entre para conversar com a Alvitra e organizar seus condomínios em um só lugar.</p>
+          </div>
+          <button
+            className="login-entry-button"
+            type="button"
+            onClick={() => void enterConversation()}
+            disabled={authMode === undefined || runtimePending || entryPending}
+          >
+            {entryPending ? "Entrando..." : "Entrar"}
+          </button>
+          {conversationError === "" ? null : <p role="alert">{conversationError}</p>}
+        </section>
+      </main>
+    );
+  }
+
+  if (documentScreen === "current") {
+    return (
+      <main className="document-page">
+        <header className="document-page-header">
+          <button type="button" onClick={() => setDocumentScreen(undefined)}>
+            ‹ Voltar ao chat
+          </button>
+          <div>
+            <strong>Documentos</strong>
+            <small>{currentCondominium?.name ?? "Condomínio atual"}</small>
+          </div>
+        </header>
+        <section className="document-page-content" aria-label="Documentos do condomínio">
+          <div className="knowledge-progress">
+            <div>
+              <span>Contexto da Alvitra</span>
+              <strong>{currentKnowledgeProgress}%</strong>
+            </div>
+            <div
+              className="knowledge-progress-track"
+              role="progressbar"
+              aria-label="Contexto documental disponível para a Alvitra"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={currentKnowledgeProgress}
+            >
+              <span style={{ width: `${currentKnowledgeProgress}%` }} />
+            </div>
+            <p>
+              Calculado pelos tipos de documentos já processados deste condomínio. A convenção
+              completa e vigente é a base mais importante.
+            </p>
+          </div>
+          <div className="document-page-list">
+            <h1>Documentos enviados</h1>
+            {documentsPending ? <p>Carregando documentos autorizados...</p> : null}
+            {documentsError === "" ? null : <p role="alert">{documentsError}</p>}
+            {!documentsPending &&
+            documentsError === "" &&
+            currentCondominiumDocuments.length === 0 ? (
+              <p>Nenhum documento enviado ainda para este condomínio.</p>
+            ) : null}
+            {groupedCurrentCondominiumDocuments.map((group) => (
+              <section key={group.type} aria-label={group.label}>
+                <h2>{group.label}</h2>
+                {group.documents.map((document) => (
+                  <article key={document.documentId}>
+                    <DocumentIcon />
+                    <span>
+                      <strong>{document.title}</strong>
+                      <small>
+                        {document.processingStatus === "ready"
+                          ? "Disponível para consulta"
+                          : "Em processamento"}
+                      </small>
+                    </span>
+                  </article>
+                ))}
+              </section>
+            ))}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="chat-page">
+    <main className={`chat-page${conversationStarted ? " has-conversation" : ""}`}>
       <header className="chat-header">
         <button
           className="chat-list-button"
@@ -783,56 +1173,54 @@ export function App() {
           aria-controls="chat-sidebar"
           onClick={() => setSidebarOpen(true)}
         >
-          <MenuIcon />
+          <SidebarIcon />
         </button>
         <div className="brand-lockup">
-          <AlvitraMark />
           <div>
             <strong>Alvitra</strong>
-            <small>Sua assistente para cuidar do condomínio</small>
           </div>
         </div>
-        {context === undefined ? (
-          <button
-            className="login-entry-button"
-            type="button"
-            onClick={() => void enterConversation()}
-            disabled={authMode === undefined || runtimePending || entryPending}
-          >
-            {entryPending ? "Entrando..." : "Entrar"}
-          </button>
-        ) : (
-          <div className="header-actions">
-            <div className="service-state">
-              <span aria-hidden="true" />
-              {serviceLabel}
-            </div>
-            <button
-              className="account-menu-button"
-              type="button"
-              aria-label="Abrir menu da conta"
-              aria-expanded={accountMenuOpen}
-              aria-controls="account-menu"
-              onClick={() => void openAccountMenu()}
-            >
-              <MoreIcon />
-            </button>
+        <div className="header-actions">
+          <div className="service-state">
+            <span aria-hidden="true" />
+            {serviceLabel}
           </div>
-        )}
+          <button
+            className="account-menu-button"
+            type="button"
+            aria-label="Abrir menu da conta"
+            aria-expanded={accountMenuOpen}
+            aria-controls="account-menu"
+            onClick={() => {
+              if (accountMenuOpen) setAccountMenuOpen(false);
+              else void openAccountMenu();
+            }}
+          >
+            <MenuIcon />
+          </button>
+        </div>
       </header>
 
       {accountMenuOpen ? (
         <section id="account-menu" className="account-menu" aria-label="Menu da conta">
           {accountMenuView === "home" ? (
             <>
+              <div className="current-condominium-menu-item">
+                <span>Condomínio atual</span>
+                <strong>{currentCondominium?.name ?? "Carregando condomínio..."}</strong>
+                <button
+                  type="button"
+                  onClick={openCurrentDocuments}
+                  disabled={context === undefined || documentsPending}
+                >
+                  Ver documentos deste condomínio
+                </button>
+              </div>
               <button type="button" onClick={() => setAccountMenuView("condominiums")}>
                 Condomínios
               </button>
-              <button type="button" onClick={() => setAccountMenuView("profile")}>
-                Meus dados
-              </button>
-              <button type="button" onClick={() => setAccountMenuView("preferences")}>
-                Preferências
+              <button type="button" onClick={() => setAccountMenuView("documents")}>
+                Dados
               </button>
             </>
           ) : (
@@ -849,6 +1237,9 @@ export function App() {
                   <strong>Condomínios</strong>
                   {condominiumsPending ? <p>Carregando condomínios autorizados...</p> : null}
                   {condominiumsError === "" ? null : <p role="alert">{condominiumsError}</p>}
+                  {!condominiumsPending && condominiumsError === "" && condominiums.length === 0 ? (
+                    <p>Você ainda não configurou nenhum condomínio.</p>
+                  ) : null}
                   {condominiums.map((item) => (
                     <button
                       type="button"
@@ -868,57 +1259,65 @@ export function App() {
                     + Adicionar condomínio pela conversa
                   </button>
                 </div>
-              ) : accountMenuView === "profile" ? (
-                <div className="conversation-profile">
-                  <strong>Meus dados</strong>
-                  {profilePending ? <p>Organizando os dados confirmados na conversa...</p> : null}
-                  {profileError === "" ? null : <p role="alert">{profileError}</p>}
-                  {conversationProfile === undefined || profilePending ? null : (
-                    <>
-                      <p>
-                        Esses dados são atualizados aos poucos, quando você os confirma na conversa.
-                      </p>
-                      <dl>
-                        {conversationProfile.contact.managerName === "" ? null : (
-                          <>
-                            <dt>Nome</dt>
-                            <dd>{conversationProfile.contact.managerName}</dd>
-                          </>
-                        )}
-                        {conversationProfile.contact.email === "" ? null : (
-                          <>
-                            <dt>E-mail</dt>
-                            <dd>{conversationProfile.contact.email}</dd>
-                          </>
-                        )}
-                        {conversationProfile.contact.phone === "" ? null : (
-                          <>
-                            <dt>Telefone</dt>
-                            <dd>{conversationProfile.contact.phone}</dd>
-                          </>
-                        )}
-                        <dt>Condomínio</dt>
-                        <dd>{conversationProfile.name}</dd>
-                        {conversationProfile.unitCount === null ? null : (
-                          <>
-                            <dt>Unidades</dt>
-                            <dd>{conversationProfile.unitCount}</dd>
-                          </>
-                        )}
-                        {conversationProfile.administrationCompany === "" ? null : (
-                          <>
-                            <dt>Administradora</dt>
-                            <dd>{conversationProfile.administrationCompany}</dd>
-                          </>
-                        )}
-                      </dl>
-                    </>
-                  )}
+              ) : accountMenuView === "documents" ? (
+                <div className="document-menu-list">
+                  <strong>Dados</strong>
+                  <p>Documentos enviados, organizados por tipo e condomínio.</p>
+                  {documentsPending ? <p>Carregando documentos autorizados...</p> : null}
+                  {documentsError === "" ? null : <p role="alert">{documentsError}</p>}
+                  {!documentsPending && documentsError === "" && documents.length === 0 ? (
+                    <p>Nenhum documento enviado ainda.</p>
+                  ) : null}
+                  {groupedDocuments.map((group) => (
+                    <section key={group.type} aria-label={group.label}>
+                      <h3>{group.label}</h3>
+                      {group.documents.map((document) => (
+                        <article key={`${document.condominiumId}-${document.documentId}`}>
+                          <DocumentIcon />
+                          <span>
+                            <strong>{document.title}</strong>
+                            <small>
+                              {document.condominiumName} ·{" "}
+                              {document.processingStatus === "ready"
+                                ? "Disponível para consulta"
+                                : "Em processamento"}
+                            </small>
+                          </span>
+                        </article>
+                      ))}
+                    </section>
+                  ))}
                 </div>
               ) : (
-                <p className="account-menu-note">
-                  Preferências contextuais serão disponibilizadas pela conversa quando necessárias.
-                </p>
+                <div className="document-menu-list">
+                  <strong>Documentos deste condomínio</strong>
+                  <p>{currentCondominium?.name ?? "Condomínio atual"}</p>
+                  {documentsPending ? <p>Carregando documentos autorizados...</p> : null}
+                  {documentsError === "" ? null : <p role="alert">{documentsError}</p>}
+                  {!documentsPending &&
+                  documentsError === "" &&
+                  currentCondominiumDocuments.length === 0 ? (
+                    <p>Nenhum documento enviado ainda para este condomínio.</p>
+                  ) : null}
+                  {groupedCurrentCondominiumDocuments.map((group) => (
+                    <section key={group.type} aria-label={group.label}>
+                      <h3>{group.label}</h3>
+                      {group.documents.map((document) => (
+                        <article key={document.documentId}>
+                          <DocumentIcon />
+                          <span>
+                            <strong>{document.title}</strong>
+                            <small>
+                              {document.processingStatus === "ready"
+                                ? "Disponível para consulta"
+                                : "Em processamento"}
+                            </small>
+                          </span>
+                        </article>
+                      ))}
+                    </section>
+                  ))}
+                </div>
               )}
             </>
           )}
@@ -940,7 +1339,9 @@ export function App() {
           className="new-chat-button"
           type="button"
           onClick={createChat}
-          disabled={context === undefined || busy || chatDocumentUploading}
+          disabled={
+            setupStage !== "complete" || context === undefined || busy || chatDocumentUploading
+          }
         >
           + Nova conversa
         </button>
@@ -989,48 +1390,36 @@ export function App() {
 
       <section className="conversation" aria-label="Conversa com a Alvitra">
         <div className="messages" aria-live="polite">
-          {conversationHistory.length === 0 && submittedQuestion === "" ? (
-            <div className="welcome-block">
-              <AlvitraMark />
-              <h1>Como posso te ajudar hoje?</h1>
-              <p>
-                Pode falar comigo sobre o condomínio ou enviar um documento. Quando eu usar uma
-                informação do acervo, mostro a fonte para você conferir.
-              </p>
-              <div className="suggested-questions" aria-label="Perguntas sugeridas">
-                {suggestedQuestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => {
-                      setQuestion(suggestion);
-                      composerInput.current?.focus();
-                    }}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
+          {setupMessages.map((message) =>
+            message.role === "assistant" ? (
+              <article className="assistant-message setup-message" key={message.id}>
+                <p>{message.text}</p>
+              </article>
+            ) : (
+              <div className="user-message" key={message.id}>
+                <p>{message.text}</p>
               </div>
-            </div>
-          ) : null}
+            )
+          )}
 
-          {conversationHistory.map((entry) => (
-            <div className="conversation-turn" key={entry.answer.answerId}>
-              <div className="user-message">
-                <p>{entry.question}</p>
-              </div>
-              <AnswerMessage
-                answer={entry.answer}
-                question={entry.question}
-                compact
-                onSelectCitation={setSelectedCitation}
-              />
-            </div>
-          ))}
+          {setupStage === "complete"
+            ? conversationHistory.map((entry) => (
+                <div className="conversation-turn" key={entry.answer.answerId}>
+                  <div className="user-message">
+                    <p>{entry.question}</p>
+                  </div>
+                  <AnswerMessage
+                    answer={entry.answer}
+                    question={entry.question}
+                    compact
+                    onSelectCitation={setSelectedCitation}
+                  />
+                </div>
+              ))
+            : null}
 
           {entryPending ? (
             <div className="assistant-message loading-message" role="status">
-              <AlvitraMark />
               <div>
                 <strong>Entrando na conversa</strong>
                 <span className="typing-dots" aria-hidden="true">
@@ -1067,7 +1456,6 @@ export function App() {
 
           {busy && submittedQuestion !== "" ? (
             <div className="assistant-message loading-message" role="status">
-              <AlvitraMark />
               <div>
                 <strong>Consultando o contexto disponível</strong>
                 <span className="typing-dots" aria-hidden="true">
@@ -1081,7 +1469,6 @@ export function App() {
 
           {conversationError === "" || runtimePending || entryPending ? null : (
             <div className="assistant-message error-message" role="alert">
-              <AlvitraMark />
               <div>
                 <strong>Não consegui continuar agora</strong>
                 <p>{conversationError}</p>
@@ -1170,40 +1557,80 @@ export function App() {
               ref={chatDocumentInput}
               className="visually-hidden"
               type="file"
-              accept="application/pdf,.pdf,image/jpeg,.jpg,.jpeg,image/png,.png"
+              accept={
+                attachmentPickerKind === "document"
+                  ? "application/pdf,.pdf"
+                  : "image/jpeg,.jpg,.jpeg,image/png,.png"
+              }
               onChange={(event) => {
                 const file = event.currentTarget.files?.[0];
                 event.currentTarget.value = "";
                 if (file !== undefined) selectChatDocument(file);
               }}
             />
-            <button
-              className="attach-button"
-              type="button"
-              aria-label="Anexar PDF ou imagem"
-              title="Anexar PDF ou imagem"
-              disabled={!canUpload || busy || chatDocumentUploading}
-              onClick={() => chatDocumentInput.current?.click()}
-            >
-              <UploadIcon />
-            </button>
+            <div className="attachment-menu-wrap">
+              <button
+                className="attach-button"
+                type="button"
+                aria-label="Adicionar documento ou foto"
+                title="Adicionar documento ou foto"
+                aria-expanded={attachmentMenuOpen}
+                aria-controls="attachment-menu"
+                disabled={!canUpload || setupStage !== "complete" || busy || chatDocumentUploading}
+                onClick={() => setAttachmentMenuOpen((current) => !current)}
+              >
+                <PlusIcon />
+              </button>
+              {attachmentMenuOpen ? (
+                <div id="attachment-menu" className="attachment-menu" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => chooseAttachment("document")}
+                  >
+                    Enviar documento
+                    <small>PDF</small>
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => chooseAttachment("photo")}>
+                    Enviar foto
+                    <small>JPG ou PNG</small>
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <textarea
               ref={composerInput}
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={handleComposerKeyDown}
-              placeholder="Converse com a Alvitra..."
+              placeholder={
+                setupStage === "manager_name"
+                  ? "Digite como prefere ser chamado(a)..."
+                  : setupStage === "condominium_count"
+                    ? "Digite quantos condomínios você administra..."
+                    : setupStage === "condominium_name"
+                      ? "Digite o nome do condomínio..."
+                      : setupStage === "unit_count"
+                        ? "Digite a quantidade de apartamentos..."
+                        : "Converse com a Alvitra..."
+              }
               aria-label="Mensagem para a Alvitra"
               rows={1}
               maxLength={4000}
-              disabled={context === undefined || runtimePending || entryPending}
+              disabled={
+                authMode === undefined ||
+                runtimePending ||
+                entryPending ||
+                (setupStage === "complete" && context === undefined)
+              }
             />
             <button
               className="send-button"
               type="button"
               onClick={sendComposer}
               disabled={
-                context === undefined ||
+                authMode === undefined ||
+                (setupStage === "complete" && context === undefined) ||
                 busy ||
                 chatDocumentUploading ||
                 (pendingChatDocument === undefined && question.trim().length === 0)

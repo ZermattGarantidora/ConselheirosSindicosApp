@@ -8,10 +8,15 @@ describe("barra lateral de conversas", () => {
 
     expect(app).toContain("const [sidebarOpen, setSidebarOpen] = useState(false);");
     expect(app).toContain('aria-label="Abrir conversas"');
+    expect(app).toContain("function SidebarIcon()");
+    expect(app).toContain('<path d="M9 5v14" />');
+    expect(app).toContain("<SidebarIcon />");
     expect(app).toContain('id="chat-sidebar"');
     expect(app).toContain('className={`chat-sidebar${sidebarOpen ? " is-open" : ""}`}');
     expect(app).toContain("function createChat(): void");
     expect(app).toContain("+ Nova conversa");
+    expect(app).toContain("buildConversationTitle(trimmedQuestion)");
+    expect(app).toContain("buildConversationTitleFromQuestions(");
     expect(app).toContain("function selectChat(chatId: string): void");
     expect(app).toContain("preserveActiveTurn();");
   });

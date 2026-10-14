@@ -2,7 +2,7 @@
 
 **Status:** implementada e aguardando aprovação do usuário  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-09
+**Atualizado em:** 2026-10-13
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -55,6 +55,7 @@ Síndicos profissionais independentes, pequenas empresas de sindicatura e síndi
 - barra de conversas à esquerda, recolhida ao abrir;
 - abertura deslizante no desktop e como overlay no celular;
 - criação, seleção, renomeação e exclusão de chats pela própria barra;
+- título curto atribuído pela Alvitra a partir do primeiro assunto de cada conversa;
 - preservação dos turnos já concluídos ao alternar ou iniciar uma nova conversa;
 - lista do histórico autorizado carregado pela API como primeira conversa da sessão.
 
@@ -78,7 +79,7 @@ A página apresenta um controle acessível para abrir a barra lateral. No deskto
 
 ### RQ-1702 — Organização de chats na sessão
 
-A pessoa pode criar, selecionar, renomear e excluir chats. A primeira conversa representa o histórico autorizado já carregado. Alternar de chat preserva qualquer turno concluído da conversa ativa.
+A pessoa pode criar, selecionar, renomear e excluir chats. Enquanto ainda não há assunto, o item usa “Nova conversa”. A partir da primeira pergunta substantiva, a Alvitra atribui um título curto que representa o assunto, sem simplesmente copiar a pergunta inteira; a pessoa ainda pode renomeá-lo. A primeira conversa representa o histórico autorizado já carregado. Alternar de chat preserva qualquer turno concluído da conversa ativa.
 
 ### RQ-1703 — Segurança documental preservada
 
@@ -88,6 +89,7 @@ Criar, nomear, selecionar ou excluir um chat não envia identificadores de tenan
 
 - Não altera os contratos HTTP existentes.
 - A organização dos chats é estado efêmero da sessão do cliente; histórico, perguntas, respostas e evidências seguem os contratos de `GET /history`, `POST /questions` e upload da Spec 016.
+- O título automático é derivado localmente do primeiro assunto, sem chamada adicional a provedor, e não altera o conteúdo da conversa nem a autorização documental.
 
 ## 9. Requisitos não funcionais
 
@@ -99,6 +101,7 @@ Criar, nomear, selecionar ou excluir um chat não envia identificadores de tenan
 ## 10. Critérios de sucesso
 
 - a pessoa abre rapidamente uma segunda conversa e retorna à anterior;
+- conversas com assunto recebem títulos curtos, reconhecíveis e diferentes da pergunta bruta;
 - histórico, fontes, upload e composer permanecem funcionais;
 - em celular e desktop a lateral abre e fecha sem comprometer a leitura do chat;
 - os testes confirmam que a organização não cria chamadas sem contexto autorizado.

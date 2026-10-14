@@ -219,8 +219,10 @@ degradação relevante do serviço.
 A resposta direta deve priorizar a conclusão e usar texto curto, sem introdução, despedida,
 repetição da pergunta ou lista genérica. Cumprimentos e perguntas sociais simples devem receber
 somente uma frase breve, sem busca documental, alertas, risco ou fontes. Quando não houver citação,
-a interface não deve exibir um bloco de fontes vazio; a limitação documental permanece visível uma
-única vez nos pontos de atenção quando a pergunta exigir consulta aos documentos.
+a interface não deve exibir um bloco de fontes vazio. Quando a pergunta exigir consulta aos
+documentos e não houver evidência suficiente, a limitação documental deve aparecer de forma
+natural uma única vez no texto da resposta. A interface não adiciona etiqueta técnica nem bloco
+automático de atenção para repetir essa limitação.
 
 Perguntas gerais e breves sobre como a Alvitra pode ajudar, sem pedir uma regra ou fato específico
 do condomínio, também são conversacionais: não exigem busca documental nem devem receber uma

@@ -70,17 +70,17 @@ export type DevelopmentCondominiumRegistration = Readonly<{
   userId: UserId;
   condominiumId: string;
   name: string;
-  cnpj: string;
+  cnpj?: string;
   administrationCompany?: string;
   unitCount?: number | null;
-  address: Readonly<{
+  address?: Readonly<{
     postalCode?: string;
     street?: string;
     number?: string;
     complement?: string;
     neighborhood?: string;
-    city: string;
-    state: string;
+    city?: string;
+    state?: string;
   }>;
   contact?: Readonly<{
     managerName?: string;
@@ -105,8 +105,9 @@ function optionalText(value: string | undefined, maximumLength: number, field: s
   return normalized;
 }
 
-function normalizeCnpj(value: string): string {
-  const digits = value.replaceAll(/\D/gu, "");
+function normalizeCnpj(value: string | undefined): string {
+  const digits = value?.replaceAll(/\D/gu, "") ?? "";
+  if (digits.length === 0) return "";
   if (digits.length !== 14) {
     throw new Error("O CNPJ sintético deve ter 14 dígitos.");
   }
@@ -125,11 +126,11 @@ function createDevelopmentProfile(
   input: DevelopmentCondominiumRegistration,
   condominiumId: string
 ): DevelopmentCondominiumProfile {
-  const state = requiredText(input.address.state, 2, "A UF").toUpperCase();
-  if (!/^[A-Z]{2}$/u.test(state)) {
+  const state = optionalText(input.address?.state, 2, "A UF").toUpperCase();
+  if (state !== "" && !/^[A-Z]{2}$/u.test(state)) {
     throw new Error("A UF deve ter duas letras.");
   }
-  const postalCode = optionalText(input.address.postalCode, 9, "O CEP").replaceAll(/\D/gu, "");
+  const postalCode = optionalText(input.address?.postalCode, 9, "O CEP").replaceAll(/\D/gu, "");
   if (postalCode.length > 0 && postalCode.length !== 8) {
     throw new Error("O CEP deve ter 8 dígitos.");
   }
@@ -142,11 +143,11 @@ function createDevelopmentProfile(
     unitCount: normalizeUnitCount(input.unitCount),
     address: Object.freeze({
       postalCode,
-      street: optionalText(input.address.street, 120, "O logradouro"),
-      number: optionalText(input.address.number, 20, "O número"),
-      complement: optionalText(input.address.complement, 80, "O complemento"),
-      neighborhood: optionalText(input.address.neighborhood, 80, "O bairro"),
-      city: requiredText(input.address.city, 80, "A cidade"),
+      street: optionalText(input.address?.street, 120, "O logradouro"),
+      number: optionalText(input.address?.number, 20, "O número"),
+      complement: optionalText(input.address?.complement, 80, "O complemento"),
+      neighborhood: optionalText(input.address?.neighborhood, 80, "O bairro"),
+      city: optionalText(input.address?.city, 80, "A cidade"),
       state
     }),
     contact: Object.freeze({

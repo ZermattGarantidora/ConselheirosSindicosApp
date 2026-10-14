@@ -131,17 +131,17 @@ type AskBody = Readonly<{ question: string }>;
 type CreateTestCondominiumBody = Readonly<{
   condominiumId: string;
   name: string;
-  cnpj: string;
+  cnpj?: string;
   administrationCompany?: string;
   unitCount?: number | null;
-  address: Readonly<{
+  address?: Readonly<{
     postalCode?: string;
     street?: string;
     number?: string;
     complement?: string;
     neighborhood?: string;
-    city: string;
-    state: string;
+    city?: string;
+    state?: string;
   }>;
   contact?: Readonly<{ managerName?: string; email?: string; phone?: string }>;
 }>;
@@ -226,55 +226,51 @@ function accountDeviceLabel(userAgent: string | undefined): string {
 }
 
 function isCreateTestCondominiumBody(value: unknown): value is CreateTestCondominiumBody {
+  if (typeof value !== "object" || value === null) return false;
+  const body = value as Partial<CreateTestCondominiumBody>;
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "condominiumId" in value &&
-    typeof value.condominiumId === "string" &&
-    "name" in value &&
-    typeof value.name === "string" &&
-    "cnpj" in value &&
-    typeof value.cnpj === "string" &&
-    "address" in value &&
-    typeof value.address === "object" &&
-    value.address !== null &&
-    "city" in value.address &&
-    typeof value.address.city === "string" &&
-    "state" in value.address &&
-    typeof value.address.state === "string"
+    typeof body.condominiumId === "string" &&
+    body.condominiumId.trim().length > 0 &&
+    typeof body.name === "string" &&
+    body.name.trim().length >= 2 &&
+    body.name.trim().length <= 120 &&
+    (body.cnpj === undefined || typeof body.cnpj === "string") &&
+    (body.address === undefined ||
+      (typeof body.address === "object" &&
+        body.address !== null &&
+        !Array.isArray(body.address) &&
+        (body.address.city === undefined || typeof body.address.city === "string") &&
+        (body.address.state === undefined || typeof body.address.state === "string"))) &&
+    (body.unitCount === undefined ||
+      body.unitCount === null ||
+      (Number.isInteger(body.unitCount) && body.unitCount > 0 && body.unitCount <= 100_000))
   );
 }
 
 function isCreateCondominiumBody(value: unknown): value is CreateCondominiumBody {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "name" in value &&
-    typeof value.name === "string" &&
-    "cnpj" in value &&
-    typeof value.cnpj === "string" &&
-    "address" in value &&
-    typeof value.address === "object" &&
-    value.address !== null &&
-    "city" in value.address &&
-    typeof value.address.city === "string" &&
-    "state" in value.address &&
-    typeof value.address.state === "string" &&
-    "contact" in value &&
-    typeof value.contact === "object" &&
-    value.contact !== null
-  ) {
+  if (typeof value === "object" && value !== null) {
     const body = value as CreateCondominiumBody;
-    const cnpjDigits = body.cnpj.replace(/\D/gu, "");
+    const cnpjDigits = typeof body.cnpj === "string" ? body.cnpj.replace(/\D/gu, "") : "";
     return (
+      typeof body.name === "string" &&
       body.name.trim().length >= 2 &&
       body.name.trim().length <= 120 &&
-      cnpjDigits.length === 14 &&
-      body.address.city.trim().length > 0 &&
-      /^[A-Z]{2}$/iu.test(body.address.state.trim()) &&
+      (body.cnpj === undefined || (typeof body.cnpj === "string" && cnpjDigits.length === 14)) &&
+      (body.address === undefined ||
+        (typeof body.address === "object" &&
+          body.address !== null &&
+          !Array.isArray(body.address) &&
+          (body.address.city === undefined || typeof body.address.city === "string") &&
+          (body.address.state === undefined ||
+            (typeof body.address.state === "string" &&
+              /^[A-Z]{2}$/iu.test(body.address.state.trim()))))) &&
+      (body.contact === undefined ||
+        (typeof body.contact === "object" &&
+          body.contact !== null &&
+          !Array.isArray(body.contact))) &&
       (body.unitCount === undefined ||
         body.unitCount === null ||
-        (Number.isInteger(body.unitCount) && body.unitCount > 0))
+        (Number.isInteger(body.unitCount) && body.unitCount > 0 && body.unitCount <= 100_000))
     );
   }
   return false;
@@ -541,7 +537,10 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
                   .map((item) => ({
                     condominiumId: item.condominiumId,
                     name: item.name,
-                    detail: `${item.address.city}/${item.address.state} · Condomínio autorizado`
+                    detail:
+                      item.address.city === "" || item.address.state === ""
+                        ? "Condomínio autorizado"
+                        : `${item.address.city}/${item.address.state} · Condomínio autorizado`
                   })) ?? [])
               ]
             : ((await options.condominiumDirectory?.listAuthorized(userId)) ?? []).map((item) => ({
@@ -1039,13 +1038,16 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       const userId = requestUserId(request);
       if (userId === undefined) return reply.code(401).send({ message: unauthenticatedMessage });
       if (!isCreateCondominiumBody(request.body)) {
-        return reply.code(400).send({ message: "Informe nome, CNPJ, cidade, UF e contato." });
+        return reply
+          .code(400)
+          .send({ message: "Informe um nome e uma quantidade de unidades válidos." });
       }
 
+      const normalizedCnpj = request.body.cnpj?.replace(/\D/gu, "") ?? "";
       try {
         const created = await condominiumDirectory.createForUser(userId, {
           ...request.body,
-          cnpj: request.body.cnpj.replace(/\D/gu, "")
+          cnpj: normalizedCnpj
         });
         return reply.code(201).send({
           condominiumId: created.condominiumId,
@@ -1054,24 +1056,26 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           condominium: created
         });
       } catch (error: unknown) {
-        try {
-          const existing = await condominiumDirectory.findAuthorizedByCnpj(
-            userId,
-            request.body.cnpj.replace(/\D/gu, "")
-          );
-          if (existing !== undefined) {
-            return reply.code(200).send({
-              condominiumId: existing.condominiumId,
-              role: existing.roleKey,
-              permissions: ["document:read", "document:upload"],
-              condominium: existing,
-              resumedRegistration: true
-            });
+        if (normalizedCnpj !== "") {
+          try {
+            const existing = await condominiumDirectory.findAuthorizedByCnpj(
+              userId,
+              normalizedCnpj
+            );
+            if (existing !== undefined) {
+              return reply.code(200).send({
+                condominiumId: existing.condominiumId,
+                role: existing.roleKey,
+                permissions: ["document:read", "document:upload"],
+                condominium: existing,
+                resumedRegistration: true
+              });
+            }
+          } catch {
+            return reply
+              .code(500)
+              .send({ message: "Não foi possível recuperar o cadastro existente." });
           }
-        } catch {
-          return reply
-            .code(500)
-            .send({ message: "Não foi possível recuperar o cadastro existente." });
         }
         if (error instanceof CondominiumAlreadyExistsError) {
           return reply.code(409).send({ message: error.message });

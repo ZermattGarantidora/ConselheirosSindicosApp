@@ -53,6 +53,7 @@ export async function startServer(
 ): Promise<ReturnType<typeof createApi>> {
   const databaseUrl = environment.DATABASE_URL?.trim();
   const demoMode = environment.DEMO_MODE?.trim().toLowerCase() === "true";
+  const demoSeedDocuments = environment.DEMO_SEED_DOCUMENTS?.trim().toLowerCase() === "true";
   const googleOAuth = createGoogleOAuthFromEnvironment(environment);
   const geminiGateway = createGeminiAnswerGatewayFromEnvironment(environment);
   const localAnswerGateway = createLocalSyntheticAnswerGateway();
@@ -69,6 +70,8 @@ export async function startServer(
   }
 
   if (databaseUrl === undefined || databaseUrl.length === 0) {
+    const seededRetrievalFixtures = demoSeedDocuments ? developmentRetrievalFixtures : [];
+    const seededDevelopmentChunks = demoSeedDocuments ? developmentChunks : [];
     const developmentMembershipRegistry = createDevelopmentIdentityRepository();
     const developmentProfile = (
       profile: Readonly<{
@@ -131,8 +134,8 @@ export async function startServer(
           : developmentProfile({ ...created, address: created.address, contact: created.contact });
       }
     );
-    const developmentDocumentMemory = createDevelopmentDocumentMemory(developmentRetrievalFixtures);
-    const developmentDocuments: readonly RegisteredDocument[] = developmentRetrievalFixtures.map(
+    const developmentDocumentMemory = createDevelopmentDocumentMemory(seededRetrievalFixtures);
+    const developmentDocuments: readonly RegisteredDocument[] = seededRetrievalFixtures.map(
       (chunk) => ({
         condominiumId: chunk.condominiumId,
         documentId: chunk.documentId,
@@ -168,9 +171,11 @@ export async function startServer(
         gateway: answerGateway,
         persistence: createInMemoryAnswerPersistence()
       }),
-      retriever: createScopedTextRetriever(createDevelopmentScopedRetrievalIndex()),
+      retriever: createScopedTextRetriever(
+        createDevelopmentScopedRetrievalIndex(seededDevelopmentChunks)
+      ),
       answerService: createAnswerService(createLocalExtractiveGateway()),
-      documentSourceReader: createDevelopmentDocumentSourceReader(developmentChunks)
+      documentSourceReader: createDevelopmentDocumentSourceReader(seededDevelopmentChunks)
     });
     await app.listen({ host: "127.0.0.1", port });
     return app;
