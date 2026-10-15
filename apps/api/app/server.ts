@@ -75,8 +75,10 @@ export async function startServer(
   const demoMode = environment.DEMO_MODE?.trim().toLowerCase() === "true";
   const useDevelopmentRuntime = demoMode || databaseUrl === undefined || databaseUrl.length === 0;
   const demoSeedDocuments = environment.DEMO_SEED_DOCUMENTS?.trim().toLowerCase() === "true";
-  const googleOAuth = createGoogleOAuthFromEnvironment(environment);
-  const geminiGateway = createGeminiAnswerGatewayFromEnvironment(environment);
+  const googleOAuth = demoMode ? undefined : createGoogleOAuthFromEnvironment(environment);
+  const geminiGateway = demoMode
+    ? undefined
+    : createGeminiAnswerGatewayFromEnvironment(environment);
   const localAnswerGateway = createLocalSyntheticAnswerGateway();
   const answerGateway =
     geminiGateway === undefined

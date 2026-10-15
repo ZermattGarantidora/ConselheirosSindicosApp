@@ -23,12 +23,24 @@ describe("servidor local", () => {
   it("mantém a demonstração isolada mesmo quando existe uma URL de banco no ambiente local", async () => {
     const app = await startServer(0, {
       DEMO_MODE: "true",
-      DATABASE_URL: "postgresql://postgres:senha-sintetica@127.0.0.1:1/conselheiro"
+      DATABASE_URL: "postgresql://postgres:senha-sintetica@127.0.0.1:1/conselheiro",
+      GEMINI_API_KEY: "chave-sintetica-que-nao-deve-ser-usada"
     });
 
     const response = await app.inject({ method: "GET", url: "/health" });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ authMode: "development" });
+    expect(response.json()).toMatchObject({ authMode: "development", aiProvider: "local" });
+    const answer = await app.inject({
+      method: "POST",
+      url: "/v1/condominiums/alameda/questions",
+      headers: { "x-development-user-id": "sindico-demo" },
+      payload: { question: "Olá" }
+    });
+    expect(answer.statusCode).toBe(200);
+    expect(answer.json()).toMatchObject({
+      answer: "Olá! Sou a Alvitra, sua conselheira documental.",
+      answerMode: "abstained"
+    });
     await app.close();
   });
 
