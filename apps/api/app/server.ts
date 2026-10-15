@@ -46,13 +46,34 @@ import { developmentRetrievalFixtures } from "../retrieval/development-retrieval
 import { createScopedTextRetriever } from "../retrieval/text-retrieval.js";
 import { drainProcessingQueue } from "../worker/processing-worker.js";
 import { createPostgresProcessingJobQueue } from "../worker/postgres-processing-job-queue.js";
+import { registerWebAssets } from "./web-assets.js";
+
+function publishedWebDirectory(environment: NodeJS.ProcessEnv): string | undefined {
+  const value = environment.WEB_DIST_DIR?.trim();
+  return value === undefined || value.length === 0 ? undefined : value;
+}
+
+function listeningHost(environment: NodeJS.ProcessEnv): string {
+  return environment.APP_ENV?.trim().toLowerCase() === "production" ? "0.0.0.0" : "127.0.0.1";
+}
+
+function listeningPort(fallbackPort: number, environment: NodeJS.ProcessEnv): number {
+  const value = Number(environment.PORT);
+  return Number.isInteger(value) && value > 0 && value <= 65_535 ? value : fallbackPort;
+}
 
 export async function startServer(
   port = 3000,
   environment: NodeJS.ProcessEnv = process.env
 ): Promise<ReturnType<typeof createApi>> {
+  const listeningOptions = {
+    host: listeningHost(environment),
+    port: listeningPort(port, environment)
+  };
+  const webDirectory = publishedWebDirectory(environment);
   const databaseUrl = environment.DATABASE_URL?.trim();
   const demoMode = environment.DEMO_MODE?.trim().toLowerCase() === "true";
+  const useDevelopmentRuntime = demoMode || databaseUrl === undefined || databaseUrl.length === 0;
   const demoSeedDocuments = environment.DEMO_SEED_DOCUMENTS?.trim().toLowerCase() === "true";
   const googleOAuth = createGoogleOAuthFromEnvironment(environment);
   const geminiGateway = createGeminiAnswerGatewayFromEnvironment(environment);
@@ -69,7 +90,7 @@ export async function startServer(
     );
   }
 
-  if (databaseUrl === undefined || databaseUrl.length === 0) {
+  if (useDevelopmentRuntime) {
     const seededRetrievalFixtures = demoSeedDocuments ? developmentRetrievalFixtures : [];
     const seededDevelopmentChunks = demoSeedDocuments ? developmentChunks : [];
     const developmentMembershipRegistry = createDevelopmentIdentityRepository();
@@ -177,7 +198,8 @@ export async function startServer(
       answerService: createAnswerService(createLocalExtractiveGateway()),
       documentSourceReader: createDevelopmentDocumentSourceReader(seededDevelopmentChunks)
     });
-    await app.listen({ host: "127.0.0.1", port });
+    if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
+    await app.listen(listeningOptions);
     return app;
   }
 
@@ -254,6 +276,7 @@ export async function startServer(
     answerTraceStore: createPostgresAnswerTraceStore(pool),
     documentSourceReader: createPostgresDocumentSourceReader(pool)
   });
+  if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
   let documentWorkerTimer: ReturnType<typeof setInterval> | undefined;
   await purgeExpiredDocuments();
   const documentRetentionTimer = setInterval(
@@ -278,6 +301,6 @@ export async function startServer(
     await processingChain;
     await pool.end();
   });
-  await app.listen({ host: "127.0.0.1", port });
+  await app.listen(listeningOptions);
   return app;
 }

@@ -124,6 +124,17 @@ pnpm run worker
 
 O modo real é o padrão seguro: sem `DATABASE_URL` e sem `DEMO_MODE=true`, a API recusa iniciar.
 
+## Demonstração online no Render
+
+O arquivo [`render.yaml`](render.yaml) publica uma demonstração gratuita, intencionalmente efêmera
+e sintética. Ela executa a API e a interface na mesma origem HTTPS, sem `DATABASE_URL`, chaves de IA
+ou dados de clientes. Para criar o serviço, conecte este repositório ao Render e importe o Blueprint;
+o health check é `/health`.
+
+Essa URL é somente uma prévia da experiência e pode pausar por inatividade no plano gratuito.
+Não envie documentos reais, dados pessoais ou credenciais. Um piloto persistente continua bloqueado
+pelos pré-requisitos da [Spec 011](docs/specs/011-piloto-real-controlado/spec.md).
+
 ## Documentos e vetorização
 
 O chat aceita PDF, JPEG e PNG. Selecionar um arquivo não o envia; o upload acontece somente após o

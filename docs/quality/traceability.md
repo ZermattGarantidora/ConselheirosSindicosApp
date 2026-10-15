@@ -457,6 +457,14 @@ e 481 testes, com 88,51% de statements, 81,45% de branches, 95,49% de functions 
 Build web, lint, formatação, typecheck, gate de visão, scanner de segredos e validação manual dos dois
 caminhos no navegador local passaram.
 
+## Spec 025 — demonstração online sintética no Render
+
+| Requisito | Critérios de aceitação | Evidência determinística |
+| --- | --- | --- |
+| RQ-2501 — demonstração sem dados reais | AC-2501 | `render.yaml`; `apps/api/app/server.ts`; ADR 0021 |
+| RQ-2502 — mesma origem | AC-2502 | `apps/api/app/web-assets.ts`; `tests/unit/web-assets.test.ts` |
+| RQ-2503 — implantação verificável | AC-2503 | `render.yaml`; `/health`; `tests/unit/server.test.ts` |
+
 - Novo requisito exige ao menos um critério de aceitação.
 - Requisito de segurança exige teste determinístico.
 - Comportamento probabilístico exige eval.

@@ -20,6 +20,25 @@ describe("servidor local", () => {
     await app.close();
   });
 
+  it("mantém a demonstração isolada mesmo quando existe uma URL de banco no ambiente local", async () => {
+    const app = await startServer(0, {
+      DEMO_MODE: "true",
+      DATABASE_URL: "postgresql://postgres:senha-sintetica@127.0.0.1:1/conselheiro"
+    });
+
+    const response = await app.inject({ method: "GET", url: "/health" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ authMode: "development" });
+    await app.close();
+  });
+
+  it("respeita a porta atribuída pela hospedagem", async () => {
+    const app = await startServer(0, { DEMO_MODE: "true", PORT: "4321", APP_ENV: "production" });
+
+    expect(app.server.address()).toMatchObject({ port: 4321 });
+    await app.close();
+  });
+
   it("recusa iniciar sem banco quando a demonstração não foi pedida", async () => {
     await expect(startServer(0, {})).rejects.toThrow(
       "DATABASE_URL é obrigatória para iniciar o site real"
