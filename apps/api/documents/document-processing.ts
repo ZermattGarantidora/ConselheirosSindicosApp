@@ -15,14 +15,18 @@ import {
   assessOcrResult,
   minimumOcrQualityScore,
   unavailableOcrAdapter,
+  type OcrNumericVerification,
   type OcrAdapter,
   type OcrPageResult,
   type OcrResult
 } from "./ocr-quality.js";
-import type { ImageAnalysisAdapter } from "./gemini-image-analysis.js";
-import type { MultimodalImageEmbeddingAdapter } from "../retrieval/gemini-multimodal-embedding.js";
+import { assessOcrFinancialConsistency } from "./ocr-consistency/ocr-financial-consistency.js";
+import type { ImageAnalysisAdapter } from "./image-analysis.js";
+import type { EmbeddingAdapter } from "../retrieval/retrieval-contract.js";
 import type { GeneratedEmbedding } from "../retrieval/retrieval-contract.js";
 import { chunkPage } from "../retrieval/retrieval-contract.js";
+import { extractStructuredDocument } from "./structured/extract-structured-document.js";
+import type { StructuredDocumentExtraction } from "./structured/structured-document-contract.js";
 
 export type ProcessedDocumentPage = Readonly<
   DocumentPage & {
@@ -49,13 +53,15 @@ export type DocumentExtractionSummary = Readonly<{
 
 export type DocumentProcessingInput = Readonly<{
   condominiumId: CondominiumId;
+  documentId: string;
   documentVersionId: string;
   content: Buffer;
   currentState: DocumentVersionState;
   mediaType?: DocumentMediaType;
   ocrAdapter?: OcrAdapter;
+  ocrNumericVerifications?: readonly OcrNumericVerification[];
   imageAnalysisAdapter?: ImageAnalysisAdapter;
-  imageEmbeddingAdapter?: MultimodalImageEmbeddingAdapter;
+  imageEmbeddingAdapter?: EmbeddingAdapter;
 }>;
 
 export type DocumentProcessingOutcome = Readonly<
@@ -65,6 +71,7 @@ export type DocumentProcessingOutcome = Readonly<
       pages: readonly ProcessedDocumentPage[];
       extractionSummary: DocumentExtractionSummary;
       documentIdentification?: DocumentIdentification;
+      structuredExtraction?: StructuredDocumentExtraction;
     }
   | {
       status: "failed";
@@ -73,6 +80,7 @@ export type DocumentProcessingOutcome = Readonly<
       reason: "pdf_parse_failed";
       extractionSummary: DocumentExtractionSummary;
       documentIdentification?: DocumentIdentification;
+      structuredExtraction?: StructuredDocumentExtraction;
     }
   | {
       status: "needs_review";
@@ -82,10 +90,13 @@ export type DocumentProcessingOutcome = Readonly<
         | "ocr_unavailable"
         | "ocr_low_quality"
         | "ocr_invalid"
+        | "ocr_numeric_unverified"
+        | "ocr_numeric_discrepancy"
         | "image_analysis_unavailable"
         | "image_analysis_failed";
       extractionSummary: DocumentExtractionSummary;
       documentIdentification?: DocumentIdentification;
+      structuredExtraction?: StructuredDocumentExtraction;
     }
 >;
 
@@ -179,7 +190,22 @@ function createOcrPages(
   );
 }
 
-function failedPdfResult(processingState: DocumentVersionState): DocumentProcessingOutcome {
+function buildStructuredExtraction(
+  input: DocumentProcessingInput,
+  pages: readonly ProcessedDocumentPage[]
+): StructuredDocumentExtraction {
+  return extractStructuredDocument({
+    condominiumId: input.condominiumId,
+    documentId: input.documentId,
+    documentVersionId: input.documentVersionId,
+    pages
+  });
+}
+
+function failedPdfResult(
+  input: DocumentProcessingInput,
+  processingState: DocumentVersionState
+): DocumentProcessingOutcome {
   return Object.freeze({
     status: "failed" as const,
     state: transitionDocumentProcessing(processingState, "failed"),
@@ -194,7 +220,8 @@ function failedPdfResult(processingState: DocumentVersionState): DocumentProcess
       extractionMethod: null,
       ocrQualityScore: null
     }),
-    documentIdentification: identifyDocumentType("")
+    documentIdentification: identifyDocumentType(""),
+    structuredExtraction: buildStructuredExtraction(input, [])
   });
 }
 
@@ -256,7 +283,7 @@ export async function processDocumentVersion(
   try {
     extractedPages = await extractPdfTextByPage(input.content);
   } catch {
-    return failedPdfResult(processingState);
+    return failedPdfResult(input, processingState);
   }
 
   const hasUsableText =
@@ -269,7 +296,8 @@ export async function processDocumentVersion(
       state: transitionDocumentProcessing(processingState, "ready"),
       pages,
       extractionSummary: createExtractionSummary(extractedPages.length, pages, null),
-      documentIdentification: identifyPages(pages)
+      documentIdentification: identifyPages(pages),
+      structuredExtraction: buildStructuredExtraction(input, pages)
     });
   }
 
@@ -291,29 +319,74 @@ export async function processDocumentVersion(
     ocrResult.status === "completed" && hasExpectedOcrPages(ocrResult.pages, extractedPages.length)
       ? createOcrPages(input.condominiumId, input.documentVersionId, ocrResult.pages)
       : createPdfPages(input.condominiumId, input.documentVersionId, extractedPages);
-  const state = transitionDocumentProcessing(
-    processingState,
-    decision.processingStatus,
-    decision.ocrQualityScore
-  );
-
   if (decision.processingStatus === "ready") {
+    const structuredExtraction = buildStructuredExtraction(input, ocrPages);
+    const consistency = assessOcrFinancialConsistency({
+      condominiumId: input.condominiumId,
+      documentId: input.documentId,
+      documentVersionId: input.documentVersionId,
+      entries: structuredExtraction.financialEntries,
+      hasUnresolvedFinancialContent:
+        (structuredExtraction.documentKind.value === "financial_statement" &&
+          structuredExtraction.financialEntries.length === 0) ||
+        structuredExtraction.warnings.length > 0 ||
+        structuredExtraction.tables.some(
+          (table) =>
+            table.state === "needs_review" &&
+            (structuredExtraction.documentKind.value === "financial_statement" ||
+              /R\$/iu.test(table.source.excerpt))
+        ),
+      ...(input.ocrNumericVerifications === undefined
+        ? {}
+        : { verifications: input.ocrNumericVerifications })
+    });
+    if (consistency.processingStatus === "needs_review") {
+      return Object.freeze({
+        status: "needs_review" as const,
+        state: transitionDocumentProcessing(
+          processingState,
+          "needs_review",
+          decision.ocrQualityScore
+        ),
+        pages: ocrPages,
+        reason:
+          consistency.reason === "discrepant_financial_ocr"
+            ? ("ocr_numeric_discrepancy" as const)
+            : ("ocr_numeric_unverified" as const),
+        extractionSummary: createExtractionSummary(
+          extractedPages.length,
+          ocrPages,
+          decision.ocrQualityScore
+        ),
+        documentIdentification: identifyPages(ocrPages),
+        structuredExtraction
+      });
+    }
     return Object.freeze({
       status: "completed" as const,
-      state,
+      state: transitionDocumentProcessing(
+        processingState,
+        decision.processingStatus,
+        decision.ocrQualityScore
+      ),
       pages: ocrPages,
       extractionSummary: createExtractionSummary(
         extractedPages.length,
         ocrPages,
         decision.ocrQualityScore
       ),
-      documentIdentification: identifyPages(ocrPages)
+      documentIdentification: identifyPages(ocrPages),
+      structuredExtraction
     });
   }
 
   return Object.freeze({
     status: "needs_review" as const,
-    state,
+    state: transitionDocumentProcessing(
+      processingState,
+      decision.processingStatus,
+      decision.ocrQualityScore
+    ),
     pages: ocrPages,
     reason:
       decision.reason === "unavailable"
@@ -327,7 +400,8 @@ export async function processDocumentVersion(
       ocrPages,
       decision.ocrQualityScore
     ),
-    documentIdentification: identifyPages(ocrPages)
+    documentIdentification: identifyPages(ocrPages),
+    structuredExtraction: buildStructuredExtraction(input, ocrPages)
   });
 }
 
@@ -358,7 +432,8 @@ function imageReviewOutcome(
       extractionCompleteness: 0,
       extractionMethod: "image_vision" as const,
       ocrQualityScore: null
-    })
+    }),
+    structuredExtraction: buildStructuredExtraction(input, [page])
   });
 }
 
@@ -409,10 +484,8 @@ async function processImageVersion(
     if (chunks.length === 0) throw new Error("A descrição visual ficou vazia.");
     const multimodalEmbeddings: GeneratedEmbedding[] = [];
     for (const chunk of chunks) {
-      const embedding = await embedder.embedImageAndText({
-        content: input.content,
-        mediaType,
-        text: chunk.content,
+      const embedding = await embedder.embed({
+        content: chunk.content,
         contentSha256: chunk.contentSha256
       });
       if (
@@ -430,7 +503,8 @@ async function processImageVersion(
       status: "completed" as const,
       state: transitionDocumentProcessing(processingState, "ready"),
       pages,
-      extractionSummary: createExtractionSummary(1, pages, null)
+      extractionSummary: createExtractionSummary(1, pages, null),
+      structuredExtraction: buildStructuredExtraction(input, pages)
     });
   } catch {
     return imageReviewOutcome(input, processingState, "image_analysis_failed");
@@ -439,6 +513,7 @@ async function processImageVersion(
 
 export type StoredDocumentForProcessing = Readonly<{
   condominiumId: CondominiumId;
+  documentId: string;
   documentVersionId: string;
   content: Buffer;
   mediaType?: DocumentMediaType;
@@ -467,7 +542,7 @@ export function createScopedDocumentProcessor(
   repository: DocumentProcessingRepository,
   ocrAdapter: OcrAdapter = unavailableOcrAdapter,
   imageAnalysisAdapter?: ImageAnalysisAdapter,
-  imageEmbeddingAdapter?: MultimodalImageEmbeddingAdapter
+  imageEmbeddingAdapter?: EmbeddingAdapter
 ): Readonly<{
   process(
     input: Readonly<{
@@ -495,6 +570,7 @@ export function createScopedDocumentProcessor(
 
       const outcome = await processDocumentVersion({
         condominiumId: input.condominiumId,
+        documentId: stored.documentId,
         documentVersionId: input.documentVersionId,
         content: stored.content,
         ...(stored.mediaType === undefined ? {} : { mediaType: stored.mediaType }),

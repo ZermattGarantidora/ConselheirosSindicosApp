@@ -88,6 +88,41 @@ describe("criação real de condomínio", () => {
     await app.close();
   });
 
+  it("AC-2403: cria pela conversa com apenas nome e quantidade de unidades", async () => {
+    const directory = directoryFixture();
+    const app = createApi({
+      membershipRepository: createDevelopmentIdentityRepository(),
+      accountAuth: createInMemoryAccountAuth(),
+      condominiumDirectory: directory
+    });
+    await app.ready();
+
+    const registration = await app.inject({
+      method: "POST",
+      url: "/v1/auth/register",
+      payload: {
+        displayName: "Síndico Conversacional",
+        email: "sindico-conversacional@example.test",
+        password: "senha sintética forte"
+      }
+    });
+    const cookie = String(registration.headers["set-cookie"]).split(";")[0];
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/condominiums",
+      headers: { cookie },
+      payload: { name: "Residencial Horizonte", unitCount: 64 }
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(directory.createForUser).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ name: "Residencial Horizonte", unitCount: 64, cnpj: "" })
+    );
+    expect(directory.findAuthorizedByCnpj).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it("retoma o cadastro já autorizado quando a criação anterior parou antes dos documentos", async () => {
     const directory = directoryFixture();
     directory.createForUser.mockRejectedValueOnce(new CondominiumAlreadyExistsError());

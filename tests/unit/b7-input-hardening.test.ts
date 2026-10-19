@@ -154,6 +154,7 @@ describe("endurecimento sintético de entradas da B7", () => {
   it("falha fechado ao processar PDF sintético malformado", async () => {
     const result = await processDocumentVersion({
       condominiumId: context.condominiumId,
+      documentId: "document-1",
       documentVersionId: "version-1",
       content: Buffer.from(
         "%PDF-1.7\n1 0 obj\n<< /Length 999999999 >>\nstream\nconteudo incompleto",

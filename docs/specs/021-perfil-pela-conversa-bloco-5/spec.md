@@ -1,6 +1,6 @@
 # Spec 021 — Perfil construído pela conversa, Bloco 5
 
-**Status:** implementada; aguardando validação do usuário  
+**Status:** implementada; jornada inicial detalhada pela Spec 024
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-09
 
@@ -11,7 +11,7 @@
 | Dimensão da visão | Seções do briefing | Como esta spec contribui |
 |---|---|---|
 | Problema e experiência | §§2, 4 e 6 | Reduz formulários e constrói contexto no momento útil da conversa. |
-| Prioridade | §7, Bloco 5 | Aprende dados do síndico e condomínio aos poucos e os exibe em “Meus dados”. |
+| Prioridade | §7, Bloco 5 | Aprende dados do síndico e condomínio aos poucos, sem formulário. |
 | Segurança | §§8–10 | Mantém `condominium_id`, associação autorizada, dados explícitos e nenhuma ação externa. |
 | Validação | §§13–14 | Mede utilidade sem degradar evidência, isolamento ou abstenção. |
 
@@ -38,7 +38,8 @@ Nenhuma.
 ## 1. Objetivo
 
 Permitir que a Alvitra obtenha informações úteis do síndico e do condomínio de forma natural e
-gradual, mantendo-as visíveis em “Meus dados” dentro do chat.
+gradual, mantendo-as no contexto autorizado. A apresentação de documentos fica em “Dados”,
+conforme a Spec 024.
 
 ## 2. Escopo
 
@@ -46,7 +47,7 @@ gradual, mantendo-as visíveis em “Meus dados” dentro do chat.
 - o servidor aprende apenas frases explícitas sobre nome, e-mail, telefone, unidades, nome do
   condomínio e administradora;
 - dados aprendidos atualizam o perfil já autorizado do condomínio;
-- “Meus dados” mostra somente valores confirmados e dados existentes do contexto ativo.
+- a interface não mistura esses dados entre condomínios.
 
 ## 3. Requisitos
 
@@ -60,10 +61,10 @@ relevante a ajuda. Não transforma a conversa em onboarding.
 Somente declarações explícitas da própria pessoa atualizam o perfil. Perguntas, inferências,
 documentos e conteúdo da resposta não atualizam dados.
 
-### RQ-2003 — Perfil autorizado visível
+### RQ-2003 — Perfil autorizado e isolado
 
-“Meus dados” exibe os dados confirmados do síndico e do condomínio ativo. O acesso exige o mesmo
-contexto autorizado; trocar o condomínio recarrega o perfil correspondente.
+O perfil confirmado permanece vinculado ao contexto autorizado e não é exibido em outro
+condomínio. O menu “Dados” é reservado aos documentos, conforme a Spec 024.
 
 ## 4. Critérios de sucesso
 

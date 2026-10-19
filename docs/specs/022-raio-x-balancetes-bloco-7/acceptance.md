@@ -11,3 +11,11 @@ Dado um pedido de comparação sem mês anterior comparável, quando a Alvitra r
 ## AC-2203 — Segurança financeira e evidência
 
 Dado um pedido de raio-X, quando não houver extrato ou evidência equivalente, então a Alvitra não afirma conciliação bancária; para risco relevante, orienta revisão humana e mantém citações restritas à evidência autorizada.
+
+## AC-2204 — Convenção íntegra e utilizável
+
+Dado que uma convenção foi enviada para o condomínio autorizado
+Quando ela estiver pronta ou precisar de revisão
+Então a Alvitra a apresenta como referência interna prioritária, sem contrariar a legislação oficial
+E, se a leitura estiver incerta, pede o menor complemento técnico útil, como o PDF original completo ou páginas ilegíveis
+E não afirma validade jurídica, registro ou vigência sem evidência verificável.

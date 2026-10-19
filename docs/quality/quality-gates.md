@@ -105,6 +105,7 @@ release também exige:
 
 ```powershell
 pnpm run evals
+pnpm run evals:documentary
 ```
 
 ## Segurança de dependências

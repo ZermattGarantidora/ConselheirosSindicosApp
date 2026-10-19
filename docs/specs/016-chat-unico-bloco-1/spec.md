@@ -1,6 +1,6 @@
 # Spec 016 — Chat único, Bloco 1 da reestruturação
 
-**Status:** implementada e aguardando aprovação do usuário
+**Status:** implementada; entrada visual substituída pelas Specs 024 e 027
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-09
 
@@ -8,15 +8,15 @@
 
 ### Partes do briefing atendidas
 
-| Dimensão da visão | Seções do briefing | Como esta spec contribui |
-|---|---|---|
-| Problema e hipótese | §§2 e 4 | Reduz o tempo até a primeira interação útil e mantém a ajuda em linguagem natural. |
-| Público | §3 | Oferece uma entrada direta para síndicos profissionais e moradores. |
-| Proposta de valor | §§5 e 6 | Faz da conversa a única experiência e pede contexto dentro dela. |
-| Prioridade atual | §7, Bloco 1 | Remove as telas antigas e abre a raiz diretamente no chat. |
-| Memória documental | §8 | Preserva upload, processamento, vetorização e recuperação por condomínio. |
-| Segurança e confiança | §§9 e 10 | Mantém evidências, abstenção, conflitos, autorização e revisão humana. |
-| Validação | §§13 e 14 | Mede entrada direta, permanência do fluxo documental e bloqueia avanço sem aprovação. |
+| Dimensão da visão | Seções do briefing | Como esta spec contribui                                                              |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------- |
+| Problema e hipótese   | §§2 e 4            | Reduz o tempo até a primeira interação útil e mantém a ajuda em linguagem natural.    |
+| Público               | §3                 | Oferece uma entrada direta para síndicos profissionais e moradores.                   |
+| Proposta de valor     | §§5 e 6            | Faz da conversa a única experiência e pede contexto dentro dela.                      |
+| Prioridade atual      | §7, Bloco 1        | Remove as telas antigas e deixa somente uma entrada mínima antes do chat.             |
+| Memória documental    | §8                 | Preserva upload, processamento, vetorização e recuperação por condomínio.             |
+| Segurança e confiança | §§9 e 10           | Mantém evidências, abstenção, conflitos, autorização e revisão humana.                |
+| Validação             | §§13 e 14          | Mede entrada direta, permanência do fluxo documental e bloqueia avanço sem aprovação. |
 
 ### Limites respeitados
 
@@ -43,12 +43,12 @@ explicitamente pelo usuário. Em 2026-10-09, o usuário refinou a entrada para m
 
 ## 1. Objetivo
 
-Fazer a página inicial abrir diretamente em uma conversa funcional com a Alvitra, eliminando da
-experiência as telas e componentes que não pertencem ao conceito de chat único.
+Fazer a página inicial oferecer somente uma entrada mínima antes da conversa funcional com a
+Alvitra, eliminando telas e componentes que não pertencem ao conceito de chat único.
 
 ## 2. Promessa testada
 
-> Abro a Alvitra e já posso conversar ou anexar um documento, sem passar por outra tela.
+> Entro na Alvitra por um único botão e sigo para a conversa, sem preencher formulário.
 
 ## 3. Usuário primário
 
@@ -56,11 +56,10 @@ Síndico profissional ou morador com contexto interno autorizado pelo servidor.
 
 ## 4. Escopo
 
-- uma única raiz visual de chat;
-- remoção de landing page, formulários de login, cadastro, onboarding, criação de condomínio,
-  seletor, perfil, configurações e painel administrativo da interface;
-- um único botão “Entrar”, que inicia o carregamento de um contexto já autorizado, sem escolha
-  visual nesta fatia;
+- uma página mínima de entrada e uma única raiz visual de chat;
+- remoção de formulários de login, cadastro, criação de condomínio, perfil, configurações e painel
+  administrativo da interface;
+- um único botão “Entrar”, que inicia a conversa e a configuração detalhada na Spec 024;
 - histórico, perguntas, respostas, citações e feedback dentro da conversa;
 - envio explícito de PDF ou imagem pelo compositor;
 - manutenção do processamento e da vetorização existentes.
@@ -69,8 +68,7 @@ Síndico profissional ou morador com contexto interno autorizado pelo servidor.
 
 - qualquer implementação dos Blocos 2 a 8;
 - coleta de telefone, envio de código ou integração com WhatsApp;
-- criação conversacional de conta ou condomínio;
-- escolha entre vários condomínios;
+- criação de conta ou condomínio por formulário;
 - mudança de system prompt;
 - remoção de tabelas, migrations ou serviços internos necessários a autorização, auditoria,
   retenção e vetorização.
@@ -78,21 +76,21 @@ Síndico profissional ou morador com contexto interno autorizado pelo servidor.
 ## 6. Pré-condições
 
 - a API informa o modo de execução;
-- existe ao menos um contexto autorizado para a sessão ou para a identidade sintética local;
+- existe uma identidade válida; o primeiro contexto pode ser criado pela conversa;
 - o pipeline documental continua disponível.
 
 ## 7. Requisitos funcionais
 
-### RQ-1601 — Entrada direta
+### RQ-1601 — Entrada mínima
 
-Ao carregar `/`, o aplicativo renderiza imediatamente o chat com a marca Alvitra e um único botão
-“Entrar”. Não apresenta e-mail, senha, telefone, cadastro, onboarding ou criação de condomínio.
+Ao carregar `/`, o aplicativo renderiza uma página mínima com a marca Alvitra e um único botão
+“Entrar”. Não apresenta e-mail, senha, telefone ou cadastro. O chat só aparece após a entrada.
 
 ### RQ-1602 — Contexto automático e seguro
 
 Depois do clique em “Entrar”, o cliente obtém um contexto já autorizado. Em modo sintético usa a
 identidade de desenvolvimento; em modo persistente usa apenas a sessão HttpOnly existente. A
-ausência de contexto produz uma mensagem no chat e não expõe dados.
+ausência de contexto inicia a configuração conversacional e não expõe dados.
 
 ### RQ-1603 — Conversa documental
 
@@ -107,9 +105,9 @@ botão de envio. O arquivo continua no pipeline atual de armazenamento, processa
 
 ### RQ-1605 — Ausência das experiências removidas
 
-O bundle principal não contém estados de tela ou componentes para landing page, autenticação,
-cadastro, onboarding, criação/listagem de condomínio, perfil, configurações ou painel
-administrativo. A revisão sintética deixa de ser uma rota alternativa do bundle principal.
+O bundle principal não contém formulários para autenticação, cadastro, criação de condomínio,
+perfil ou configurações, nem painel administrativo. A configuração guiada e o menu contextual
+permanecem no chat conforme as Specs 019 e 024.
 
 ## 8. Contratos
 
@@ -126,14 +124,14 @@ administrativo. A revisão sintética deixa de ser uma rota alternativa do bundl
 
 - o layout ocupa a viewport e permanece utilizável a partir de 320 px de largura;
 - controles interativos têm nome acessível e área de toque adequada;
-- falha de inicialização ou rede é apresentada como mensagem compreensível no chat;
+- falha de inicialização ou rede é apresentada como mensagem compreensível na etapa atual;
 - nenhum identificador vindo do cliente é suficiente para autorizar acesso;
 - nenhuma alteração pode reduzir os testes de isolamento e vetorização existentes.
 
 ## 10. Critérios de sucesso
 
-- a raiz mostra o chat sem etapa anterior;
-- a entrada oferece somente o botão “Entrar”, sem formulário;
+- a raiz mostra a entrada mínima com “Entrar”, sem formulário;
+- o chat aparece somente depois da entrada;
 - o código do bundle principal não referencia as experiências removidas;
 - perguntas, histórico, citações e feedback continuam funcionais;
 - o envio de documento continua exigindo ação explícita e chega ao pipeline vetorial;

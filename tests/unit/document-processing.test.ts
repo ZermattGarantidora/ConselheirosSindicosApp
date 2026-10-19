@@ -9,9 +9,9 @@ import {
   type DocumentProcessingRepository
 } from "../../apps/api/documents/document-processing.js";
 import type { OcrAdapter } from "../../apps/api/documents/ocr-quality.js";
-import type { ImageAnalysisAdapter } from "../../apps/api/documents/gemini-image-analysis.js";
-import type { MultimodalImageEmbeddingAdapter } from "../../apps/api/retrieval/gemini-multimodal-embedding.js";
-import { geminiImageEmbeddingProfile } from "../../apps/api/retrieval/gemini-multimodal-embedding.js";
+import type { ImageAnalysisAdapter } from "../../apps/api/documents/image-analysis.js";
+import type { EmbeddingAdapter } from "../../apps/api/retrieval/retrieval-contract.js";
+import { openAiImageEmbeddingProfile } from "../../apps/api/retrieval/openai-image-embedding.js";
 import { processOne } from "../../apps/api/worker/processing-worker.js";
 import { createSyntheticScannedPdf, createSyntheticTextPdf } from "../fixtures/synthetic-pdfs.js";
 
@@ -56,6 +56,7 @@ describe("processamento documental", () => {
 
     const result = await processDocumentVersion({
       condominiumId: alameda,
+      documentId: "document-1",
       documentVersionId: "version-1",
       content: createSyntheticTextPdf(),
       currentState: createVersionState(),
@@ -83,6 +84,11 @@ describe("processamento documental", () => {
         extractionMethod: "pdf_text"
       }
     });
+    expect(result.structuredExtraction).toMatchObject({
+      condominiumId: "alameda",
+      documentId: "document-1",
+      documentVersionId: "version-1"
+    });
     expect(ocrAdapter.recognize).not.toHaveBeenCalled();
   });
 
@@ -105,6 +111,7 @@ describe("processamento documental", () => {
     const content = createSyntheticScannedPdf(2);
     const result = await processDocumentVersion({
       condominiumId: alameda,
+      documentId: "document-1",
       documentVersionId: "version-1",
       content,
       currentState: createVersionState(),
@@ -136,6 +143,7 @@ describe("processamento documental", () => {
     };
     const invalidResult = await processDocumentVersion({
       condominiumId: alameda,
+      documentId: "document-1",
       documentVersionId: "version-1",
       content: createSyntheticScannedPdf(2),
       currentState: createVersionState(),
@@ -150,6 +158,7 @@ describe("processamento documental", () => {
 
     const unavailableResult = await processDocumentVersion({
       condominiumId: alameda,
+      documentId: "document-1",
       documentVersionId: "version-1",
       content: createSyntheticScannedPdf(),
       currentState: createVersionState()
@@ -174,6 +183,7 @@ describe("processamento documental", () => {
   it("falha com segurança quando o parser PDF não consegue ler o original", async () => {
     const result = await processDocumentVersion({
       condominiumId: alameda,
+      documentId: "document-1",
       documentVersionId: "version-1",
       content: Buffer.from("%PDF-1.7 inválido"),
       currentState: createVersionState()
@@ -199,26 +209,20 @@ describe("processamento documental", () => {
         };
       }
     };
-    const embeddingAdapter: MultimodalImageEmbeddingAdapter = {
-      profile: geminiImageEmbeddingProfile,
+    const embeddingAdapter: EmbeddingAdapter = {
+      profile: openAiImageEmbeddingProfile,
       async embed(input) {
+        expect(input.content).toContain("Uma parede");
         return {
-          ...geminiImageEmbeddingProfile,
+          ...openAiImageEmbeddingProfile,
           values: Array(768).fill(0),
-          contentSha256: input.contentSha256
-        };
-      },
-      async embedImageAndText(input) {
-        expect(input.mediaType).toBe("image/png");
-        return {
-          ...geminiImageEmbeddingProfile,
-          values: Array(768).fill(0.01),
           contentSha256: input.contentSha256
         };
       }
     };
     const result = await processDocumentVersion({
       condominiumId: alameda,
+      documentId: "photo-document",
       documentVersionId: "photo-version",
       content,
       mediaType: "image/png",
@@ -261,6 +265,7 @@ describe("processamento documental", () => {
   it("mantém imagem não analisada ou com falha em revisão, sem vetor consultável", async () => {
     const input = {
       condominiumId: alameda,
+      documentId: "photo-document",
       documentVersionId: "photo-version",
       content: syntheticPng(),
       mediaType: "image/png" as const,
@@ -289,11 +294,8 @@ describe("processamento documental", () => {
         }
       },
       imageEmbeddingAdapter: {
-        profile: geminiImageEmbeddingProfile,
+        profile: openAiImageEmbeddingProfile,
         async embed() {
-          throw new Error("not called");
-        },
-        async embedImageAndText() {
           throw new Error("not called");
         }
       }
@@ -311,6 +313,7 @@ describe("processamento documental", () => {
       async loadForProcessing(input) {
         return {
           ...input,
+          documentId: "document-1",
           content: createSyntheticTextPdf(),
           state: createVersionState()
         };
@@ -350,6 +353,7 @@ describe("processamento documental", () => {
       async loadForProcessing(input) {
         return {
           ...input,
+          documentId: "document-1",
           condominiumId: createCondominiumId("bosque"),
           content: createSyntheticTextPdf(),
           state: createVersionState()

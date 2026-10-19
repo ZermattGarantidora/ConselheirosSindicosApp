@@ -1,5 +1,9 @@
 import { documentVersionFromUpload, processDocumentVersion } from "./document-processing.js";
 import type { UploadedDocumentRecord } from "./upload-document.js";
+import {
+  createMemoryDocumentAnalysisReader,
+  type DocumentAnalysisReader
+} from "../analysis/document-analysis-reader.js";
 import { createInMemoryScopedRetrievalIndex } from "../retrieval/in-memory-scoped-retrieval.js";
 import {
   chunkPage,
@@ -12,6 +16,7 @@ export type DevelopmentDocumentMemoryStatus =
 
 export type DevelopmentDocumentMemory = Readonly<{
   index: ScopedRetrievalIndex;
+  analysisReader: DocumentAnalysisReader;
   indexUploaded(
     input: Readonly<{
       record: UploadedDocumentRecord;
@@ -29,10 +34,12 @@ export function createDevelopmentDocumentMemory(
 
   return Object.freeze({
     index,
+    analysisReader: createMemoryDocumentAnalysisReader(chunks),
     async indexUploaded({ record, content, validityConfirmed }) {
       const document = documentVersionFromUpload(record);
       const outcome = await processDocumentVersion({
         condominiumId: record.condominiumId,
+        documentId: record.documentId,
         documentVersionId: record.documentVersionId,
         content,
         mediaType: record.mediaType,

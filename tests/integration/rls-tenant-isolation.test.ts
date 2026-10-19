@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
+import { createPostgresDocumentAnalysisReader } from "../../apps/api/analysis/document-analysis-reader.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
@@ -11,6 +12,9 @@ import { unavailableOcrAdapter } from "../../apps/api/documents/ocr-quality.js";
 import { uploadDocument } from "../../apps/api/documents/upload-document.js";
 import { createPostgresDocumentProcessingRepository } from "../../apps/api/documents/postgres-document-processing-repository.js";
 import { createPostgresScopedRetrievalIndex } from "../../apps/api/retrieval/postgres-scoped-retrieval.js";
+import { openAiImageEmbeddingProfile } from "../../apps/api/retrieval/openai-image-embedding.js";
+import { geminiImageEmbeddingProfile } from "../../apps/api/retrieval/gemini-multimodal-embedding.js";
+import type { EmbeddingProfile } from "../../apps/api/retrieval/retrieval-contract.js";
 import { createPostgresProcessingJobQueue } from "../../apps/api/worker/postgres-processing-job-queue.js";
 import { processOne } from "../../apps/api/worker/processing-worker.js";
 import type { AuthorizedCondominiumContext } from "../../apps/api/identity/authorized-condominium-context.js";
@@ -297,7 +301,11 @@ describe("RLS de isolamento por condomínio", () => {
       [bosqueId, randomUUID(), userId]
     );
 
-    async function insertReadyChunk(condominiumId: string, marker: string): Promise<void> {
+    async function insertReadyChunk(
+      condominiumId: string,
+      marker: string,
+      profile?: EmbeddingProfile
+    ): Promise<string> {
       const documentId = randomUUID();
       const versionId = randomUUID();
       const storageObjectId = randomUUID();
@@ -306,15 +314,23 @@ describe("RLS de isolamento por condomínio", () => {
       const content = `Regra sintética ${marker}`;
       const contentSha256 = createHash("sha256").update(content).digest("hex");
       const documentSha256 = "b".repeat(64);
+      const mediaType = profile === undefined ? "application/pdf" : "image/jpeg";
 
       await pool.query(
         `
           INSERT INTO app.storage_objects (
             condominium_id, id, object_kind, storage_key, content_sha256,
             size_bytes, media_type, created_by_user_id
-          ) VALUES ($1, $2, 'document_original', $3, $4, 1, 'application/pdf', $5)
+          ) VALUES ($1, $2, 'document_original', $3, $4, 1, $6, $5)
         `,
-        [condominiumId, storageObjectId, `synthetic/${storageObjectId}`, documentSha256, userId]
+        [
+          condominiumId,
+          storageObjectId,
+          `synthetic/${storageObjectId}`,
+          documentSha256,
+          userId,
+          mediaType
+        ]
       );
       await pool.query(
         `
@@ -329,9 +345,9 @@ describe("RLS de isolamento por condomínio", () => {
           INSERT INTO app.document_versions (
             condominium_id, id, document_id, version_number, storage_object_id,
             content_sha256, media_type, size_bytes, source_kind, uploaded_by_user_id
-          ) VALUES ($1, $2, $3, 1, $4, $5, 'application/pdf', 1, 'user_upload', $6)
+          ) VALUES ($1, $2, $3, 1, $4, $5, $7, 1, 'user_upload', $6)
         `,
-        [condominiumId, versionId, documentId, storageObjectId, documentSha256, userId]
+        [condominiumId, versionId, documentId, storageObjectId, documentSha256, userId, mediaType]
       );
       await pool.query(
         `
@@ -346,9 +362,16 @@ describe("RLS de isolamento por condomínio", () => {
           INSERT INTO app.document_pages (
             condominium_id, id, document_version_id, page_index, page_number,
             extracted_text, extraction_method, quality_score, content_sha256
-          ) VALUES ($1, $2, $3, 0, 1, $4, 'pdf_text', 1, $5)
+          ) VALUES ($1, $2, $3, 0, 1, $4, $6, 1, $5)
         `,
-        [condominiumId, pageId, versionId, content, contentSha256]
+        [
+          condominiumId,
+          pageId,
+          versionId,
+          content,
+          contentSha256,
+          profile === undefined ? "pdf_text" : "image_vision"
+        ]
       );
       await pool.query(
         `
@@ -368,10 +391,35 @@ describe("RLS de isolamento por condomínio", () => {
           contentSha256
         ]
       );
+      if (profile !== undefined) {
+        const values = Array.from({ length: profile.dimensions }, (_, index) =>
+          index === 0 ? 1 : 0
+        );
+        await pool.query(
+          `INSERT INTO app.document_chunk_embeddings (
+          condominium_id, id, document_chunk_id, embedding_profile, provider_key,
+          model_key, model_version, pipeline_version, dimensions, embedding, content_sha256
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::vector,$11)`,
+          [
+            condominiumId,
+            randomUUID(),
+            chunkId,
+            profile.embeddingProfile,
+            profile.providerKey,
+            profile.modelKey,
+            profile.modelVersion,
+            profile.pipelineVersion,
+            profile.dimensions,
+            JSON.stringify(values),
+            contentSha256
+          ]
+        );
+      }
+      return versionId;
     }
 
-    await insertReadyChunk(alamedaId, "ALAMEDA");
-    await insertReadyChunk(bosqueId, "BOSQUE");
+    const alamedaVersion = await insertReadyChunk(alamedaId, "ALAMEDA");
+    const bosqueVersion = await insertReadyChunk(bosqueId, "BOSQUE");
 
     const index = createPostgresScopedRetrievalIndex(pool);
     const alamedaContext: AuthorizedCondominiumContext = {
@@ -416,5 +464,56 @@ describe("RLS de isolamento por condomínio", () => {
     expect(bosqueEvidence).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ condominiumId: alamedaId })])
     );
+    const analysisReader = createPostgresDocumentAnalysisReader(pool);
+    const analysisDocuments = await analysisReader.readAuthorized(alamedaContext, [
+      alamedaVersion,
+      bosqueVersion
+    ]);
+    expect(analysisDocuments).toHaveLength(1);
+    expect(analysisDocuments[0]?.pages[0]?.extractedText).toBe("Regra sintética ALAMEDA");
+    await pool.query(
+      "UPDATE app.documents SET status = 'archived', archived_at = now() WHERE id = (SELECT document_id FROM app.document_versions WHERE id = $1)",
+      [alamedaVersion]
+    );
+    expect(await analysisReader.readAuthorized(alamedaContext, [alamedaVersion])).toEqual([]);
+
+    // Fixtures SQL sintéticas de dois espaços vetoriais; nenhum provedor é consultado.
+    const imageVersions = new Map<string, string>();
+    for (const profile of [openAiImageEmbeddingProfile, geminiImageEmbeddingProfile]) {
+      imageVersions.set(
+        profile.embeddingProfile,
+        await insertReadyChunk(alamedaId, `FOTO ${profile.providerKey}`, profile)
+      );
+      await insertReadyChunk(bosqueId, `FOTO BOSQUE ${profile.providerKey}`, profile);
+    }
+    for (const profile of [openAiImageEmbeddingProfile, geminiImageEmbeddingProfile]) {
+      let calls = 0;
+      const images = createPostgresScopedRetrievalIndex(pool, undefined, {
+        profile,
+        async embed(input) {
+          calls++;
+          return {
+            ...profile,
+            contentSha256: input.contentSha256,
+            values: Array.from({ length: profile.dimensions }, (_, index) => (index === 0 ? 1 : 0))
+          };
+        }
+      });
+      const selected = await images.findAuthorizedCandidates(alamedaContext, {
+        ...input,
+        query: "inexistentezz"
+      });
+      expect(calls).toBe(1);
+      // A biblioteca legal autorizada pode acompanhar as fotos; só uma imagem do perfil ativo é elegível.
+      const imageEvidence = selected.filter((item) => item.extractionMethod === "image_vision");
+      expect(imageEvidence).toHaveLength(1);
+      expect(selected.every((item) => item.condominiumId === alamedaId)).toBe(true);
+      expect(imageEvidence[0]).toMatchObject({
+        condominiumId: alamedaId,
+        documentVersionId: imageVersions.get(profile.embeddingProfile),
+        extractionMethod: "image_vision",
+        semanticScore: 1
+      });
+    }
   });
 });

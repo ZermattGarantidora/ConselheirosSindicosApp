@@ -1,24 +1,8 @@
 import type { DocumentMediaType } from "./document-model.js";
+import type { ImageAnalysisAdapter, ImageAnalysisResult } from "./image-analysis.js";
 
 const baseUrl = "https://generativelanguage.googleapis.com/v1beta/models";
 const defaultModel = "gemini-3.5-flash-lite";
-
-export type ImageAnalysisResult = Readonly<{
-  visualDescription: string;
-  recognizedText: string;
-  limitations: string;
-}>;
-
-export interface ImageAnalysisAdapter {
-  analyze(
-    input: Readonly<{
-      condominiumId: string;
-      documentVersionId: string;
-      content: Buffer;
-      mediaType: Extract<DocumentMediaType, "image/jpeg" | "image/png">;
-    }>
-  ): Promise<ImageAnalysisResult>;
-}
 
 export type GeminiImageAnalysisOptions = Readonly<{
   apiKey: string;
@@ -97,7 +81,14 @@ export function createGeminiImageAnalysisAdapter(
     throw new Error("A configuração da análise de imagens é inválida.");
   }
   return Object.freeze({
-    async analyze(input: Parameters<ImageAnalysisAdapter["analyze"]>[0]) {
+    async analyze(
+      input: Readonly<{
+        condominiumId: string;
+        documentVersionId: string;
+        content: Buffer;
+        mediaType: Extract<DocumentMediaType, "image/jpeg" | "image/png">;
+      }>
+    ) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
       try {

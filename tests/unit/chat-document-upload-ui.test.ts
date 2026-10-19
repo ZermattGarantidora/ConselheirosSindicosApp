@@ -13,9 +13,16 @@ describe("envio documental pelo chat", () => {
     expect(app).toContain("void addChatDocument(pendingChatDocument);");
     expect(app).toContain("onClick={sendComposer}");
     expect(app).toContain("Enviar documento selecionado");
+    expect(app).toContain("Adicionar documento ou foto");
+    expect(app).toContain("Enviar documento");
+    expect(app).toContain("Enviar foto");
+    expect(app).toContain("function chooseAttachment(kind: AttachmentKind)");
     expect(app).toContain("setSentChatDocumentName(file.name);");
+    expect(app).toContain('attachmentPickerKind === "document"');
     expect(app).toContain("image/jpeg,.jpg,.jpeg,image/png,.png");
     expect(app).toContain("O processamento e a vetorização continuam em segundo plano.");
+    expect(app).toContain("Ela é a principal referência interna deste condomínio");
+    expect(app).toContain("o PDF original completo e legível");
     expect(app).toContain("requestDocumentUploadWithAuthorizationRecovery");
   });
 });

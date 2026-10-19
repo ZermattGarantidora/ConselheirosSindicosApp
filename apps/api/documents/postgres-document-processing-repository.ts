@@ -11,8 +11,7 @@ import {
 import type { DocumentProcessingStatus, DocumentVersionState } from "./document-model.js";
 import type { PrivateDocumentReader } from "./private-document-storage.js";
 import type { OcrAdapter } from "./ocr-quality.js";
-import type { ImageAnalysisAdapter } from "./gemini-image-analysis.js";
-import type { MultimodalImageEmbeddingAdapter } from "../retrieval/gemini-multimodal-embedding.js";
+import type { ImageAnalysisAdapter } from "./image-analysis.js";
 import type { DocumentMediaType } from "./document-model.js";
 import { chunkPage } from "../retrieval/retrieval-contract.js";
 import {
@@ -25,6 +24,7 @@ type PoolLike = Pick<Pool, "connect">;
 
 type DocumentProcessingRow = Readonly<{
   condominium_id: string;
+  document_id: string;
   document_version_id: string;
   storage_object_id: string;
   content_sha256: string;
@@ -89,6 +89,7 @@ export function createPostgresDocumentProcessingRepository(
           `
             SELECT
               dv.condominium_id,
+              dv.document_id,
               dv.id AS document_version_id,
               dv.storage_object_id,
               dv.content_sha256,
@@ -135,6 +136,7 @@ export function createPostgresDocumentProcessingRepository(
 
       return Object.freeze({
         condominiumId: input.condominiumId,
+        documentId: row.document_id,
         documentVersionId: input.documentVersionId,
         content,
         mediaType: row.media_type,
@@ -434,7 +436,7 @@ export function createScopedPostgresDocumentProcessor(
   storage: PrivateDocumentReader,
   ocrAdapter?: OcrAdapter,
   imageAnalysisAdapter?: ImageAnalysisAdapter,
-  imageEmbeddingAdapter?: MultimodalImageEmbeddingAdapter
+  imageEmbeddingAdapter?: EmbeddingAdapter
 ): Readonly<{
   process(
     input: Readonly<{

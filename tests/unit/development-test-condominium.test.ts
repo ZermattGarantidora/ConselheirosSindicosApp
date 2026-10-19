@@ -81,6 +81,30 @@ describe("criação de condomínio para teste", () => {
     });
   });
 
+  it("AC-2403: aceita somente nome e quantidade de unidades na criação conversacional", async () => {
+    const created = await app.inject({
+      method: "POST",
+      url: "/v1/development/test-condominiums",
+      headers: { "x-development-user-id": developmentUserId() },
+      payload: {
+        condominiumId: "jardins-conversacional",
+        name: "Residencial Jardins",
+        unitCount: 72
+      }
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({
+      condominiumId: "jardins-conversacional",
+      condominium: {
+        name: "Residencial Jardins",
+        unitCount: 72,
+        cnpj: "",
+        address: { city: "", state: "" }
+      }
+    });
+  });
+
   it("não cria o mesmo condomínio de teste duas vezes para o mesmo usuário", async () => {
     const first = await app.inject({
       method: "POST",

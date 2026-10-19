@@ -12,7 +12,7 @@
 |---|---|---|
 | Problema e hipótese | §§2 e 4 | Permite começar pela dúvida, sem transformar a documentação em onboarding. |
 | Proposta e experiência | §§5 e 6 | A conversa pede contexto no momento certo. |
-| Prioridade autorizada | §7, Bloco 6 | Documentos não são obrigatórios e são solicitados somente quando necessários. |
+| Prioridade autorizada | §7, Bloco 6 | O cadastro não exige anexos; documentos relevantes são necessários para respostas locais e pedidos no momento certo. |
 | Memória documental | §8 | Upload preserva original, estado, vetorização e escopo autorizado. |
 | Evidências e confiança | §§9 e 10 | Sem fonte suficiente, a resposta se abstém e indica somente o material pertinente. |
 | Validação | §13 | Mede esforço para fornecer contexto e abstenções corretas. |
@@ -39,17 +39,17 @@ Nenhuma. O usuário autorizou explicitamente o Bloco 6.
 
 ## 1. Objetivo
 
-Permitir que o síndico converse sem anexos prévios e receba um pedido específico de documento apenas quando a conclusão documental depender dele.
+Permitir que o síndico comece a conversar sem anexos prévios e envie depois, aos poucos, os documentos necessários para a Alvitra conhecer o condomínio e sustentar conclusões locais.
 
 ## 2. Requisitos funcionais
 
-### RQ-2001 — Sem documento obrigatório
+### RQ-2001 — Sem envio obrigatório no cadastro
 
-O chat abre, aceita perguntas e respostas conversacionais sem exigir documento ou checklist inicial.
+O chat abre, aceita perguntas e respostas conversacionais sem exigir documento ou checklist inicial. A conclusão da configuração explica que a pessoa pode enviar os arquivos depois, mas que os documentos relevantes são necessários para a Alvitra conhecer o condomínio e responder com segurança sobre fatos locais.
 
 ### RQ-2002 — Pedido mínimo e contextual
 
-Quando não houver evidência suficiente para uma conclusão documental, a Alvitra se abstém e indica somente o documento ou validação diretamente pertinente; não pede arquivos em cumprimentos ou de modo genérico.
+Quando não houver evidência suficiente para uma conclusão documental, a Alvitra se abstém, explica por que o documento relevante é necessário e indica somente o arquivo ou validação diretamente pertinente; não pede arquivos em cumprimentos ou de modo genérico. Enquanto aguarda, mantém a orientação geral e os próximos passos possíveis.
 
 ### RQ-2003 — Memória autorizada preservada
 
@@ -57,6 +57,6 @@ Um documento enviado explicitamente continua no pipeline privado existente e, ap
 
 ## 3. Critérios de sucesso
 
-- nenhum documento é solicitado antes de haver necessidade contextual;
+- nenhum documento é exigido durante o cadastro e a necessidade dos arquivos para respostas locais fica clara;
 - abstenções explicam o que falta sem inventar regra local;
 - upload, vetorização, citações e isolamento existentes continuam cobertos pelos testes do núcleo documental.

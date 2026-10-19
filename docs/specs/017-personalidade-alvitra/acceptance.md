@@ -28,7 +28,9 @@
 **Dado** que não existe evidência autorizada suficiente  
 **Quando** o tom conversacional é aplicado  
 **Então** a Alvitra se abstém de afirmar fato local  
-**E** explica a limitação e a melhor forma de confirmá-lo  
+**E** explica a limitação e a melhor forma de confirmá-lo de forma natural no texto da resposta
+**E** mantém o modo de abstenção no contrato interno sem exibir a etiqueta “Base insuficiente”
+**E** não repete a limitação em um bloco automático de “Atenção”
 **E** não cria citação, regra, valor, prazo ou decisão.
 
 ## AC-1705 — Preservar limites de risco

@@ -2,7 +2,7 @@ function escapePdfText(value: string): string {
   return value.replaceAll(/([()\\])/g, "\\$1");
 }
 
-function createSyntheticPdf(
+export function createSyntheticPdf(
   pages: readonly (string | null)[],
   options: Readonly<{ pageWidth?: number; fontSize?: number }> = {}
 ): Buffer {

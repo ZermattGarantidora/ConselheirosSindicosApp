@@ -40,6 +40,10 @@ import {
 } from "./answer-persistence.js";
 import { answerPromptVersion, type AnswerPromptTask } from "./prompt-catalog.js";
 import { classifyQuestionRisk, type RiskAssessment } from "./risk-classification.js";
+import {
+  screenDocumentInstructions,
+  containsProtectedDocumentLiteral
+} from "../security/document-instructions/document-instruction-policy.js";
 
 export type AnswerRetriever = Readonly<{
   search(
@@ -52,6 +56,7 @@ export type AskQuestionInput = Readonly<{
   question: string;
   requestId: string;
   idempotencyKey?: string;
+  preferredName?: string;
 }>;
 
 export type AnswerUseCase = Readonly<{
@@ -87,6 +92,7 @@ function validateQuestion(input: AskQuestionInput): Readonly<{
   question: string;
   requestId: string;
   idempotencyKey: string;
+  preferredName?: string;
 }> {
   const question = input.question.trim();
   if (question.length === 0 || question.length > 4_000) {
@@ -101,7 +107,66 @@ function validateQuestion(input: AskQuestionInput): Readonly<{
   if (idempotencyKey.length === 0 || idempotencyKey.length > 200) {
     throw new Error("A chave de idempotência é inválida.");
   }
-  return Object.freeze({ question, requestId, idempotencyKey });
+  const preferredName = input.preferredName?.trim().replaceAll(/\s+/gu, " ");
+  return Object.freeze({
+    question,
+    requestId,
+    idempotencyKey,
+    ...(preferredName === undefined ||
+    preferredName.length < 2 ||
+    preferredName.length > 60 ||
+    /\p{Cc}/u.test(preferredName)
+      ? {}
+      : { preferredName })
+  });
+}
+
+function addressGeneratedAnswer(
+  generated: GeneratedAnswer,
+  preferredName: string | undefined
+): GeneratedAnswer {
+  if (
+    preferredName === undefined ||
+    generated.answer.toLocaleLowerCase("pt-BR").includes(preferredName.toLocaleLowerCase("pt-BR"))
+  ) {
+    return generated;
+  }
+  const addressedAnswer = /^ol[áa][!.]/iu.test(generated.answer)
+    ? generated.answer.replace(/^ol[áa]/iu, `Olá, ${preferredName}`)
+    : `${preferredName}, ${generated.answer.charAt(0).toLocaleLowerCase("pt-BR")}${generated.answer.slice(1)}`;
+  return Object.freeze({
+    ...generated,
+    answer: addressedAnswer,
+    claims: Object.freeze(
+      (generated.claims ?? []).map((claim) =>
+        claim.statement === generated.answer
+          ? Object.freeze({ ...claim, statement: addressedAnswer })
+          : claim
+      )
+    )
+  });
+}
+
+function addressPayload(
+  payload: AnswerPayload,
+  claims: readonly AnswerClaim[],
+  preferredName: string | undefined
+): Readonly<{ payload: AnswerPayload; claims: readonly AnswerClaim[] }> {
+  if (
+    preferredName === undefined ||
+    payload.answer.toLocaleLowerCase("pt-BR").includes(preferredName.toLocaleLowerCase("pt-BR"))
+  ) {
+    return Object.freeze({ payload, claims });
+  }
+  const answer = `${preferredName}, ${payload.answer.charAt(0).toLocaleLowerCase("pt-BR")}${payload.answer.slice(1)}`;
+  return Object.freeze({
+    payload: freezeAnswerPayload({ ...payload, answer }),
+    claims: Object.freeze(
+      claims.map((claim) =>
+        claim.statement === payload.answer ? Object.freeze({ ...claim, statement: answer }) : claim
+      )
+    )
+  });
 }
 
 function historicalReferenceDate(question: string, fallback: Date): Date {
@@ -165,6 +230,21 @@ function abstainedPayload(
     citations: Object.freeze([]),
     attentionPoints: Object.freeze(attentionPoints),
     suggestedNextStep,
+    specialist: specialistFromAssessment(assessment)
+  });
+}
+
+function documentInstructionAbstainedPayload(assessment: RiskAssessment): AnswerPayload {
+  return freezeAnswerPayload({
+    answer:
+      "Não posso usar esse trecho como base para responder, porque ele contém instruções não confiáveis.",
+    answerMode: "abstained",
+    citations: Object.freeze([]),
+    attentionPoints: Object.freeze([
+      "O conteúdo documental foi tratado como dado não confiável e não acionou nenhuma ação."
+    ]),
+    suggestedNextStep:
+      "Envie ou indique a cláusula, regra ou decisão relevante sem instruções operacionais.",
     specialist: specialistFromAssessment(assessment)
   });
 }
@@ -509,7 +589,9 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
     assessment: RiskAssessment,
     limitation: string,
     routingReason: string,
-    includeDocumentaryLimitation = true
+    includeDocumentaryLimitation = true,
+    preferredName?: string,
+    protectedLiterals: readonly string[] = []
   ): Promise<
     Readonly<{
       payload: AnswerPayload;
@@ -525,7 +607,13 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
       budget: Object.freeze({ maximumOutputTokens, maximumCostMicrounits })
     };
     const generated = await options.gateway.generate(gatewayInput);
-    const enforced = enforceHighRiskSpecialist(generated.output, assessment);
+    if (containsProtectedDocumentLiteral(generated.output, protectedLiterals)) {
+      throw new Error("A resposta foi bloqueada por segurança documental.");
+    }
+    const enforced = enforceHighRiskSpecialist(
+      addressGeneratedAnswer(generated.output, preferredName),
+      assessment
+    );
     if (enforced.answerMode !== expectedMode(gatewayInput.task, true)) {
       throw new InvalidAnswerValidationError(
         "O gateway retornou um modo incompatível para orientação geral."
@@ -556,7 +644,7 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
 
   return Object.freeze({
     async ask(context, input): Promise<AnswerRecord> {
-      const { question, requestId, idempotencyKey } = validateQuestion(input);
+      const { question, requestId, idempotencyKey, preferredName } = validateQuestion(input);
       const persistedIdempotencyKey = hash(
         `${context.condominiumId}|${context.userId}|${idempotencyKey}|${question}`
       );
@@ -583,6 +671,8 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
       const protectedContextRequest = isProtectedContextRequest(question);
       const simpleConversation = isSimpleConversationMessage(question);
       let retrievalResult: ScopedRetrievalResult | undefined;
+      let blockedDocumentInstructions = false;
+      let protectedDocumentLiterals: readonly string[] = [];
       let retrievalFailureCode: string | null = null;
       let retrievalFinishedAt = startedAt;
 
@@ -595,6 +685,18 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
             query: question,
             asOf: referenceDate(question, startedAt)
           });
+          const screening = screenDocumentInstructions(retrievalResult.evidence);
+          blockedDocumentInstructions = screening.blockedEvidenceIds.length > 0;
+          protectedDocumentLiterals = screening.protectedLiterals;
+          if (blockedDocumentInstructions) {
+            retrievalResult = Object.freeze({
+              ...retrievalResult,
+              candidateCount: screening.safeEvidence.length,
+              selectedCount: screening.safeEvidence.length,
+              evidence: screening.safeEvidence,
+              sufficiency: evaluateEvidenceSufficiency(screening.safeEvidence)
+            });
+          }
           retrievalFinishedAt = now();
         } catch {
           retrievalFailureCode = "retrieval_unavailable";
@@ -613,7 +715,10 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
             question,
             assessment,
             documentaryLimitation(retrievalResult, retrievalFailureCode),
-            "busca documental indisponível; orientação geral sem fontes"
+            "busca documental indisponível; orientação geral sem fontes",
+            true,
+            preferredName,
+            protectedDocumentLiterals
           );
           payload = guidance.payload;
           telemetry = guidance.telemetry;
@@ -629,6 +734,16 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
           );
           claims = Object.freeze([]);
         }
+      } else if (blockedDocumentInstructions && retrievalResult.evidence.length === 0) {
+        payload = documentInstructionAbstainedPayload(assessment);
+        telemetry = policyTelemetry(
+          question,
+          assessment,
+          "skipped",
+          "instruções documentais não confiáveis bloqueadas antes da geração",
+          null
+        );
+        claims = Object.freeze([]);
       } else if (retrievalResult.sufficiency.status !== "sufficient") {
         if (protectedContextRequest) {
           payload = abstainedPayload(retrievalResult, assessment, question);
@@ -649,14 +764,16 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
               simpleConversation
                 ? "conversa simples sem busca documental"
                 : "evidência insuficiente; orientação geral sem fontes",
-              !simpleConversation
+              !simpleConversation,
+              preferredName,
+              protectedDocumentLiterals
             );
             payload = guidance.payload;
             telemetry = guidance.telemetry;
             claims = guidance.claims;
           } catch (error: unknown) {
             const reason =
-              error instanceof Error ? error.message : "A Gemini não respondeu à solicitação.";
+              error instanceof Error ? error.message : "A OpenAI não respondeu à solicitação.";
             payload = failedPayload(reason, assessment);
             telemetry = policyTelemetry(
               question,
@@ -682,7 +799,13 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
 
         try {
           const generated = await options.gateway.generate(gatewayInput);
-          const enforced = enforceHighRiskSpecialist(generated.output, assessment);
+          if (containsProtectedDocumentLiteral(generated.output, protectedDocumentLiterals)) {
+            throw new Error("A resposta foi bloqueada por segurança documental.");
+          }
+          const enforced = enforceHighRiskSpecialist(
+            addressGeneratedAnswer(generated.output, preferredName),
+            assessment
+          );
           if (!acceptsGeneratedMode(task, enforced.answerMode)) {
             throw new InvalidAnswerValidationError(
               "O gateway retornou um modo incompatível com a decisão de roteamento."
@@ -712,7 +835,10 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
                 question,
                 assessment,
                 documentaryLimitation(retrievalResult, null),
-                "validação documental reprovada; orientação geral sem fontes"
+                "validação documental reprovada; orientação geral sem fontes",
+                true,
+                preferredName,
+                protectedDocumentLiterals
               );
               payload = guidance.payload;
               telemetry = guidance.telemetry;
@@ -754,6 +880,22 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
       }
 
       payload = keepOnlyEssentialGuidance(payload, assessment);
+      const addressed = addressPayload(payload, claims, preferredName);
+      payload = addressed.payload;
+      claims = addressed.claims;
+      if (containsProtectedDocumentLiteral({ payload, claims }, protectedDocumentLiterals)) {
+        payload = failedPayload(
+          "Não foi possível concluir a resposta com segurança. Confira a fonte original.",
+          assessment
+        );
+        claims = Object.freeze([]);
+        telemetry = Object.freeze({
+          ...telemetry,
+          status: "failed",
+          outputHash: null,
+          errorCode: "protected_document_literal"
+        });
+      }
       const finishedAt = now();
       const answer = createAnswerRecord(
         context,

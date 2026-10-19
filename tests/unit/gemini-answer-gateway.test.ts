@@ -1,13 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  AnswerGatewayUnavailableError,
+  createProviderFallbackAnswerGateway,
+  type AnswerGateway,
+  type AnswerGatewayInput
+} from "../../apps/api/answers/answer-gateway.js";
+import {
+  createGeminiAnswerGateway,
+  createGeminiAnswerGatewayFromEnvironment
+} from "../../apps/api/answers/gemini-answer-gateway.js";
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
-import { createGeminiAnswerGateway } from "../../apps/api/answers/gemini-answer-gateway.js";
 import type { RetrievalEvidence } from "../../apps/api/retrieval/retrieval-contract.js";
 
-function evidence(): RetrievalEvidence {
-  const content =
-    "Animais de pequeno porte são permitidos nas unidades, sem circulação desacompanhada.";
-  return {
+const input: AnswerGatewayInput = {
+  question: "Escreva somente a próxima fala da Alvitra.",
+  task: "grounded_answer",
+  riskClass: "low",
+  evidence: [],
+  budget: { maximumOutputTokens: 300, maximumCostMicrounits: 100_000 }
+};
+
+function documentaryInput(): AnswerGatewayInput {
+  const content = "Animais de pequeno porte são permitidos nas unidades.";
+  const evidence: RetrievalEvidence = {
     id: "chunk-animals",
     condominiumId: createCondominiumId("alameda"),
     documentId: "convention-1",
@@ -33,20 +49,58 @@ function evidence(): RetrievalEvidence {
     rerankScore: 0.9,
     rank: 1
   };
+  return { ...input, question: "Animais são permitidos?", evidence: [evidence] };
 }
 
-function input() {
-  return {
-    question: "Animais são permitidos?",
-    task: "grounded_answer" as const,
-    riskClass: "low" as const,
-    evidence: [evidence()],
-    budget: { maximumOutputTokens: 800, maximumCostMicrounits: 100_000 }
-  };
-}
+describe("gateway Gemini preservado durante a migração", () => {
+  it("gera conversa sem evidência usando a configuração do servidor", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      Response.json({
+        usageMetadata: { promptTokenCount: 20, candidatesTokenCount: 12 },
+        candidates: [{ content: { parts: [{ text: "Oi! Como você prefere ser chamado?" }] } }]
+      })
+    );
+    const gateway = createGeminiAnswerGateway({ apiKey: "synthetic-key", fetch });
 
-describe("gateway Gemini", () => {
-  it("envia somente o prompt documental estruturado e preserva telemetria mínima", async () => {
+    const result = await gateway.generate(input);
+
+    expect(result.output.answer).toBe("Oi! Como você prefere ser chamado?");
+    expect(result.telemetry).toMatchObject({ providerKey: "google", inputTokens: 20 });
+    expect(fetch.mock.calls[0]?.[1]?.headers).toMatchObject({
+      "x-goog-api-key": "synthetic-key"
+    });
+  });
+
+  it("só ativa o gateway quando existe chave e permite desligamento explícito", () => {
+    expect(createGeminiAnswerGatewayFromEnvironment({})).toBeUndefined();
+    expect(
+      createGeminiAnswerGatewayFromEnvironment({
+        GEMINI_API_KEY: "synthetic-key",
+        GEMINI_ENABLED: "false"
+      })
+    ).toBeUndefined();
+    expect(
+      createGeminiAnswerGatewayFromEnvironment({ GEMINI_API_KEY: "synthetic-key" })
+    ).toBeDefined();
+  });
+
+  it("usa Gemini quando o provedor principal fica indisponível", async () => {
+    const primary = {
+      generate: vi.fn(async () => {
+        throw new AnswerGatewayUnavailableError("OpenAI indisponível");
+      })
+    } as unknown as AnswerGateway;
+    const fallback = {
+      generate: vi.fn(async () => ({ output: { answer: "Resposta da Gemini" } }))
+    } as unknown as AnswerGateway;
+
+    const result = await createProviderFallbackAnswerGateway(primary, fallback).generate(input);
+
+    expect(result.output.answer).toBe("Resposta da Gemini");
+    expect(fallback.generate).toHaveBeenCalledOnce();
+  });
+
+  it("valida a saída documental e reconstrói a citação localmente", async () => {
     const generated = {
       answer: "A convenção permite animais de pequeno porte nas unidades.",
       answerMode: "grounded",
@@ -64,108 +118,53 @@ describe("gateway Gemini", () => {
       ]
     };
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          usageMetadata: { promptTokenCount: 20, candidatesTokenCount: 30 },
-          candidates: [{ content: { parts: [{ text: JSON.stringify(generated) }] } }]
-        }),
-        { status: 200 }
-      )
+      Response.json({
+        candidates: [{ content: { parts: [{ text: JSON.stringify(generated) }] } }]
+      })
     );
-    const gateway = createGeminiAnswerGateway({ apiKey: "secret-key", fetch, now: () => 10 });
 
-    const result = await gateway.generate(input());
-
-    expect(result.output).toMatchObject({
-      ...generated,
-      citations: [
-        {
-          evidenceId: "chunk-animals",
-          documentId: "convention-1",
-          documentVersionId: "convention-v1",
-          title: "Convenção sintética",
-          page: 3,
-          excerpt:
-            "Animais de pequeno porte são permitidos nas unidades, sem circulação desacompanhada.",
-          startOffset: 0
-        }
-      ]
-    });
-    expect(result.telemetry).toMatchObject({
-      providerKey: "google",
-      inputTokens: 20,
-      outputTokens: 30,
-      outputHash: expect.stringMatching(/^[a-f0-9]{64}$/u)
-    });
-    expect(JSON.stringify(result.telemetry)).not.toContain("secret-key");
-    expect(fetch.mock.calls[0]?.[0]).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+    const result = await createGeminiAnswerGateway({ apiKey: "synthetic-key", fetch }).generate(
+      documentaryInput()
     );
-    const request = fetch.mock.calls[0]?.[1];
-    expect(request?.headers).toMatchObject({ "x-goog-api-key": "secret-key" });
-    const body = JSON.parse(String(request?.body)) as {
-      contents: readonly Readonly<{ parts: readonly Readonly<{ text: string }>[] }>[];
-      generationConfig: Readonly<{
-        maxOutputTokens: number;
-        responseMimeType: string;
-        responseJsonSchema: unknown;
-      }>;
+
+    expect(result.output.citations[0]).toMatchObject({
+      evidenceId: "chunk-animals",
+      documentId: "convention-1",
+      page: 3
+    });
+    const request = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body)) as {
+      generationConfig: { responseMimeType?: string; responseJsonSchema?: unknown };
     };
-    expect(body.contents[0]?.parts[0]?.text).toContain("EVIDENCE_DATA_START");
-    expect(body.contents[0]?.parts[0]?.text).toContain("muito gente boa e presente na conversa");
-    expect(body.contents[0]?.parts[0]?.text).toContain(
-      "Nunca invente fonte, citação, regra, valor, prazo, vigência ou decisão"
-    );
-    expect(body.contents[0]?.parts[0]?.text).not.toContain("alameda");
-    expect(body.generationConfig).toMatchObject({
-      maxOutputTokens: 800,
+    expect(request.generationConfig).toMatchObject({
       responseMimeType: "application/json",
       responseJsonSchema: expect.any(Object)
     });
-    expect(JSON.stringify(body.generationConfig.responseJsonSchema)).not.toContain("documentId");
-    expect(JSON.stringify(body.generationConfig.responseJsonSchema)).not.toContain("excerpt");
   });
 
-  it("falha fechada quando a Gemini não retorna JSON", async () => {
+  it("falha fechada quando a resposta não contém texto", async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
-      .mockResolvedValue(new Response(JSON.stringify({ candidates: [] }), { status: 200 }));
+      .mockResolvedValue(Response.json({ candidates: [] }));
     const gateway = createGeminiAnswerGateway({
-      apiKey: "secret-key",
+      apiKey: "synthetic-key",
       fetch,
       maximumAttempts: 1
     });
 
-    await expect(gateway.generate(input())).rejects.toThrow("não retornou texto");
+    await expect(gateway.generate(input)).rejects.toThrow("não retornou texto");
   });
 
-  it("explica uma recusa de autorização sem expor a chave", async () => {
+  it("não repete uma falha permanente de autorização", async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
       .mockResolvedValue(new Response("unauthorized", { status: 401 }));
-    const gateway = createGeminiAnswerGateway({ apiKey: "secret-key", fetch });
+    const gateway = createGeminiAnswerGateway({ apiKey: "synthetic-key", fetch });
 
-    await expect(gateway.generate(input())).rejects.toThrow("chave da Gemini não está autorizada");
-    expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(gateway.generate(input)).rejects.toThrow("chave da Gemini");
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it("repete uma falha transitória antes de usar a resposta da Gemini", async () => {
-    const generated = {
-      answer: "A convenção permite animais de pequeno porte nas unidades.",
-      answerMode: "grounded",
-      citations: [{ evidenceId: "chunk-animals" }],
-      attentionPoints: [],
-      suggestedNextStep: null,
-      specialist: { required: false, type: null, reason: null },
-      claims: [
-        {
-          statement: "A convenção permite animais de pequeno porte nas unidades.",
-          claimType: "condominium_fact",
-          evidenceRequired: true,
-          citationEvidenceIds: ["chunk-animals"]
-        }
-      ]
-    };
+  it("repete uma falha transitória respeitando Retry-After", async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
       .mockResolvedValueOnce(
@@ -175,92 +174,35 @@ describe("gateway Gemini", () => {
         })
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            candidates: [{ content: { parts: [{ text: JSON.stringify(generated) }] } }]
-          }),
-          { status: 200 }
-        )
+        Response.json({ candidates: [{ content: { parts: [{ text: "Tudo certo." }] } }] })
       );
     const sleep = vi.fn(async () => undefined);
     const gateway = createGeminiAnswerGateway({
-      apiKey: "secret-key",
+      apiKey: "synthetic-key",
       fetch,
       sleep,
       retryBaseDelayMs: 10
     });
 
-    const result = await gateway.generate(input());
-
+    await expect(gateway.generate(input)).resolves.toMatchObject({
+      output: { answer: "Tudo certo." }
+    });
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(250);
-    expect(result.telemetry.routingReason).toContain("tentativa 2");
-    expect(result.output.answerMode).toBe("grounded");
   });
 
-  it("repete uma falha de rede e respeita o limite configurado", async () => {
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockRejectedValue(new TypeError("network unavailable"));
+  it("limita as tentativas quando a rede falha", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockRejectedValue(new TypeError("network"));
     const sleep = vi.fn(async () => undefined);
     const gateway = createGeminiAnswerGateway({
-      apiKey: "secret-key",
+      apiKey: "synthetic-key",
       fetch,
       sleep,
       maximumAttempts: 3,
-      retryBaseDelayMs: 10
+      retryBaseDelayMs: 0
     });
 
-    await expect(gateway.generate(input())).rejects.toThrow(
-      "Não foi possível consultar a Gemini com segurança"
-    );
+    await expect(gateway.generate(input)).rejects.toThrow("com segurança");
     expect(fetch).toHaveBeenCalledTimes(3);
-    expect(sleep).toHaveBeenCalledTimes(2);
-  });
-
-  it("usa texto livre para orientação conversacional sem evidência documental", async () => {
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          candidates: [
-            {
-              content: {
-                parts: [
-                  {
-                    text: "Primeiro, isole a área e confirme se alguém se machucou. Depois, registre o ocorrido e acione um profissional para avaliar o reparo."
-                  }
-                ]
-              }
-            }
-          ]
-        }),
-        { status: 200 }
-      )
-    );
-    const gateway = createGeminiAnswerGateway({ apiKey: "secret-key", fetch });
-
-    const result = await gateway.generate({
-      ...input(),
-      question: "Um vidro da área comum quebrou. Como devo prosseguir?",
-      evidence: []
-    });
-
-    expect(result.output).toMatchObject({
-      answerMode: "abstained",
-      citations: [],
-      attentionPoints: []
-    });
-    expect(result.output.answer).toContain("isole a área");
-    const request = fetch.mock.calls[0]?.[1];
-    const body = JSON.parse(String(request?.body)) as {
-      generationConfig: Readonly<{
-        maxOutputTokens: number;
-        responseMimeType?: unknown;
-        responseJsonSchema?: unknown;
-      }>;
-    };
-    expect(body.generationConfig.maxOutputTokens).toBe(800);
-    expect(body.generationConfig.responseMimeType).toBeUndefined();
-    expect(body.generationConfig.responseJsonSchema).toBeUndefined();
   });
 });

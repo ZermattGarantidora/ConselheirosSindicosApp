@@ -10,6 +10,57 @@ describe("servidor local", () => {
     const response = await app.inject({ method: "GET", url: "/health" });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ authMode: "development" });
+    const documents = await app.inject({
+      method: "GET",
+      url: "/v1/condominiums/alameda/documents",
+      headers: { "x-development-user-id": "sindico-demo" }
+    });
+    expect(documents.statusCode).toBe(200);
+    expect(documents.json()).toMatchObject({ documents: [] });
+    await app.close();
+  });
+
+  it("mantém a demonstração isolada mesmo quando existe uma URL de banco no ambiente local", async () => {
+    const app = await startServer(0, {
+      DEMO_MODE: "true",
+      DATABASE_URL: "postgresql://postgres:senha-sintetica@127.0.0.1:1/conselheiro",
+      OPENAI_IMAGE_ANALYSIS_ENABLED: "true",
+      OPENAI_IMAGE_BILLING_CONFIRMED: "true"
+    });
+
+    const response = await app.inject({ method: "GET", url: "/health" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ authMode: "development", aiProvider: "local" });
+    const answer = await app.inject({
+      method: "POST",
+      url: "/v1/condominiums/alameda/questions",
+      headers: { "x-development-user-id": "sindico-demo" },
+      payload: { question: "Olá" }
+    });
+    expect(answer.statusCode).toBe(200);
+    expect(answer.json()).toMatchObject({
+      answer: "Olá! Sou a Alvitra, sua conselheira documental.",
+      answerMode: "abstained"
+    });
+    await app.close();
+  });
+
+  it("mantém a conversa disponível com Gemini quando OpenAI não está configurada", async () => {
+    const app = await startServer(0, {
+      DEMO_MODE: "true",
+      GEMINI_API_KEY: "synthetic-test-key"
+    });
+
+    const response = await app.inject({ method: "GET", url: "/health" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ authMode: "development", aiProvider: "gemini" });
+    await app.close();
+  });
+
+  it("respeita a porta atribuída pela hospedagem", async () => {
+    const app = await startServer(0, { DEMO_MODE: "true", PORT: "4321", APP_ENV: "production" });
+
+    expect(app.server.address()).toMatchObject({ port: 4321 });
     await app.close();
   });
 
@@ -22,6 +73,7 @@ describe("servidor local", () => {
   it("liga os adaptadores persistidos quando DATABASE_URL está configurado", async () => {
     const app = await startServer(0, {
       DATABASE_URL: "postgresql://postgres:senha-sintetica@127.0.0.1:5432/conselheiro",
+      OPENAI_API_KEY: "synthetic-test-key",
       AUTH_ACCOUNT_SECRET_KEY: "11".repeat(32)
     });
 
@@ -29,5 +81,13 @@ describe("servidor local", () => {
       statusCode: 200
     });
     await app.close();
+  });
+
+  it("recusa site real sem um provedor generativo em vez de responder com texto sintético", async () => {
+    await expect(
+      startServer(0, {
+        DATABASE_URL: "postgresql://postgres:senha-sintetica@127.0.0.1:5432/conselheiro"
+      })
+    ).rejects.toThrow("A OpenAI ou a Gemini deve estar configurada para iniciar o site real.");
   });
 });

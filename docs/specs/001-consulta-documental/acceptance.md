@@ -233,7 +233,8 @@ Os cenários P0 bloqueiam a entrega. P1 mede a utilidade inicial e pode ser cali
 **Quando** o agente oferece orientação geral
 **Então** a resposta começa pela orientação útil, sem introdução ou despedida
 **E** usa no máximo três frases curtas ou dois passos quando uma sequência for necessária
-**E** a limitação documental aparece uma única vez nos pontos de atenção
+**E** a limitação documental aparece de forma natural uma única vez no texto da resposta
+**E** a interface não adiciona etiqueta técnica de insuficiência nem bloco automático de atenção para repeti-la
 **E** nenhum bloco vazio de fontes é exibido.
 
 **Dado** uma resposta documental fundamentada de risco baixo ou médio

@@ -4,7 +4,8 @@
 
 **Dado** uma pessoa em contexto autorizado  
 **Quando** envia cumprimento ou pergunta inicial sem documento  
-**Então** a conversa avança sem exigir anexo.
+**Então** a conversa avança sem exigir anexo
+**E** informa que os documentos relevantes são necessários para conhecer o condomínio e responder sobre fatos locais, mas podem ser enviados depois.
 
 ## AC-2002 — Pedir somente o necessário
 

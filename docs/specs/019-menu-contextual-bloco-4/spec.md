@@ -1,6 +1,6 @@
 # Spec 019 — Menu contextual, Bloco 4 da reestruturação
 
-**Status:** implementada e aguardando aprovação do usuário  
+**Status:** implementada; composição do menu substituída pela Spec 024
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-09
 
@@ -12,7 +12,7 @@
 |---|---|---|
 | Problema e hipótese | §§2 e 4 | Permite trocar o contexto documental autorizado sem abandonar a conversa. |
 | Proposta e experiência | §§5 e 6 | Mantém o chat como experiência principal e mostra controles apenas de modo contextual. |
-| Prioridade autorizada | §7, Bloco 4 | Entrega o menu com Condomínios, Meus dados e Preferências. |
+| Prioridade autorizada | §7, Bloco 4 | Entrega o menu com Condomínios e Dados documentais. |
 | Memória e evidências | §§8 e 9 | Trocar contexto recarrega somente o histórico autorizado; não muda recuperação ou citações. |
 | Segurança | §10 | A lista e a troca passam por resolução de associação no servidor; ID do cliente não autoriza acesso. |
 | Validação | §§13 e 14 | Reduz atrito para retomar o condomínio correto sem reintroduzir uma tela paralela. |
@@ -20,7 +20,7 @@
 ### Limites respeitados
 
 - Não cria formulário longo de condomínio, perfil editável, configurações ou dashboard.
-- “Meus dados” e “Preferências” indicam que serão tratados contextualmente na conversa; sua implementação pertence aos blocos posteriores.
+- “Dados” é limitado ao catálogo documental autorizado; não cria editor de perfil ou preferências.
 - A criação opcional começa pela conversa e não executa ação externa ou cadastro silencioso.
 - Blocos 2, 5, 6, 7 e 8 não são implementados.
 
@@ -44,10 +44,11 @@ Disponibilizar no canto superior direito um menu compacto para visualizar e troc
 
 ## 2. Escopo
 
-- menu “Condomínios”, “Meus dados” e “Preferências”;
+- menu “Condomínios” e “Dados”;
 - `GET /v1/chat/condominiums`, que lista somente contextos autorizados;
 - troca de condomínio após nova validação por `GET /context` e recarga do histórico;
-- atalho conversacional para solicitar a inclusão de outro condomínio.
+- atalho conversacional para configurar outro condomínio;
+- documentos enviados agrupados por tipo e identificados pelo condomínio.
 
 ## 3. Fora do escopo
 
@@ -59,7 +60,7 @@ Disponibilizar no canto superior direito um menu compacto para visualizar e troc
 
 ### RQ-1901 — Menu contextual
 
-Após iniciar um contexto autorizado, a pessoa pode abrir no canto superior direito um menu com as três entradas previstas no briefing.
+Após entrar no chat, a pessoa pode abrir no canto superior direito um menu com “Condomínios” e “Dados”.
 
 ### RQ-1902 — Condomínios autorizados
 
@@ -67,7 +68,8 @@ O servidor lista somente os condomínios cuja associação está vigente. Ao esc
 
 ### RQ-1903 — Criação pela conversa
 
-O menu oferece um atalho que preenche uma solicitação no compositor; ele não cria registros nem executa ação externa automaticamente.
+O menu oferece um atalho que inicia a configuração conversacional. A criação só ocorre depois que a
+pessoa confirma nome e quantidade de unidades.
 
 ## 5. Critérios de sucesso
 

@@ -1,4 +1,9 @@
-import type { OcrAdapter, OcrPageResult, OcrResult } from "./ocr-quality.js";
+import {
+  unavailableOcrAdapter,
+  type OcrAdapter,
+  type OcrPageResult,
+  type OcrResult
+} from "./ocr-quality.js";
 
 const openAiResponsesUrl = "https://api.openai.com/v1/responses";
 const defaultModel = "gpt-5.6-luna";
@@ -143,6 +148,13 @@ function createRequestBody(content: Buffer, model: string): string {
 export function createOpenAiOcrAdapterFromEnvironment(
   environment: NodeJS.ProcessEnv = process.env
 ): OcrAdapter {
+  if (
+    environment.OPENAI_OCR_ENABLED?.trim().toLowerCase() !== "true" ||
+    environment.OPENAI_OCR_DATA_POLICY?.trim() !== "synthetic-only" ||
+    environment.NODE_ENV?.trim().toLowerCase() === "production" ||
+    environment.APP_ENV?.trim().toLowerCase() === "production"
+  )
+    return unavailableOcrAdapter;
   const configuredTimeout = Number(environment.OPENAI_OCR_TIMEOUT_MS);
   return createOpenAiOcrAdapter({
     apiKey: environment.OPENAI_OCR_API_KEY ?? "",

@@ -5,7 +5,7 @@ o usuário pede ajuda, envia documentos quando necessário e confere as fontes u
 
 A visão canônica está em
 [`BRIEFING_PRODUTO_CONSELHEIRO_SINDICO.md`](BRIEFING_PRODUTO_CONSELHEIRO_SINDICO.md). A
-reestruturação atual avança bloco a bloco e somente o Bloco 1 está autorizado.
+reestruturação atual segue o briefing e o MVP, que registram os Blocos 1 a 8 autorizados.
 
 ## Estado atual
 
@@ -19,9 +19,9 @@ reestruturação atual avança bloco a bloco e somente o Bloco 1 está autorizad
   `condominium_id`;
 - dados reais e pilotos continuam sujeitos aos gates de segurança e privacidade existentes.
 
-Personalidade definitiva, múltiplos chats, barra lateral, menu, perfil conversacional, documentos
-sob demanda, raio-X de balancetes e níveis da conta pertencem aos blocos seguintes e não estão
-implementados nesta fatia.
+Personalidade, múltiplos chats, menu, perfil conversacional e documentos sob demanda seguem as
+specs próprias. As Specs 028–032 integram a primeira fatia de análise documental estruturada;
+os limites e a validação ainda pendente estão descritos abaixo.
 
 ## Estrutura
 
@@ -124,6 +124,20 @@ pnpm run worker
 
 O modo real é o padrão seguro: sem `DATABASE_URL` e sem `DEMO_MODE=true`, a API recusa iniciar.
 
+## Demonstração online no Render
+
+O arquivo [`render.yaml`](render.yaml) publica uma demonstração gratuita, intencionalmente efêmera
+e sintética. Ela executa a API e a interface na mesma origem HTTPS, sem `DATABASE_URL`, chaves de IA
+ou dados de clientes. Para criar o serviço, conecte este repositório ao Render e importe o Blueprint;
+o health check é `/health`.
+
+Essa URL é somente uma prévia da interface e pode pausar por inatividade no plano gratuito.
+Sem provedor de IA configurado, a Alvitra informa indisponibilidade e não oferece conversa
+simulada por frases prontas. Para testar a conversa, configure a API em ambiente sintético
+controlado, com orçamento e sem dados reais.
+Não envie documentos reais, dados pessoais ou credenciais. Um piloto persistente continua bloqueado
+pelos pré-requisitos da [Spec 011](docs/specs/011-piloto-real-controlado/spec.md).
+
 ## Documentos e vetorização
 
 O chat aceita PDF, JPEG e PNG. Selecionar um arquivo não o envia; o upload acontece somente após o
@@ -141,17 +155,46 @@ Uma nova versão de documento pode reutilizar o identificador anterior pelo cabe
 
 ## Provedores de IA
 
-Sem chave externa, o ambiente sintético usa o gateway local. Quando a Gemini estiver configurada,
-somente a pergunta e os trechos já recuperados para o contexto autorizado são enviados, e a saída
-continua passando pela validação local de citações.
+Configure `OPENAI_API_KEY` ou `GEMINI_API_KEY` apenas no servidor para habilitar as respostas
+geradas e as falas de configuração. OpenAI é preferida quando configurada; durante a migração,
+Gemini permanece como alternativa e assume quando OpenAI não tiver chave ou estiver indisponível.
+Sem nenhuma chave externa, a conversa gerada fica indisponível. O gateway local permanece apenas como
+recurso documental sintético e não substitui uma conversa com IA. Somente a pergunta e os trechos
+recuperados para o contexto autorizado são enviados, e a saída documental passa pela validação
+local de citações. O modelo inicial é `gpt-6.1-sol` e pode ser alterado após evals.
 
 ```env
+OPENAI_API_KEY=
+OPENAI_ANSWER_MODEL=gpt-6.1-sol
+OPENAI_ANSWER_TIMEOUT_MS=45000
+OPENAI_IMAGE_ANALYSIS_ENABLED=true
+OPENAI_IMAGE_BILLING_CONFIRMED=true
+OPENAI_IMAGE_MODEL=gpt-6.1-sol
+OPENAI_IMAGE_TIMEOUT_MS=45000
+
+# Alternativa temporária durante a migração
 GEMINI_API_KEY=
+GEMINI_ENABLED=true
 GEMINI_MODEL=gemini-3.5-flash-lite
-GEMINI_TIMEOUT_MS=60000
-GEMINI_MAX_ATTEMPTS=3
-GEMINI_RETRY_BASE_DELAY_MS=200
 ```
+
+Use uma conta na OpenAI Platform com faturamento da API e limite de uso configurado; assinatura
+ChatGPT não inclui créditos de API. Configure a chave no `.env.local` para testes locais ou no
+gerenciador de segredos do ambiente de publicação. Não use prefixo `VITE_`.
+
+Fotos sintéticas usam OpenAI quando configurada ou Gemini enquanto a alternativa estiver
+preservada. O opt-in de imagens e a confirmação de faturamento são operacionais; sem eles, o envio
+de fotos fica indisponível. Os perfis vetoriais dos provedores permanecem separados e não podem ser
+comparados silenciosamente como se fossem compatíveis.
+O OCR OpenAI não é ativado pela chave do chat. O harness sintético direto exige chave específica
+`OPENAI_OCR_API_KEY`, `OPENAI_OCR_ENABLED=true` e `OPENAI_OCR_DATA_POLICY=synthetic-only`, fora
+de produção. Servidor persistido e worker de uploads mantêm OCR externo desativado mesmo com
+essas flags: elas não comprovam que um upload é fictício. PDF textual continua local; digitalizado
+fica em revisão. Dados reais exigem classificação confiável e gates de fornecedor, privacidade e piloto.
+
+Na demonstração com provedor `local`, a interface abre com aviso operacional e sem inventar fala
+de boas-vindas. Perfis já confirmados podem ser restaurados; um novo cadastro continua pendente
+e sem anexos até existir provedor autorizado. Esse modo não substitui a avaliação da IA real.
 
 Não grave chaves no repositório nem as informe em conversas.
 
@@ -177,6 +220,8 @@ preservar.
 ```powershell
 pnpm run evals
 pnpm run evals:synthetic
+pnpm run evals:documentary
+pnpm run evals:documentary:semantic
 pnpm run pilot:synthetic
 pnpm run audit:dependencies
 ```
@@ -184,3 +229,36 @@ pnpm run audit:dependencies
 Fixtures e evals usam apenas conteúdo sintético. Nenhum documento real de cliente ou dado pessoal
 deve entrar no repositório. Conteúdo documental é tratado como dado não confiável e nunca como
 instrução para o sistema.
+
+### Conferência documental integrada
+
+As Specs 028–032 acrescentam extração conservadora, comparação financeira e análise de campos
+normativos explícitos. Um pedido como “Compare os balancetes 2026-01 e 2026-02” recebe um relatório
+calculado no mesmo turno, com os valores e fontes, separado da fala gerada. Ele reutiliza páginas
+autorizadas já processadas, sem novo OCR, cache ou armazenamento de derivados. Documentos removidos,
+pendentes e leituras incertas não fundamentam cálculos confirmados. O conjunto máximo é de 500 páginas
+e dois milhões de caracteres; exceder o limite interrompe a conferência sem publicar um subconjunto.
+
+O relatório é transitório; a restauração do histórico não promete recuperá-lo. A extração não é um
+parser universal de tabelas e a análise normativa depende de rótulos explícitos. O comando
+`pnpm run evals:documentary` distingue testes executados, integração pendente e revisão semântica
+especializada pendente. Sua aprovação não libera dados reais nem demonstra qualidade de um modelo.
+
+Diferenças e percentuais desse relatório são calculados por código, não pelo modelo. Percentuais
+são truncados em duas casas; excesso de precisão deixa o percentual indisponível sem perder a
+diferença exata em centavos. Antes de publicar, um validador local confere documento, versão,
+título, página, offsets e trecho literal nas páginas autorizadas. Falha invalida o relatório inteiro.
+Essa conferência prova a localização do trecho, não sua sustentação semântica nem a fidelidade
+do OCR. O relatório pode continuar disponível mesmo quando a geração da conversa falha.
+
+Limites de quantidade de pedidos e de tokens não constituem teto financeiro da API. O bloqueio
+monetário global e a contabilização completa de chamadas/fallbacks ainda precisam ser implementados
+e configurados antes de habilitar consumo pago com promessa de orçamento rígido.
+
+`pnpm run evals:documentary:semantic` prepara 50 fichas em
+`reports/documentary-semantic-review.json`, sem gateway. Com `--synthetic`, exporta também
+respostas e telemetria locais em `reports/documentary-semantic-synthetic.json`: é somente replay
+de contrato, não avaliação de modelo. Nenhum modo escolhe provedor por credenciais do ambiente.
+Os formulários de contador, jurista e síndico permanecem em branco; não há aprovação semântica.
+Fontes incompletas e ilegíveis continuam no pacote para revisão, mas não viram evidência completa
+na geração. Documentos e perguntas são independentes do gabarito.

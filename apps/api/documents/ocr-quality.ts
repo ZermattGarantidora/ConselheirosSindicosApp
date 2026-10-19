@@ -8,6 +8,8 @@ export type OcrPageResult = Readonly<{
   qualityScore: number;
 }>;
 
+export type { OcrNumericVerification } from "./ocr-consistency/ocr-financial-consistency.js";
+
 export type OcrResult =
   | Readonly<{ status: "completed"; pages: readonly OcrPageResult[] }>
   | Readonly<{ status: "unavailable"; reason: "not_configured" | "failed" }>;

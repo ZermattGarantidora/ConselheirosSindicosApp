@@ -12,8 +12,8 @@ export type CondominiumAddress = Readonly<{
   number?: string;
   complement?: string;
   neighborhood?: string;
-  city: string;
-  state: string;
+  city?: string;
+  state?: string;
 }>;
 
 export type CondominiumContact = Readonly<{
@@ -24,11 +24,11 @@ export type CondominiumContact = Readonly<{
 
 export type CreateCondominiumInput = Readonly<{
   name: string;
-  cnpj: string;
+  cnpj?: string;
   administrationCompany?: string;
   unitCount?: number | null;
-  address: CondominiumAddress;
-  contact: CondominiumContact;
+  address?: CondominiumAddress;
+  contact?: CondominiumContact;
 }>;
 
 export type AuthorizedCondominium = Readonly<{
@@ -151,11 +151,11 @@ export function createPostgresCondominiumDirectory(pool: PoolLike): CondominiumD
             randomUUID(),
             randomUUID(),
             input.name,
-            input.cnpj,
-            JSON.stringify(input.address),
+            input.cnpj ?? "",
+            JSON.stringify(input.address ?? {}),
             input.administrationCompany ?? null,
             input.unitCount ?? null,
-            JSON.stringify(input.contact)
+            JSON.stringify(input.contact ?? {})
           ]
         );
         await client.query("COMMIT");

@@ -8,10 +8,15 @@ describe("barra lateral de conversas", () => {
 
     expect(app).toContain("const [sidebarOpen, setSidebarOpen] = useState(false);");
     expect(app).toContain('aria-label="Abrir conversas"');
+    expect(app).toContain("function SidebarIcon()");
+    expect(app).toContain('<path d="M9 5v14" />');
+    expect(app).toContain("<SidebarIcon />");
     expect(app).toContain('id="chat-sidebar"');
     expect(app).toContain('className={`chat-sidebar${sidebarOpen ? " is-open" : ""}`}');
     expect(app).toContain("function createChat(): void");
     expect(app).toContain("+ Nova conversa");
+    expect(app).toContain("buildConversationTitle(trimmedQuestion)");
+    expect(app).toContain("buildConversationTitleFromQuestions(");
     expect(app).toContain("function selectChat(chatId: string): void");
     expect(app).toContain("preserveActiveTurn();");
   });
@@ -24,7 +29,8 @@ describe("barra lateral de conversas", () => {
     expect(app).toContain("function deleteChat(chatId: string): void");
     expect(app).toContain("window.confirm(`Excluir a conversa");
     expect(app).toContain("Excluir");
-    expect(app).not.toContain("localStorage");
+    expect(app).not.toContain('localStorage.setItem("chats"');
+    expect(app).not.toContain('localStorage.setItem("conversation"');
   });
 
   it("AC-1702: usa overlay no celular e painel deslizante no desktop", async () => {

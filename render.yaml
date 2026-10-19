@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: alvitra-demo-sintetica
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm run build:web
+    startCommand: pnpm run start
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_SEED_DOCUMENTS
+        value: "false"
+      - key: WEB_DIST_DIR
+        value: apps/web/dist

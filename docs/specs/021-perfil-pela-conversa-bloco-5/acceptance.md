@@ -14,9 +14,9 @@
 **Então** somente nome e quantidade de unidades são atualizados  
 **E** uma pergunta ambígua ou um documento não altera o perfil.
 
-## AC-2003 — Mostrar dados confirmados
+## AC-2003 — Isolar dados confirmados
 
-**Dado** um contexto autorizado com dados confirmados  
-**Quando** a pessoa abre “Meus dados”  
-**Então** vê os dados do síndico e do condomínio ativo  
-**E** trocar de condomínio não mostra dados de outro contexto.
+**Dado** mais de um contexto de condomínio
+**Quando** dados confirmados são salvos ou consultados
+**Então** permanecem vinculados ao condomínio autorizado
+**E** nenhum dado de perfil cruza para outro contexto.
