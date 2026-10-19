@@ -59,6 +59,22 @@ export class AnswerGatewayUnavailableError extends Error {
   }
 }
 
+export function createProviderFallbackAnswerGateway(
+  primary: AnswerGateway,
+  fallback: AnswerGateway
+): AnswerGateway {
+  return Object.freeze({
+    async generate(input: AnswerGatewayInput): Promise<AnswerGatewayResult> {
+      try {
+        return await primary.generate(input);
+      } catch (error: unknown) {
+        if (!(error instanceof AnswerGatewayUnavailableError)) throw error;
+        return fallback.generate(input);
+      }
+    }
+  });
+}
+
 export function createFallbackAnswerGateway(
   primary: AnswerGateway,
   fallback: AnswerGateway

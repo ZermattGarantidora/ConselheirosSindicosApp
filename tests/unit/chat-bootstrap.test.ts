@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createApi } from "../../apps/api/app/create-api.js";
+import { createUserId } from "../../apps/api/identity/authorized-condominium-context.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 
 const apps: ReturnType<typeof createApi>[] = [];
@@ -47,6 +48,41 @@ describe("inicialização segura do chat", () => {
     expect(unknownIdentity.statusCode).toBe(404);
     expect(JSON.stringify(unknownIdentity.json())).not.toContain("alameda");
     expect(JSON.stringify(unknownIdentity.json())).not.toContain("bosque");
+  });
+
+  it("AC-2702 e AC-2704: separa a identidade provisória e devolve o nome confirmado", async () => {
+    const repository = createDevelopmentIdentityRepository([]);
+    repository.createTestCondominium({
+      userId: createUserId("demo-ana"),
+      condominiumId: "jardins-ana",
+      name: "Residencial Jardins",
+      unitCount: 32,
+      contact: { managerName: "Ana" }
+    });
+    const app = createApi({
+      membershipRepository: repository,
+      developmentMembershipRegistry: repository
+    });
+    apps.push(app);
+
+    const ana = await app.inject({
+      method: "GET",
+      url: "/v1/chat/bootstrap",
+      headers: { "x-development-user-id": "demo-ana" }
+    });
+    const bruno = await app.inject({
+      method: "GET",
+      url: "/v1/chat/bootstrap",
+      headers: { "x-development-user-id": "demo-bruno" }
+    });
+
+    expect(ana.statusCode).toBe(200);
+    expect(ana.json()).toMatchObject({
+      condominiumId: "jardins-ana"
+    });
+    expect(ana.json().preferredName).toBeUndefined();
+    expect(bruno.statusCode).toBe(404);
+    expect(JSON.stringify(bruno.json())).not.toContain("jardins-ana");
   });
 
   it("AC-1902 e AC-1903: lista apenas condomínios autorizados", async () => {

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
+import { createPostgresDocumentAnalysisReader } from "../../apps/api/analysis/document-analysis-reader.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
@@ -297,7 +298,7 @@ describe("RLS de isolamento por condomínio", () => {
       [bosqueId, randomUUID(), userId]
     );
 
-    async function insertReadyChunk(condominiumId: string, marker: string): Promise<void> {
+    async function insertReadyChunk(condominiumId: string, marker: string): Promise<string> {
       const documentId = randomUUID();
       const versionId = randomUUID();
       const storageObjectId = randomUUID();
@@ -368,10 +369,11 @@ describe("RLS de isolamento por condomínio", () => {
           contentSha256
         ]
       );
+      return versionId;
     }
 
-    await insertReadyChunk(alamedaId, "ALAMEDA");
-    await insertReadyChunk(bosqueId, "BOSQUE");
+    const alamedaVersion = await insertReadyChunk(alamedaId, "ALAMEDA");
+    const bosqueVersion = await insertReadyChunk(bosqueId, "BOSQUE");
 
     const index = createPostgresScopedRetrievalIndex(pool);
     const alamedaContext: AuthorizedCondominiumContext = {
@@ -416,5 +418,17 @@ describe("RLS de isolamento por condomínio", () => {
     expect(bosqueEvidence).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ condominiumId: alamedaId })])
     );
+    const analysisReader = createPostgresDocumentAnalysisReader(pool);
+    const analysisDocuments = await analysisReader.readAuthorized(alamedaContext, [
+      alamedaVersion,
+      bosqueVersion
+    ]);
+    expect(analysisDocuments).toHaveLength(1);
+    expect(analysisDocuments[0]?.pages[0]?.extractedText).toBe("Regra sintética ALAMEDA");
+    await pool.query(
+      "UPDATE app.documents SET status = 'archived', archived_at = now() WHERE id = (SELECT document_id FROM app.document_versions WHERE id = $1)",
+      [alamedaVersion]
+    );
+    expect(await analysisReader.readAuthorized(alamedaContext, [alamedaVersion])).toEqual([]);
   });
 });

@@ -2,7 +2,7 @@
 
 **Status:** ativa  
 **Responsáveis:** produto e engenharia  
-**Atualizado em:** 2026-10-09
+**Atualizado em:** 2026-10-15
 **Revisão prevista:** trimestral ou quando surgir evidência relevante de uso
 
 ## 1. Autoridade e relação com a visão
@@ -17,6 +17,14 @@ A Alvitra é uma assistente conversacional para síndicos, não um ERP condomini
 módulos. A conversa é a interface; a memória documental isolada e verificável é o diferencial que
 evita que ela seja apenas um chat genérico.
 
+A conversa pode tratar qualquer tema. Para perguntas de sindicatura sem fatos locais, a utilidade
+vem de orientação clara e contextual, combinada com legislação oficial aplicável quando necessária
+e disponível. A conversa pode começar sem anexos, mas os documentos relevantes são necessários
+para conhecer o condomínio e responder com segurança sobre fatos locais. Enquanto eles não chegam,
+a Alvitra mantém a ajuda geral, explicita o limite e organiza o próximo passo. Para fatos do
+condomínio, o diferencial continua sendo a memória autorizada e verificável. A relação com o
+trabalho do síndico deve ser útil, não forçada.
+
 ### Promessa
 
 > Peça ajuda como falaria com uma pessoa; a Alvitra usa o contexto disponível, mostra de onde veio a
@@ -30,13 +38,14 @@ de mensagens, telas preenchidas ou documentos enviados.
 ## 3. Diferenciais obrigatórios
 
 1. conversa natural como ponto único de entrada;
-2. documentos pedidos sob demanda, sem onboarding obrigatório;
-3. memória persistente e vetorial isolada por condomínio;
-4. citações por documento, versão, página e trecho;
-5. abstenção explícita quando a base não sustenta uma conclusão;
-6. conflitos e incertezas visíveis;
-7. análise longitudinal de balancetes quando houver histórico suficiente;
-8. perfil construído gradualmente com informações confirmadas na conversa.
+2. mensagens da assistente geradas para cada contexto, inclusive na configuração inicial;
+3. documentos pedidos sob demanda, sem onboarding obrigatório;
+4. memória persistente e vetorial isolada por condomínio;
+5. citações por documento, versão, página e trecho;
+6. abstenção explícita quando a base não sustenta uma conclusão;
+7. conflitos e incertezas visíveis;
+8. análise longitudinal de balancetes quando houver histórico suficiente;
+9. perfil construído gradualmente com informações confirmadas na conversa.
 
 ## 4. Gate de decisão
 

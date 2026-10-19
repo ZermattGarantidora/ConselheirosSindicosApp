@@ -15,5 +15,3 @@ services:
         value: "false"
       - key: WEB_DIST_DIR
         value: apps/web/dist
-      - key: GEMINI_ENABLED
-        value: "false"

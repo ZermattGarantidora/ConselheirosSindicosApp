@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 import type { AuthorizedCondominiumContext } from "../../apps/api/identity/authorized-condominium-context.js";
-import { geminiImageEmbeddingProfile } from "../../apps/api/retrieval/gemini-multimodal-embedding.js";
+import { openAiImageEmbeddingProfile } from "../../apps/api/retrieval/openai-image-embedding.js";
 import { createPostgresScopedRetrievalIndex } from "../../apps/api/retrieval/postgres-scoped-retrieval.js";
 
 function createFakeClient(semanticScore = "0.8") {
@@ -155,7 +155,7 @@ describe("índice PostgreSQL de retrieval", () => {
     ).resolves.toMatchObject([{ id: "chunk-1", semanticScore: 0 }]);
   });
 
-  it("só consulta Gemini quando há foto pronta e recupera pelo vetor no condomínio autorizado", async () => {
+  it("só consulta o índice OpenAI quando há foto pronta e recupera pelo vetor no condomínio autorizado", async () => {
     const queries: Array<{ sql: string; parameters: readonly unknown[] }> = [];
     const imageRow = {
       chunk_id: "foto-chunk",
@@ -195,7 +195,7 @@ describe("índice PostgreSQL de retrieval", () => {
       release: vi.fn()
     };
     const embed = vi.fn(async ({ content }: { content: string; contentSha256: string }) => ({
-      ...geminiImageEmbeddingProfile,
+      ...openAiImageEmbeddingProfile,
       contentSha256: "0".repeat(64),
       values: Array(768).fill(content.length / 100)
     }));
@@ -203,11 +203,8 @@ describe("índice PostgreSQL de retrieval", () => {
       { connect: async () => client as unknown as PoolClient },
       undefined,
       {
-        profile: geminiImageEmbeddingProfile,
-        embed,
-        async embedImageAndText() {
-          throw new Error("não usado na consulta");
-        }
+        profile: openAiImageEmbeddingProfile,
+        embed
       }
     );
 
@@ -231,11 +228,14 @@ describe("índice PostgreSQL de retrieval", () => {
       content: "onde está a caixa azul?",
       contentSha256: "0".repeat(64)
     });
+    const availabilityQuery = queries.find(({ sql }) => sql.includes("SELECT EXISTS"));
+    expect(availabilityQuery?.sql).toContain("dce.embedding_profile = $2");
+    expect(availabilityQuery?.parameters[1]).toBe(openAiImageEmbeddingProfile.embeddingProfile);
     const imageQuery = queries.find(({ sql }) => sql.includes("dce.embedding_profile = $1"));
     expect(imageQuery?.sql).toContain("dc.condominium_id = app.current_condominium_id()");
     expect(imageQuery?.sql).toContain("d.status = 'active'");
     expect(imageQuery?.sql).toContain("dp.extraction_method = 'image_vision'");
-    expect(imageQuery?.parameters[0]).toBe(geminiImageEmbeddingProfile.embeddingProfile);
+    expect(imageQuery?.parameters[0]).toBe(openAiImageEmbeddingProfile.embeddingProfile);
   });
 
   it("não abre conexão sem a permissão de leitura ou com consulta vazia", async () => {

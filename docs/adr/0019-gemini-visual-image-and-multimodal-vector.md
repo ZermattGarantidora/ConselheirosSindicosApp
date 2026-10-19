@@ -1,6 +1,6 @@
 # ADR 0019 — Interpretação visual e vetor multimodal de fotos
 
-**Status:** aceito para desenvolvimento local sintético
+**Status:** substituído pelo ADR 0023 para o runtime; mantido como histórico técnico
 **Data:** 2026-10-06
 
 ## Contexto

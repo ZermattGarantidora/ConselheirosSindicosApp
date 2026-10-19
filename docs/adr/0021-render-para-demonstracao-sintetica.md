@@ -21,8 +21,9 @@ ADRs 0006, 0007 e 0012 preservam essas restrições.
 
 ## Consequências
 
-- A demonstração permite validação remota da experiência, mas reinícios apagam todo o estado em
-  memória e nenhum dado real pode ser usado.
+- A demonstração permite validação remota da interface, mas sem provedor não produz falas da
+  Alvitra; reinícios apagam todo o estado em memória e nenhum dado real pode ser usado. A conversa
+  gerada exige outra decisão de implantação e custo, conforme ADR 0022.
 - A limitação de inatividade do plano gratuito é aceitável para prévia; não é SLA ou piloto.
 - Um ambiente persistente exige decisão operacional adicional conforme Spec 011, incluindo região,
   backup, LGPD, autenticação, observabilidade e revisão de segurança.

@@ -18,7 +18,10 @@ describe("experiência de chat único", () => {
     expect(app).toContain('aria-label="Conversa com a Alvitra"');
     expect(app).toContain('className="login-entry-button"');
     expect(app).toContain('{entryPending ? "Entrando..." : "Entrar"}');
-    expect(app).toContain("onClick={() => void enterConversation()}");
+    expect(app).toContain('htmlFor="login-name"');
+    expect(app).toContain('name="username"');
+    expect(app).toContain("acesso provisório para testes, sem senha");
+    expect(app).toContain("createDevelopmentIdentity(loginName)");
     expect(app).toContain('fetch("/v1/chat/bootstrap"');
     expect(app).toMatch(
       /async function enterConversation\(\): Promise<void> \{[\s\S]*?fetch\("\/v1\/chat\/bootstrap"/u

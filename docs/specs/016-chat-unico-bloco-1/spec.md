@@ -1,6 +1,6 @@
 # Spec 016 — Chat único, Bloco 1 da reestruturação
 
-**Status:** implementada; entrada visual parcialmente substituída pela Spec 024
+**Status:** implementada; entrada visual substituída pelas Specs 024 e 027
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-09
 
@@ -8,15 +8,15 @@
 
 ### Partes do briefing atendidas
 
-| Dimensão da visão | Seções do briefing | Como esta spec contribui |
-|---|---|---|
-| Problema e hipótese | §§2 e 4 | Reduz o tempo até a primeira interação útil e mantém a ajuda em linguagem natural. |
-| Público | §3 | Oferece uma entrada direta para síndicos profissionais e moradores. |
-| Proposta de valor | §§5 e 6 | Faz da conversa a única experiência e pede contexto dentro dela. |
-| Prioridade atual | §7, Bloco 1 | Remove as telas antigas e deixa somente uma entrada mínima antes do chat. |
-| Memória documental | §8 | Preserva upload, processamento, vetorização e recuperação por condomínio. |
-| Segurança e confiança | §§9 e 10 | Mantém evidências, abstenção, conflitos, autorização e revisão humana. |
-| Validação | §§13 e 14 | Mede entrada direta, permanência do fluxo documental e bloqueia avanço sem aprovação. |
+| Dimensão da visão | Seções do briefing | Como esta spec contribui                                                              |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------- |
+| Problema e hipótese   | §§2 e 4            | Reduz o tempo até a primeira interação útil e mantém a ajuda em linguagem natural.    |
+| Público               | §3                 | Oferece uma entrada direta para síndicos profissionais e moradores.                   |
+| Proposta de valor     | §§5 e 6            | Faz da conversa a única experiência e pede contexto dentro dela.                      |
+| Prioridade atual      | §7, Bloco 1        | Remove as telas antigas e deixa somente uma entrada mínima antes do chat.             |
+| Memória documental    | §8                 | Preserva upload, processamento, vetorização e recuperação por condomínio.             |
+| Segurança e confiança | §§9 e 10           | Mantém evidências, abstenção, conflitos, autorização e revisão humana.                |
+| Validação             | §§13 e 14          | Mede entrada direta, permanência do fluxo documental e bloqueia avanço sem aprovação. |
 
 ### Limites respeitados
 

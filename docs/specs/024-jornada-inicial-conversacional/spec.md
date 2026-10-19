@@ -1,6 +1,6 @@
 # Spec 024 — Entrada separada e configuração inicial conversacional
 
-**Status:** implementada e aguardando validação do usuário  
+**Status:** implementada; entrada e identidade provisória complementadas pela Spec 027
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-13
 
@@ -15,12 +15,12 @@
 | Menu e perfil       | §7, Blocos 4 e 5   | Organiza condomínios e documentos, e coleta nome e unidades pela conversa.                   |
 | Memória documental  | §8                 | Mantém documentos vinculados ao condomínio autorizado e visíveis por tipo.                   |
 | Segurança           | §§9 e 10           | Nenhum documento cruza condomínio e nenhuma criação ocorre sem resposta explícita da pessoa. |
-| Validação           | §§13 e 14          | Testa tempo até contexto útil, clareza da primeira conversa e continuidade sem documentos.   |
+| Validação           | §§13 e 14          | Testa tempo até contexto útil, clareza da primeira conversa e configuração sem envio imediato. |
 
 ### Limites respeitados
 
 - A página de entrada não coleta e-mail, senha ou telefone; WhatsApp continua futuro.
-- A configuração não usa formulário, não exige documento e não executa ação externa.
+- A configuração não usa formulário, não exige envio imediato de documento e não executa ação externa.
 - “Dados” mostra apenas documentos de condomínios autorizados.
 - A conversa continua sendo a única interface de trabalho depois da entrada.
 
@@ -40,7 +40,7 @@ Nenhuma. O briefing foi atualizado na mesma decisão explícita do usuário para
 
 ## 1. Objetivo
 
-Fazer a Alvitra receber o síndico em uma página mínima de entrada e conduzir no chat uma configuração adaptada à quantidade de condomínios, sem tornar documentos obrigatórios.
+Fazer a Alvitra receber o síndico em uma página mínima de entrada e conduzir no chat uma configuração adaptada à quantidade de condomínios, sem exigir que os documentos sejam enviados naquele momento.
 
 ## 2. Promessa testada
 
@@ -62,13 +62,13 @@ Síndico profissional ou morador entrando pela primeira vez ou complementando su
 - nenhuma pergunta pronta ou sugestão clicável no início do chat;
 - configuração de quantidade de condomínios, nome e quantidade de apartamentos, sem etapas ou contagem redundantes quando houver somente um;
 - sequência de um condomínio por vez, com progresso explícito, somente quando houver mais de um;
-- explicação clara de que documentos não são exigidos no cadastro e que enriquecem a precisão das respostas quando enviados depois.
+- explicação clara de que documentos não são exigidos naquele momento, mas são necessários para a Alvitra conhecer o condomínio e dar respostas locais confiáveis; podem ser enviados depois, aos poucos.
 
 ## 5. Fora do escopo
 
 - autenticação por WhatsApp;
 - formulário de onboarding ou criação de condomínio;
-- obrigatoriedade documental;
+- upload documental obrigatório dentro do cadastro inicial;
 - alteração das regras de autorização, vetorização, citações ou retenção.
 
 ## 6. Pré-condições
@@ -86,9 +86,16 @@ Antes da conversa, a interface mostra somente a apresentação da Alvitra e o bo
 
 A primeira mensagem dá boas-vindas e pergunta como a pessoa prefere ser chamada, em uma mensagem da própria Alvitra, sem sugestões ou perguntas clicáveis. Em seguida, pergunta quantos condomínios a pessoa administra. Quando a resposta for um, pede diretamente o nome e a quantidade de apartamentos ou unidades, sem dizer “um por vez” nem mostrar “1 de 1”. Quando houver mais de um, configura um por vez e informa o progresso entre eles.
 
-### RQ-2403 — Documentos opcionais e sob demanda
+As mensagens da Alvitra são identificadas visualmente pela posição à esquerda e por uma linha
+lateral anil discreta, mantendo fundo transparente e a tipografia editorial da conversa. O nome
+“Alvitra” não se repete sobre cada mensagem.
 
-O cadastro não pede documento nem espera uma resposta sobre anexos. Ao concluir o contexto inicial, a Alvitra informa que nenhum documento é necessário para usar o produto e explica que convenções, regimentos, atas, contratos e balancetes enviados depois tornam as respostas mais precisas e fundamentadas.
+No modo de demonstração, o nome de usuário informado antes do chat identifica somente o acesso
+provisório e não responde essa pergunta nem alimenta o perfil do síndico.
+
+### RQ-2403 — Documentos necessários, enviados depois
+
+O cadastro não pede documento nem espera uma resposta sobre anexos. Ao concluir o contexto inicial, a Alvitra explica que os documentos relevantes são necessários para conhecer o condomínio e responder com segurança sobre regras, decisões, valores e histórico, mas que a pessoa não precisa enviá-los naquele momento: convenções, regimentos, atas, contratos e balancetes podem ser enviados depois, aos poucos. Sem o material necessário, a Alvitra mantém orientação geral e próximos passos, mas não apresenta conclusões locais como confirmadas.
 
 ### RQ-2406 — Continuidade conversacional
 

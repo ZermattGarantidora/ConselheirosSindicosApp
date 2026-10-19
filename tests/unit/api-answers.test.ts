@@ -48,6 +48,25 @@ async function closeAfter<T>(
 }
 
 describe("API de perguntas e feedback", () => {
+  it("AC-2704: endereça a resposta ao nome da identidade provisória", async () => {
+    const { app } = configuredApp();
+
+    return closeAfter(app, async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/v1/condominiums/alameda/questions",
+        headers: {
+          "x-development-user-id": "sindico-demo",
+          "x-development-user-name": encodeURIComponent("Ana")
+        },
+        payload: { question: "Olá" }
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().answer).toContain("Ana");
+    });
+  });
+
   it("retorna resposta pública com evidência e não expõe campos internos", async () => {
     const { app } = configuredApp();
 

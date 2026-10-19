@@ -26,6 +26,10 @@ A decisão continua dentro da fase atual porque implementa somente o adaptador d
 
 ## Avaliação e limites
 
+### Endurecimento de configuração — 2026-10-19
+
+A chave geral `OPENAI_API_KEY` não ativa nem substitui a chave específica de OCR. A fábrica por ambiente exige opt-in explícito (`OPENAI_OCR_ENABLED=true`) e política `OPENAI_OCR_DATA_POLICY=synthetic-only`, fora de ambiente de produção. Como flags de ambiente não classificam a origem de um upload, os caminhos persistidos de servidor e worker permanecem sem OCR externo, mesmo com essas flags. O adaptador continua disponível para harness sintético direto e testes com rede simulada. Reativação para uploads exige classificação confiável, política de dados aprovada e decisão registrada; nenhuma chave ou confirmação de custo sozinha autoriza dados reais.
+
 Antes de liberar `ready` automaticamente para OCR da OpenAI, executar corpus sintético representativo e estabelecer baseline de transcrição por página, qualidade em português, latência e custo. Enquanto esse baseline não existir, o sinal de qualidade fornecido pelo modelo continua sujeito à política de revisão e não substitui a conferência do original.
 
 Antes de qualquer dado real, cumprir o gate já definido em `docs/security/data-handling-inicial.md`: política específica de retenção, exclusão, backups, base legal, avaliação de fornecedor, resposta a incidente e teste de purge/revogação.

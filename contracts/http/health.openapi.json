@@ -28,7 +28,7 @@
                   "properties": {
                     "status": { "type": "string", "const": "ok" },
                     "version": { "type": "string" },
-                    "aiProvider": { "type": "string", "enum": ["gemini", "local"] },
+                    "aiProvider": { "type": "string", "enum": ["openai", "gemini", "local"] },
                     "authMode": { "type": "string", "enum": ["development", "real"] },
                     "googleAuthEnabled": { "type": "boolean" },
                     "authSessionRestore": { "type": "boolean" },
@@ -68,7 +68,7 @@
                   "properties": {
                     "status": { "type": "string", "const": "ok" },
                     "version": { "type": "string" },
-                    "aiProvider": { "type": "string", "enum": ["gemini", "local"] },
+                    "aiProvider": { "type": "string", "enum": ["openai", "gemini", "local"] },
                     "authMode": { "type": "string", "enum": ["development", "real"] },
                     "googleAuthEnabled": { "type": "boolean" },
                     "authSessionRestore": { "type": "boolean" },

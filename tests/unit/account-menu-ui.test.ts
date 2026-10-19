@@ -10,7 +10,7 @@ describe("menu contextual da conta", () => {
     expect(app).toContain("Dados");
     expect(app).not.toContain("Meus dados");
     expect(app).not.toContain("Preferências");
-    expect(app).toContain("function startCondominiumConversation(): void");
+    expect(app).toContain("async function startCondominiumConversation(): Promise<void>");
     expect(app).toContain('setSetupStage("condominium_name")');
   });
 

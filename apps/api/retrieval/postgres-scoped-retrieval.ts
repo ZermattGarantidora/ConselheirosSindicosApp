@@ -3,8 +3,7 @@ import type { Pool, PoolClient } from "pg";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 import { createLocalSyntheticEmbeddingAdapter } from "./local-embedding.js";
 import { formatPgVector } from "./local-embedding.js";
-import type { MultimodalImageEmbeddingAdapter } from "./gemini-multimodal-embedding.js";
-import { geminiImageEmbeddingProfile } from "./gemini-multimodal-embedding.js";
+import { openAiImageEmbeddingProfile } from "./openai-image-embedding.js";
 import {
   type EmbeddingAdapter,
   type RetrievableChunk,
@@ -108,7 +107,7 @@ function mapRow(row: RetrievalRow): RetrievableChunk {
 export function createPostgresScopedRetrievalIndex(
   pool: PoolLike,
   embeddingAdapter: EmbeddingAdapter = createLocalSyntheticEmbeddingAdapter(),
-  imageEmbeddingAdapter?: MultimodalImageEmbeddingAdapter
+  imageEmbeddingAdapter?: EmbeddingAdapter
 ): ScopedRetrievalIndex {
   return {
     async findAuthorizedCandidates(context, input): Promise<readonly RetrievableChunk[]> {
@@ -147,6 +146,13 @@ export function createPostgresScopedRetrievalIndex(
                 ON dvs.condominium_id = dv.condominium_id AND dvs.document_version_id = dv.id
               JOIN app.document_pages AS dp
                 ON dp.condominium_id = dv.condominium_id AND dp.document_version_id = dv.id
+              JOIN app.document_chunks AS dc
+                ON dc.condominium_id = dp.condominium_id AND dc.document_page_id = dp.id
+              JOIN app.document_chunk_embeddings AS dce
+                ON dce.condominium_id = dc.condominium_id
+                AND dce.document_chunk_id = dc.id
+                AND dce.embedding_profile = $2
+                AND dce.content_sha256 = dc.content_sha256
               WHERE d.condominium_id = app.current_condominium_id()
                 AND d.status = 'active'
                 AND dv.media_type IN ('image/jpeg', 'image/png')
@@ -157,7 +163,7 @@ export function createPostgresScopedRetrievalIndex(
                 AND (dvs.valid_until IS NULL OR dvs.valid_until > $1::timestamptz)
             ) AS available
           `,
-          [input.asOf.toISOString()]
+          [input.asOf.toISOString(), openAiImageEmbeddingProfile.embeddingProfile]
         );
         hasEligibleImages = imageAvailability.rows[0]?.available === true;
         const result = await client.query<RetrievalRow>(
@@ -349,8 +355,8 @@ export function createPostgresScopedRetrievalIndex(
         contentSha256: "0".repeat(64)
       });
       if (
-        imageQueryEmbedding.dimensions !== geminiImageEmbeddingProfile.dimensions ||
-        imageQueryEmbedding.values.length !== geminiImageEmbeddingProfile.dimensions ||
+        imageQueryEmbedding.dimensions !== imageEmbeddingAdapter.profile.dimensions ||
+        imageQueryEmbedding.values.length !== imageEmbeddingAdapter.profile.dimensions ||
         imageQueryEmbedding.values.some((value) => !Number.isFinite(value))
       )
         throw new Error(
@@ -419,7 +425,7 @@ export function createPostgresScopedRetrievalIndex(
             LIMIT $5
           `,
           [
-            geminiImageEmbeddingProfile.embeddingProfile,
+            openAiImageEmbeddingProfile.embeddingProfile,
             formatPgVector(imageQueryEmbedding.values),
             input.asOf.toISOString(),
             input.minimumQualityScore,

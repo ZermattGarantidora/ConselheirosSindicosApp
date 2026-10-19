@@ -86,6 +86,7 @@ async function processUploadedDocument(
   const document = documentVersionFromUpload(uploaded);
   const storedDocument: StoredDocumentForProcessing = {
     condominiumId: uploaded.condominiumId,
+    documentId: uploaded.documentId,
     documentVersionId: uploaded.documentVersionId,
     content: original.content,
     state: document.state

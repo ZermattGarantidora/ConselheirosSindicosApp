@@ -1,8 +1,10 @@
 import { Pool } from "pg";
 
 import { createPostgresPrivateDocumentStorage } from "../documents/postgres-private-document-storage.js";
-import { createOpenAiOcrAdapterFromEnvironment } from "../documents/openai-ocr.js";
+import { unavailableOcrAdapter } from "../documents/ocr-quality.js";
+import { createOpenAiImageAnalysisAdapterFromEnvironment } from "../documents/openai-image-analysis.js";
 import { createGeminiImageAnalysisAdapterFromEnvironment } from "../documents/gemini-image-analysis.js";
+import { createOpenAiImageEmbeddingAdapterFromEnvironment } from "../retrieval/openai-image-embedding.js";
 import { createGeminiMultimodalEmbeddingAdapterFromEnvironment } from "../retrieval/gemini-multimodal-embedding.js";
 import { createScopedPostgresDocumentProcessor } from "../documents/postgres-document-processing-repository.js";
 import {
@@ -44,9 +46,11 @@ export async function startPersistentWorker(
       createScopedPostgresDocumentProcessor(
         pool,
         storage,
-        createOpenAiOcrAdapterFromEnvironment(environment),
-        createGeminiImageAnalysisAdapterFromEnvironment(environment),
-        createGeminiMultimodalEmbeddingAdapterFromEnvironment(environment)
+        unavailableOcrAdapter,
+        createOpenAiImageAnalysisAdapterFromEnvironment(environment) ??
+          createGeminiImageAnalysisAdapterFromEnvironment(environment),
+        createOpenAiImageEmbeddingAdapterFromEnvironment(environment) ??
+          createGeminiMultimodalEmbeddingAdapterFromEnvironment(environment)
       )
     );
   } finally {

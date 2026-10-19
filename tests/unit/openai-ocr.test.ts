@@ -13,6 +13,79 @@ const input = {
 };
 
 describe("adaptador OCR da OpenAI", () => {
+  it.each([
+    { OPENAI_API_KEY: "synthetic-key" },
+    { OPENAI_OCR_API_KEY: "synthetic-key" },
+    { OPENAI_OCR_API_KEY: "synthetic-key", OPENAI_OCR_ENABLED: "true" },
+    {
+      OPENAI_API_KEY: "synthetic-key",
+      OPENAI_OCR_ENABLED: "true",
+      OPENAI_OCR_DATA_POLICY: "synthetic-only"
+    },
+    {
+      OPENAI_OCR_API_KEY: "synthetic-key",
+      OPENAI_OCR_ENABLED: "true",
+      OPENAI_OCR_DATA_POLICY: "real-data"
+    },
+    {
+      OPENAI_OCR_API_KEY: "synthetic-key",
+      OPENAI_OCR_ENABLED: "true",
+      OPENAI_OCR_DATA_POLICY: "synthetic-only",
+      NODE_ENV: "production"
+    },
+    {
+      OPENAI_OCR_API_KEY: "synthetic-key",
+      OPENAI_OCR_ENABLED: "true",
+      OPENAI_OCR_DATA_POLICY: "synthetic-only",
+      APP_ENV: "production"
+    }
+  ])("não envia arquivo com gates incompletos ou em produção: %j", async (environment) => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    vi.stubGlobal("fetch", fetch);
+    try {
+      expect(
+        await createOpenAiOcrAdapterFromEnvironment(environment).recognize(input)
+      ).toMatchObject({ status: "unavailable", reason: "not_configured" });
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("permite somente harness sintético explicitamente habilitado com chave específica", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          output: [
+            {
+              content: [
+                {
+                  type: "output_text",
+                  text: JSON.stringify({
+                    pages: [{ pageIndex: 0, extractedText: "Texto fictício", qualityScore: 1 }]
+                  })
+                }
+              ]
+            }
+          ]
+        }),
+        { status: 200 }
+      )
+    );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      expect(
+        await createOpenAiOcrAdapterFromEnvironment({
+          OPENAI_OCR_API_KEY: "synthetic-key",
+          OPENAI_OCR_ENABLED: "true",
+          OPENAI_OCR_DATA_POLICY: "synthetic-only"
+        }).recognize(input)
+      ).toMatchObject({ status: "completed" });
+      expect(fetch).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("envia somente o PDF do job, desativa armazenamento da resposta e normaliza páginas", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
       new Response(

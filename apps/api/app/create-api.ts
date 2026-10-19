@@ -5,13 +5,24 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 
 import { createAnswerUseCase, type AnswerUseCase } from "../answers/answer-use-case.js";
 import { createFailedAnswer, type AnswerService } from "../answers/answer-service.js";
-import { createLocalSyntheticAnswerGateway } from "../answers/answer-gateway.js";
+import {
+  createLocalSyntheticAnswerGateway,
+  type AnswerGateway
+} from "../answers/answer-gateway.js";
+import { generateSetupMessage, isSetupMessageRequest } from "../answers/setup-message.js";
+import { interpretSetupTurn, isSetupTurnRequest } from "../answers/setup-turn.js";
 import {
   isFeedbackClassification,
   type SubmitFeedbackInput
 } from "../answers/answer-persistence.js";
 import { createInMemoryAnswerPersistence } from "../answers/in-memory-answer-persistence.js";
 import { toPublicAnswer } from "../answers/answer-contract.js";
+import {
+  analyzeDocumentRequest,
+  isDocumentAnalysisRequest,
+  unavailableDocumentAnalysis
+} from "../analysis/document-analysis.js";
+import type { DocumentAnalysisReader } from "../analysis/document-analysis-reader.js";
 import { createCondominiumId } from "../core/condominium-scope.js";
 import {
   AccessDeniedError,
@@ -101,7 +112,7 @@ import {
 
 export type CreateApiOptions = Readonly<{
   membershipRepository: MembershipRepository;
-  aiProvider?: "gemini" | "local";
+  aiProvider?: "openai" | "gemini" | "local";
   now?: () => Date;
   version?: string;
   documentStorage?: PrivateDocumentStorage;
@@ -109,6 +120,7 @@ export type CreateApiOptions = Readonly<{
   documentUploadRepository?: DocumentUploadRepository;
   documentCatalogRepository?: DocumentCatalogRepository;
   answerUseCase?: AnswerUseCase;
+  setupMessageGateway?: AnswerGateway;
   answerService?: AnswerService;
   answerTraceStore?: AnswerTraceStore;
   retriever?: ScopedTextRetriever;
@@ -125,6 +137,7 @@ export type CreateApiOptions = Readonly<{
   authSessionRestore?: boolean;
   processPendingDocuments?: () => Promise<void>;
   tenantWorkLimiter?: TenantWorkLimiter;
+  documentAnalysisReader?: DocumentAnalysisReader;
 }>;
 
 type AskBody = Readonly<{ question: string }>;
@@ -422,6 +435,21 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     return createUserId(developmentUserId);
   }
 
+  function requestPreferredName(request: FastifyRequest): string | undefined {
+    if (accountAuth !== undefined) return authenticatedAccounts.get(request)?.displayName;
+    const rawHeader = request.headers["x-development-user-name"];
+    const encodedName = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+    if (encodedName === undefined) return undefined;
+    try {
+      const displayName = decodeURIComponent(encodedName).trim().replaceAll(/\s+/gu, " ");
+      return displayName.length >= 2 && displayName.length <= 60 && !/\p{Cc}/u.test(displayName)
+        ? displayName
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   const emptyRetrieval = (question: string): ScopedRetrievalResult =>
     Object.freeze({
       pipelineVersion: retrievalPipelineVersion,
@@ -461,56 +489,85 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     reply.header("cache-control", "no-store").send(runtimeInformation())
   );
 
-  app.get<{ Headers: { "x-development-user-id"?: string } }>(
-    "/v1/chat/bootstrap",
-    async (request, reply) => {
-      const userId = requestUserId(request);
-      if (userId === undefined) return reply.code(401).send({ message: unauthenticatedMessage });
-
-      try {
-        const condominiumIds =
-          accountAuth === undefined
-            ? [
-                "alameda",
-                "bosque",
-                ...(options.developmentMembershipRegistry
-                  ?.listTestCondominiums(userId)
-                  .map((item) => item.condominiumId) ?? [])
-              ]
-            : ((await options.condominiumDirectory?.listAuthorized(userId)) ?? []).map(
-                (item) => item.condominiumId
-              );
-
-        for (const candidate of [...new Set(condominiumIds)]) {
-          try {
-            const context = await resolveAuthorizedCondominiumContext(
-              options.membershipRepository,
-              {
-                userId,
-                condominiumId: createCondominiumId(candidate),
-                now: now()
-              }
-            );
-            return reply.header("cache-control", "no-store").send({
-              condominiumId: context.condominiumId,
-              role: context.roleKey,
-              permissions: context.permissions
-            });
-          } catch (error: unknown) {
-            if (!(error instanceof AccessDeniedError)) throw error;
-          }
-        }
-
-        return reply
-          .code(404)
-          .send({ message: "Nenhum contexto autorizado está disponível para esta conversa." });
-      } catch {
-        return reply
-          .code(500)
-          .send({ message: "Não foi possível preparar a conversa com segurança." });
-      }
+  app.post<{
+    Headers: { "x-development-user-id"?: string; "x-development-user-name"?: string };
+    Body: unknown;
+  }>("/v1/chat/setup-message", async (request, reply) => {
+    if (requestUserId(request) === undefined)
+      return reply.code(401).send({ message: unauthenticatedMessage });
+    if (!isSetupMessageRequest(request.body))
+      return reply.code(400).send({ message: "Etapa de conversa inválida." });
+    try {
+      const message = await generateSetupMessage(options.setupMessageGateway, request.body);
+      return reply.header("cache-control", "no-store").send({ message });
+    } catch {
+      return reply.code(503).send({ message: "A Alvitra está indisponível no momento." });
     }
-  );
+  });
+
+  app.post<{
+    Headers: { "x-development-user-id"?: string; "x-development-user-name"?: string };
+    Body: unknown;
+  }>("/v1/chat/setup-turn", async (request, reply) => {
+    if (requestUserId(request) === undefined)
+      return reply.code(401).send({ message: unauthenticatedMessage });
+    if (!isSetupTurnRequest(request.body))
+      return reply.code(400).send({ message: "Turno de configuração inválido." });
+    try {
+      const turn = await interpretSetupTurn(options.setupMessageGateway, request.body);
+      return reply.header("cache-control", "no-store").send(turn);
+    } catch {
+      return reply.code(503).send({ message: "A Alvitra está indisponível no momento." });
+    }
+  });
+
+  app.get<{
+    Headers: { "x-development-user-id"?: string; "x-development-user-name"?: string };
+  }>("/v1/chat/bootstrap", async (request, reply) => {
+    const userId = requestUserId(request);
+    if (userId === undefined) return reply.code(401).send({ message: unauthenticatedMessage });
+
+    try {
+      const condominiumIds =
+        accountAuth === undefined
+          ? [
+              "alameda",
+              "bosque",
+              ...(options.developmentMembershipRegistry
+                ?.listTestCondominiums(userId)
+                .map((item) => item.condominiumId) ?? [])
+            ]
+          : ((await options.condominiumDirectory?.listAuthorized(userId)) ?? []).map(
+              (item) => item.condominiumId
+            );
+
+      for (const candidate of [...new Set(condominiumIds)]) {
+        try {
+          const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+            userId,
+            condominiumId: createCondominiumId(candidate),
+            now: now()
+          });
+          return reply.header("cache-control", "no-store").send({
+            condominiumId: context.condominiumId,
+            role: context.roleKey,
+            permissions: context.permissions,
+            preferredName: requestPreferredName(request)
+          });
+        } catch (error: unknown) {
+          if (!(error instanceof AccessDeniedError)) throw error;
+        }
+      }
+
+      return reply
+        .code(404)
+        .send({ message: "Nenhum contexto autorizado está disponível para esta conversa." });
+    } catch {
+      return reply
+        .code(500)
+        .send({ message: "Não foi possível preparar a conversa com segurança." });
+    }
+  });
 
   app.get<{ Headers: { "x-development-user-id"?: string } }>(
     "/v1/chat/condominiums",
@@ -1827,7 +1884,11 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
 
   app.post<{
     Params: { condominiumId: string };
-    Headers: { "x-development-user-id"?: string; "idempotency-key"?: string };
+    Headers: {
+      "x-development-user-id"?: string;
+      "x-development-user-name"?: string;
+      "idempotency-key"?: string;
+    };
     Body: unknown;
   }>("/v1/condominiums/:condominiumId/questions", async (request, reply) => {
     if (!isAskBody(request.body)) {
@@ -1852,9 +1913,11 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         userId: context.userId,
         now: now()
       });
+      const preferredName = requestPreferredName(request);
       const answer = await answerUseCase.ask(context, {
         question: request.body.question,
         requestId: request.id,
+        preferredName: preferredName ?? "",
         ...(request.headers["idempotency-key"] === undefined
           ? {}
           : { idempotencyKey: request.headers["idempotency-key"] })
@@ -1878,7 +1941,30 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         }
       }
 
-      return reply.code(200).send(toPublicAnswer(answer));
+      const analysisReader =
+        options.documentAnalysisReader ?? options.developmentDocumentMemory?.analysisReader;
+      let documentAnalysis;
+      if (analysisReader !== undefined && isDocumentAnalysisRequest(request.body.question)) {
+        try {
+          const catalog = await listRegisteredDocuments(documentCatalogRepository, context);
+          const eligible = catalog.filter(
+            (document) =>
+              document.processingStatus === "ready" &&
+              ["confirmed", "not_applicable"].includes(document.validityStatus)
+          );
+          const documents = await analysisReader.readAuthorized(
+            context,
+            eligible.map((document) => document.documentVersionId)
+          );
+          documentAnalysis = analyzeDocumentRequest(context, request.body.question, documents);
+        } catch {
+          documentAnalysis = unavailableDocumentAnalysis();
+        }
+      }
+      return reply.code(200).send({
+        ...toPublicAnswer(answer),
+        ...(documentAnalysis === undefined ? {} : { documentAnalysis })
+      });
     } catch (error: unknown) {
       if (error instanceof AccessDeniedError) {
         return reply.code(403).send({ message: "Acesso não autorizado." });

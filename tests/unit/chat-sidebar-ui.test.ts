@@ -29,7 +29,8 @@ describe("barra lateral de conversas", () => {
     expect(app).toContain("function deleteChat(chatId: string): void");
     expect(app).toContain("window.confirm(`Excluir a conversa");
     expect(app).toContain("Excluir");
-    expect(app).not.toContain("localStorage");
+    expect(app).not.toContain('localStorage.setItem("chats"');
+    expect(app).not.toContain('localStorage.setItem("conversation"');
   });
 
   it("AC-1702: usa overlay no celular e painel deslizante no desktop", async () => {

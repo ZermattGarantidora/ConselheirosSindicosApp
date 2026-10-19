@@ -1,12 +1,14 @@
 import { Pool } from "pg";
+import { createPostgresDocumentAnalysisReader } from "../analysis/document-analysis-reader.js";
 
 import {
-  createFallbackAnswerGateway,
-  createLocalSyntheticAnswerGateway
+  createLocalSyntheticAnswerGateway,
+  createProviderFallbackAnswerGateway
 } from "../answers/answer-gateway.js";
 import { createAnswerService } from "../answers/answer-service.js";
 import { createAnswerUseCase } from "../answers/answer-use-case.js";
 import { createLocalExtractiveGateway } from "../answers/local-extractive-gateway.js";
+import { createOpenAiAnswerGatewayFromEnvironment } from "../answers/openai-answer-gateway.js";
 import { createGeminiAnswerGatewayFromEnvironment } from "../answers/gemini-answer-gateway.js";
 import { createInMemoryAnswerPersistence } from "../answers/in-memory-answer-persistence.js";
 import { createPostgresAnswerPersistence } from "../answers/postgres-answer-persistence.js";
@@ -18,8 +20,10 @@ import type { RegisteredDocument } from "../documents/document-catalog.js";
 import { createDevelopmentDocumentUploadRepository } from "../documents/development-document-upload-repository.js";
 import { createPostgresPrivateDocumentStorage } from "../documents/postgres-private-document-storage.js";
 import { createPostgresDocumentRetentionRepository } from "../documents/postgres-document-retention-repository.js";
-import { createOpenAiOcrAdapterFromEnvironment } from "../documents/openai-ocr.js";
+import { unavailableOcrAdapter } from "../documents/ocr-quality.js";
+import { createOpenAiImageAnalysisAdapterFromEnvironment } from "../documents/openai-image-analysis.js";
 import { createGeminiImageAnalysisAdapterFromEnvironment } from "../documents/gemini-image-analysis.js";
+import { createOpenAiImageEmbeddingAdapterFromEnvironment } from "../retrieval/openai-image-embedding.js";
 import { createGeminiMultimodalEmbeddingAdapterFromEnvironment } from "../retrieval/gemini-multimodal-embedding.js";
 import {
   createDevelopmentDocumentSourceReader,
@@ -76,20 +80,25 @@ export async function startServer(
   const useDevelopmentRuntime = demoMode || databaseUrl === undefined || databaseUrl.length === 0;
   const demoSeedDocuments = environment.DEMO_SEED_DOCUMENTS?.trim().toLowerCase() === "true";
   const googleOAuth = demoMode ? undefined : createGoogleOAuthFromEnvironment(environment);
-  const geminiGateway = demoMode
-    ? undefined
-    : createGeminiAnswerGatewayFromEnvironment(environment);
+  const openAiGateway = createOpenAiAnswerGatewayFromEnvironment(environment);
+  const geminiGateway = createGeminiAnswerGatewayFromEnvironment(environment);
+  const configuredAnswerGateway =
+    openAiGateway !== undefined && geminiGateway !== undefined
+      ? createProviderFallbackAnswerGateway(openAiGateway, geminiGateway)
+      : (openAiGateway ?? geminiGateway);
   const localAnswerGateway = createLocalSyntheticAnswerGateway();
-  const answerGateway =
-    geminiGateway === undefined
-      ? localAnswerGateway
-      : createFallbackAnswerGateway(geminiGateway, localAnswerGateway);
-  const aiProvider = geminiGateway === undefined ? "local" : "gemini";
+  const answerGateway = configuredAnswerGateway ?? localAnswerGateway;
+  const setupMessageGateway = configuredAnswerGateway;
+  const aiProvider =
+    openAiGateway !== undefined ? "openai" : geminiGateway !== undefined ? "gemini" : "local";
 
   if ((databaseUrl === undefined || databaseUrl.length === 0) && !demoMode) {
     throw new Error(
       "DATABASE_URL é obrigatória para iniciar o site real. Use DEMO_MODE=true somente quando quiser iniciar a demonstração."
     );
+  }
+  if (!useDevelopmentRuntime && configuredAnswerGateway === undefined) {
+    throw new Error("A OpenAI ou a Gemini deve estar configurada para iniciar o site real.");
   }
 
   if (useDevelopmentRuntime) {
@@ -189,6 +198,7 @@ export async function startServer(
       documentUploadRepository: developmentDocumentRepository,
       documentCatalogRepository: developmentDocumentRepository,
       aiProvider,
+      ...(setupMessageGateway === undefined ? {} : { setupMessageGateway }),
       answerUseCase: createAnswerUseCase({
         retriever: createScopedTextRetriever(developmentDocumentMemory.index),
         gateway: answerGateway,
@@ -212,15 +222,19 @@ export async function startServer(
     createAccountSecretCipherFromEnvironment(environment)
   );
   const documentStorage = createPostgresPrivateDocumentStorage(pool);
-  const imageAnalysisAdapter = createGeminiImageAnalysisAdapterFromEnvironment(environment);
-  const imageEmbeddingAdapter = createGeminiMultimodalEmbeddingAdapterFromEnvironment(environment);
+  const imageAnalysisAdapter =
+    createOpenAiImageAnalysisAdapterFromEnvironment(environment) ??
+    createGeminiImageAnalysisAdapterFromEnvironment(environment);
+  const imageEmbeddingAdapter =
+    createOpenAiImageEmbeddingAdapterFromEnvironment(environment) ??
+    createGeminiMultimodalEmbeddingAdapterFromEnvironment(environment);
   const embeddedDocumentWorker =
     environment.DOCUMENT_WORKER_IN_API?.trim().toLowerCase() === "true";
   const processingQueue = createPostgresProcessingJobQueue(pool);
   const documentProcessor = createScopedPostgresDocumentProcessor(
     pool,
     documentStorage,
-    createOpenAiOcrAdapterFromEnvironment(environment),
+    unavailableOcrAdapter,
     imageAnalysisAdapter,
     imageEmbeddingAdapter
   );
@@ -259,8 +273,10 @@ export async function startServer(
     secureCookies: environment.APP_ENV?.trim().toLowerCase() === "production",
     authSessionRestore: environment.AUTH_SESSION_AUTO_RESTORE?.trim().toLowerCase() !== "false",
     aiProvider,
+    ...(setupMessageGateway === undefined ? {} : { setupMessageGateway }),
     documentStorage,
     imageUploadsEnabled: imageAnalysisAdapter !== undefined && imageEmbeddingAdapter !== undefined,
+    documentAnalysisReader: createPostgresDocumentAnalysisReader(pool),
     documentUploadRepository: documentRepository,
     documentCatalogRepository: documentRepository,
     ...(embeddedDocumentWorker ? { processPendingDocuments } : {}),

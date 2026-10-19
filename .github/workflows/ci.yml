@@ -49,6 +49,20 @@ jobs:
       - name: Run synthetic evals
         run: pnpm run evals:synthetic
 
+      - name: Run documentary evals
+        run: pnpm run evals:documentary
+
+      - name: Check synthetic semantic replay contracts
+        run: pnpm run evals:documentary:semantic --synthetic
+
+      - name: Upload synthetic review packet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentary-review-${{ github.sha }}
+          path: reports/documentary-semantic-synthetic.json
+          if-no-files-found: error
+
       - name: Run end-to-end tests
         run: pnpm run test:e2e
 

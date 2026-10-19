@@ -1,4 +1,73 @@
-# Matriz de rastreabilidade — Specs 001–024
+# Matriz de rastreabilidade — Specs 001–036
+
+## Fronteira determinística reforçada — 2026-10-19
+
+| Requisito | Aceitação | Evidência |
+| --- | --- | --- |
+| RQ-2901 — precisão do cálculo local | AC-2901 e AC-2902 | `financial-analysis.ts`, `financial-analysis.test.ts`: frações positivas/negativas, base zero e `precision_limit` com diferença monetária preservada |
+| RQ-3204 — referência literal independente de IA | AC-3205 | `document-analysis-validation.ts`, `document-analysis-validation.test.ts`: documento/versão/título/página/offset/trecho adulterados, Unicode, permissão, tenant e duplicidade |
+| RQ-3202 e RQ-3204 — degradação e publicação integral | AC-3204 e AC-3205 | `deterministic-analysis.e2e.test.ts`: cálculo sobre PDFs apesar da falha do gateway simulado; fonte ambígua invalida o relatório sem expor erro |
+
+`pnpm run check`: 673/673 testes em 107 arquivos; statements 89,21%, branches 82,94%,
+functions 95,78%, lines 91,47%; formatação, lint, tipagem, 36 specs e segredos aprovados.
+E2E 52/52; evals locais 20/20; documentais determinísticos 50/50; integração sintética Neon 7/7;
+build web aprovado. Sem chamadas reais de IA, migração, novos serviços ou alteração de prompt.
+Os testes de autorização, isolamento e idempotência existentes permanecem aprovados;
+essas regras não foram transferidas para IA nem reimplementadas.
+
+Esta fatia reforça cálculos e referências; não implementa teto monetário global, conciliação
+bancária, cache genérico entre uploads, roteamento Luna/Sol ou confirmação humana nova.
+A conferência literal não atesta significado ou OCR correto. Relatório de revisão local em
+`docs/reviews/2026-10-19-conferencia-deterministica.md`; revisão independente para merge e
+aprovação semântica continuam pendentes.
+
+## Integração da bateria e preparação semântica — 2026-10-16
+
+| Requisito | Aceitação | Evidência |
+| --- | --- | --- |
+| RQ-3102–3104 — execução determinística fiel e completa | AC-3102, AC-3103, AC-3105 | `evals/documentary-quality/run.ts`; mapas de tabelas, OCR e segurança; `tests/e2e/documentary-quality.e2e.test.ts`: 50 executados, nenhuma pendência determinística |
+| RQ-3601 — fontes independentes do gabarito | AC-3601, AC-3605 | `semantic/fixtures.ts`, `semantic/cases.ts`; teste de mutação do gabarito sem mudança de fontes/pergunta, metadados ausentes e exclusão de fontes inelegíveis |
+| RQ-3602–3603 — replay e revisão distintos | AC-3602, AC-3603, AC-3604, AC-3606 | `semantic/replay.ts`, `semantic/run.ts`; teste de erro por caso; JSON com respostas, telemetria e revisão humana não preenchida; CLI e CI registrados |
+| RQ-3202–3203 — PDF ao relatório no turno | AC-3201, AC-3203, AC-3204 | `tests/e2e/integrated-document-analysis.e2e.test.ts`: PDFs sintéticos de atas/contratos com rótulos literais e balancetes; citação por página/versão, comparação, remoção e autorização |
+
+Resultado local: `pnpm run check` aprovado em 103 arquivos/617 testes; statements 88,86%, branches 82,50%, functions 95,64%, lines 91,14%; formatação, lint, tipagem, 36 specs e scanner aprovados. `pnpm run test:e2e`: 40 cenários aprovados (incluídos nos 617). `pnpm run evals`: 20/20; `pnpm run evals:documentary`: 50/50 determinísticos, sem pendências; build web aprovado. `git diff --check` sem erros.
+
+`pnpm run evals:documentary:semantic` gerou 50 fichas com zero replays; `--synthetic` gerou 50 respostas locais mecanicamente válidas. Ambos informam zero chamadas de provedor e zero aprovações semânticas. Os artefatos estão em `reports/documentary-semantic-review.json` e `reports/documentary-semantic-synthetic.json`, regeneráveis e ignorados pelo Git. As fontes não contêm gabarito; vigência permanece pendente. O replay direto não representa o filtro de elegibilidade de produção.
+
+Limites: não houve avaliação probabilística, leitura visual de OCR por provedor, navegação manual no browser, nova execução Neon ou julgamento especializado. OCR 8/3 usa transcrição e conferência independentes simuladas no processamento real. O fluxo de PDF normativo verifica rótulos literais, não interpretação universal de prosa. A etapa de modelo requer autorização/configuração e orçamento; a etapa humana requer revisores qualificados. Não houve merge, publicação, contato externo nem aprovação fictícia. A revisão desta fatia é autorrevisão, não revisão independente para merge.
+
+## Correções das Specs 034–035 — 2026-10-16
+
+| Requisito | Aceitação | Regressão determinística |
+| --- | --- | --- |
+| RQ-3401 — ausência de entradas não confirma OCR financeiro | AC-3405 e AC-3406 | `tests/unit/ocr-consistency.test.ts`: extração vazia, parcial, tabela ambígua/cortada, valor ilegível e ata não financeira |
+| RQ-3501 — distinguir obrigação humana de comando à assistente | AC-3501 e AC-3504 | `tests/unit/document-instruction-security.test.ts`; `tests/e2e/document-instruction-security.e2e.test.ts`: cláusula legítima disponível e citável, ataque explícito bloqueado antes do gateway |
+| RQ-3501 — fato independente em trecho misto | AC-3505 | `tests/unit/document-instruction-security.test.ts`: fatia literal e offsets Unicode; `tests/e2e/document-instruction-security.e2e.test.ts`: fonte mista sem instrução enviada; `EVAL-012` original sem alteração das asserções |
+
+Os casos de contato adversarial agora nomeiam a assistente para remover a ambiguidade das fixtures anteriores; não foram removidas as asserções de bloqueio, zero chamadas e ausência de vazamento. Esta correção não afirma resistência universal a injeção nem substitui revisão especializada ou eval de provedor.
+
+Verificação final destas correções, em 2026-10-16:
+
+- `pnpm run check`: aprovado, 103 arquivos e 613 testes; statements 88,86%, branches 82,45%, functions 95,64%, lines 91,14%; formatação, lint, tipagem, 36 specs e scanner de segredos aprovados.
+- `pnpm run test:e2e`: 36 cenários aprovados em 9 arquivos (incluídos também nos 613 testes; não são contagens somáveis).
+- `pnpm run evals`: 20/20 aprovados, incluindo `EVAL-012` sem alteração de suas asserções.
+- `pnpm run evals:documentary`: 41/41 determinísticos executados aprovados; 9 ainda pendentes de integração e 50 semânticos não executados. Revisão especializada permanece pendente; o código de saída zero não significa conclusão da bateria.
+- `git diff --check`: aprovado. Autorrevisão dos arquivos desta correção verificou escopo, isolamento preservado, fontes literais, offsets Unicode, hash recalculado e compatibilidade do identificador com o chunk persistido. Nenhum merge ou publicação foi executado; não representa revisão independente para merge.
+
+O gate revelou ainda um escape desnecessário no hífen da expressão de rubricas; foi removido sem alteração semântica. Não houve mudança de schema/persistência, dependência, provedor ou prompt. Integração Neon e chamadas de modelo externo não foram reexecutadas nesta correção. As alterações preexistentes fora deste escopo foram preservadas.
+
+## Specs 028–032 — análise documental integrada
+
+| Requisito | Aceitação | Evidência |
+|---|---|---|
+| RQ-2801 a RQ-2804 — extração, fonte e incerteza | AC-2801 a AC-2805 e regressões Unicode/sinais | `apps/api/documents/structured/`; `tests/unit/structured-document-extraction.test.ts`; `tests/unit/document-processing.test.ts` |
+| RQ-2901 a RQ-2904 — cálculo e comparabilidade | AC-2901 a AC-2904 | `apps/api/analysis/financial-analysis.ts`; `tests/unit/financial-analysis.test.ts`; `tests/unit/document-analysis.test.ts` |
+| RQ-3001 a RQ-3004 — fatos, limites e conflitos normativos | AC-3001 a AC-3008 | `apps/api/analysis/normative/`; `tests/unit/normative-document-analysis.test.ts`; `tests/unit/document-analysis.test.ts` |
+| RQ-3101 a RQ-3104 — avaliações honestas | AC-3101 a AC-3104 | `evals/documentary-quality/`; `tests/e2e/documentary-quality.e2e.test.ts`; `pnpm run evals:documentary` |
+| RQ-3201 — páginas autorizadas e limites | AC-3201 a AC-3203 | `apps/api/analysis/document-analysis-reader.ts`; `tests/unit/document-analysis-reader.test.ts`; `tests/integration/rls-tenant-isolation.test.ts` |
+| RQ-3202 e RQ-3203 — relatório no turno e falha segura | AC-3201 a AC-3204 | `apps/api/analysis/document-analysis.ts`; `apps/api/app/create-api.ts`; `apps/web/App.tsx`; `tests/e2e/integrated-document-analysis.e2e.test.ts` |
+
+O relatório calculado usa páginas existentes (ADR 0024), sem nova persistência ou prompt. Revisão semântica por especialistas e avaliação probabilística do provedor não são substituídas por testes determinísticos e permanecem explicitamente pendentes nos relatórios da Spec 031.
 
 **Status:** Blocos 1–8 autorizados; núcleo documental e vetorial preservado
 **Atualizado em:** 2026-10-09
@@ -29,7 +98,7 @@ Esta matriz liga promessas a critérios de aceitação e evidências de verifica
 | RQ-011 Feedback                                                       | AC-019                                                                                                                                                                                      | EVAL-020                     | `apps/api/answers/in-memory-answer-persistence.ts`; `apps/api/answers/postgres-answer-persistence.ts`; `apps/api/answers/answer-trace.ts`; `apps/api/app/create-api.ts`; `tests/unit/api-answers.test.ts`; `tests/e2e/feedback-audit.e2e.test.ts`; `tests/unit/answer-trace.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | RQ-012 Auditoria e custo                                              | AC-020                                                                                                                                                                                      | EVAL-020                     | `apps/api/answers/answer-persistence.ts`; `apps/api/answers/postgres-answer-persistence.ts`; `apps/api/answers/answer-trace.ts`; `apps/api/answers/postgres-answer-trace-store.ts`; `infrastructure/database/009_answers_feedback_audit.sql`; `infrastructure/database/009_answers_feedback_and_audit.sql`; `tests/unit/answer-use-case.test.ts`; `tests/e2e/feedback-audit.e2e.test.ts`; `tests/unit/postgres-answer-trace-store.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | RQ-013 Falha segura                                                   | AC-021, AC-025                                                                                                                                                                              | EVAL-019                     | `apps/api/answers/answer-gateway.ts`; `apps/api/answers/answer-use-case.ts`; `apps/api/app/server.ts`; `tests/unit/answer-gateway.test.ts`; `tests/unit/answer-use-case.test.ts`; `tests/unit/api-answers.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| RQ-014 Formato da resposta                                            | AC-010, AC-014, AC-016, AC-018, AC-028                                                                                                                                                      | EVAL-018                     | `apps/shared/conversation-intent.ts`; `apps/api/answers/answer-contract.ts`; `apps/api/answers/citation-validator.ts`; `apps/api/answers/prompt-catalog.ts`; `apps/api/answers/answer-use-case.ts`; `apps/api/answers/answer-gateway.ts`; `apps/web/answer-presentation.ts`; `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/conversation-intent.test.ts`; `tests/unit/citation-validator.test.ts`; `tests/unit/prompt-catalog.test.ts`; `tests/unit/chat-turn-ui.test.ts`; `tests/unit/answer-use-case.test.ts`; `tests/unit/answer-gateway.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| RQ-014 Formato da resposta                                            | AC-010, AC-014, AC-016, AC-018, AC-028                                                                                                                                                      | EVAL-018                     | `apps/shared/conversation-intent.ts`; `apps/api/answers/answer-contract.ts`; `apps/api/answers/citation-validator.ts`; `apps/api/answers/prompt-catalog.ts`; `apps/api/answers/answer-use-case.ts`; `apps/api/answers/answer-gateway.ts`; `apps/web/answer-presentation.ts`; `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/conversation-intent.test.ts`; `tests/unit/citation-validator.test.ts`; `tests/unit/prompt-catalog.test.ts`; `tests/unit/chat-turn-ui.test.ts`; `tests/unit/answer-use-case.test.ts`; `tests/unit/answer-gateway.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | RQ-015 Integridade dos turnos e confirmação de envio                  | AC-026                                                                                                                                                                                      | —                            | `apps/web/App.tsx`; `tests/unit/chat-turn-ui.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | RQ-016 Latência sem duplicação de evidência                           | AC-027                                                                                                                                                                                      | —                            | `apps/api/answers/gemini-answer-gateway.ts`; `apps/api/answers/prompt-catalog.ts`; `tests/unit/gemini-answer-gateway.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ADR 0007 — alvo Neon sintético                                        | marcador persistente, URL PostgreSQL com TLS, papel runtime seguro, identidade externa e fence do worker; migrations 003–006 verificadas; 6/6 testes RLS/API/worker aprovados em 2026-09-03 | —                            | `scripts/neon-integration-guard.ts`; `infrastructure/database/005_worker_claim_fencing.sql`; `infrastructure/database/006_runtime_document_read_grants.sql`; `tests/unit/neon-integration-guard.test.ts`; `tests/integration/rls-tenant-isolation.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -355,11 +424,11 @@ escopo até nova autorização explícita.
 
 ## Spec 018 — múltiplos chats e barra lateral, Bloco 3
 
-| Requisito                                     | Critérios de aceitação | Evidência de verificação                                                                                     |
-| --------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------ |
-| RQ-1701 — barra recolhida e responsiva        | AC-1701 e AC-1702      | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/chat-sidebar-ui.test.ts`                              |
+| Requisito                                             | Critérios de aceitação | Evidência de verificação                                                                                                            |
+| ----------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-1701 — barra recolhida e responsiva                | AC-1701 e AC-1702      | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/chat-sidebar-ui.test.ts`                                                     |
 | RQ-1702 — criar, alternar, nomear, renomear e excluir | AC-1703 e AC-1704      | `apps/web/conversation-title.ts`; `apps/web/App.tsx`; `tests/unit/conversation-title.test.ts`; `tests/unit/chat-sidebar-ui.test.ts` |
-| RQ-1703 — contrato documental preservado      | AC-1703 e AC-1705      | `apps/web/App.tsx`; `tests/unit/chat-sidebar-ui.test.ts`; testes existentes da Spec 016 e de autorização/RLS |
+| RQ-1703 — contrato documental preservado              | AC-1703 e AC-1705      | `apps/web/App.tsx`; `tests/unit/chat-sidebar-ui.test.ts`; testes existentes da Spec 016 e de autorização/RLS                        |
 
 O Bloco 3 não persiste a organização de chats, nem remove registros documentais. Essa decisão evita
 introduzir armazenamento de conteúdo ou metadados sem modelagem explícita de tenant, RLS, retenção e auditoria.
@@ -379,11 +448,11 @@ relacionados ao Bloco 1; nenhuma asserção ou regra de compilação foi enfraqu
 
 ## Spec 017 — personalidade da Alvitra, Bloco 2
 
-| Requisito                                        | Critérios de aceitação | Evidência determinística                                                                                                      |
-| ------------------------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| RQ-1701 e RQ-1702 — tom e franqueza útil         | AC-1701–AC-1703        | `apps/api/answers/prompt-catalog.ts`; `tests/unit/prompt-catalog.test.ts`; `tests/unit/gemini-answer-gateway.test.ts`         |
+| Requisito                                        | Critérios de aceitação | Evidência determinística                                                                                                                                                                                                |
+| ------------------------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-1701 e RQ-1702 — tom e franqueza útil         | AC-1701–AC-1703        | `apps/api/answers/prompt-catalog.ts`; `tests/unit/prompt-catalog.test.ts`; `tests/unit/gemini-answer-gateway.test.ts`                                                                                                   |
 | RQ-1703 e RQ-1704 — verdade documental e limites | AC-1704–AC-1705        | `apps/web/answer-presentation.ts`; `apps/web/App.tsx`; `tests/unit/chat-turn-ui.test.ts`; testes de grounding, citações, conflitos, abstenção e risco existentes; `tests/unit/prompt-catalog.test.ts`; evals sintéticos |
-| RQ-1705 — aprovação antes de aplicação           | AC-1706                | `docs/specs/017-personalidade-alvitra/system-prompt.md`; versão `answer-prompt-v16`                                           |
+| RQ-1705 — aprovação antes de aplicação           | AC-1706                | `docs/specs/017-personalidade-alvitra/system-prompt.md`; versão `answer-prompt-v16`                                                                                                                                     |
 
 O usuário aprovou o prompt em 2026-10-09. Ele foi aplicado ao gateway na versão
 `answer-prompt-v16`; a verificação inclui testes determinísticos e evals sintéticos.
@@ -406,7 +475,7 @@ de lines. O build web, o gate de visão para 24 specs e a conferência visual lo
 
 | Requisito                                                         | Critérios de aceitação | Evidência de verificação                                                                                  |
 | ----------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
-| RQ-2001 e RQ-2002 — sem documento obrigatório e pedido contextual | AC-2001 e AC-2002      | `apps/api/answers/prompt-catalog.ts`; `tests/unit/prompt-catalog.test.ts`; testes de abstenção existentes |
+| RQ-2001 e RQ-2002 — envio posterior e pedido contextual           | AC-2001 e AC-2002      | `apps/api/answers/prompt-catalog.ts`; `tests/unit/prompt-catalog.test.ts`; testes de abstenção existentes |
 | RQ-2003 — memória autorizada                                      | AC-2003                | `apps/web/document-upload-request.ts`; testes de upload, vetorização, autorização e RLS existentes        |
 
 ## Spec 023 — base para níveis da conta, Bloco 8
@@ -433,14 +502,20 @@ de lines. O build web, o gate de visão para 24 specs e a conferência visual lo
 
 ## Spec 024 — jornada inicial conversacional
 
-| Requisito                                        | Critérios de aceitação | Evidência determinística                                                                                                                                                      |
-| ------------------------------------------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RQ-2401 — entrada mínima separada                | AC-2401                | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/chat-single-page.test.ts`                                                                                              |
-| RQ-2402 e RQ-2403 — cadastro guiado pela Alvitra | AC-2402 e AC-2403      | `apps/web/App.tsx`; `apps/web/setup-conversation.ts`; `apps/api/app/create-api.ts`; `tests/unit/conversational-setup-ui.test.ts`; testes de criação real e de desenvolvimento |
-| RQ-2403 — documentos opcionais e sob demanda     | AC-2404                | `apps/web/App.tsx`; `tests/unit/conversational-setup-ui.test.ts`; testes existentes de upload e vetorização                                                                   |
-| RQ-2404 — dados documentais organizados          | AC-2405                | `GET /v1/chat/condominiums`; `GET /v1/condominiums/:condominiumId/documents`; `apps/web/App.tsx`; `tests/unit/account-menu-ui.test.ts`; testes de autorização/RLS             |
-| RQ-2405 — tela documental do condomínio atual    | AC-2406                | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/account-menu-ui.test.ts`; contratos de autorização/RLS existentes                                                      |
-| RQ-2406 — continuidade conversacional             | AC-2407                | `apps/web/App.tsx`; `tests/unit/conversational-setup-ui.test.ts`; `tests/unit/chat-bootstrap.test.ts`                                                                         |
+| Requisito                                        | Critérios de aceitação | Evidência determinística                                                                                                                                                         |
+| ------------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-2401 — entrada mínima separada                | AC-2401                | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/chat-single-page.test.ts`                                                                                                 |
+| RQ-2402 e RQ-2403 — cadastro guiado pela Alvitra | AC-2402 e AC-2403      | `apps/web/App.tsx`; `apps/api/answers/setup-message.ts`; `apps/api/app/create-api.ts`; `tests/unit/conversational-setup-ui.test.ts`; testes de criação real e de desenvolvimento |
+| RQ-2403 — documentos necessários, enviados depois | AC-2404               | `apps/api/answers/setup-message.ts`; `apps/api/answers/prompt-catalog.ts`; `apps/web/App.tsx`; `tests/unit/setup-message.test.ts`; `tests/unit/conversational-setup-ui.test.ts`; testes existentes de upload e vetorização |
+| RQ-2404 — dados documentais organizados          | AC-2405                | `GET /v1/chat/condominiums`; `GET /v1/condominiums/:condominiumId/documents`; `apps/web/App.tsx`; `tests/unit/account-menu-ui.test.ts`; testes de autorização/RLS                |
+| RQ-2405 — tela documental do condomínio atual    | AC-2406                | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/account-menu-ui.test.ts`; contratos de autorização/RLS existentes                                                         |
+| RQ-2406 — continuidade conversacional            | AC-2407                | `apps/web/App.tsx`; `tests/unit/conversational-setup-ui.test.ts`; `tests/unit/chat-bootstrap.test.ts`                                                                            |
+
+A apresentação das mensagens da Alvitra prevista em RQ-2402 e AC-2402 é verificada por
+`tests/unit/conversational-setup-ui.test.ts`: sem rótulo repetido de autoria, com fundo
+transparente, tipografia editorial e linha lateral anil alinhada à esquerda. A troca entre uma
+saudação do síndico e a resposta da Alvitra também foi conferida no navegador local em viewport
+móvel.
 
 Verificação da Spec 024 em 2026-10-09: 82 arquivos e 480 testes passaram. A cobertura atingiu
 88,51% de statements, 81,45% de branches, 95,49% de functions e 90,53% de lines. Os 23 cenários
@@ -459,13 +534,115 @@ caminhos no navegador local passaram.
 
 ## Spec 025 — demonstração online sintética no Render
 
-| Requisito | Critérios de aceitação | Evidência determinística |
-| --- | --- | --- |
-| RQ-2501 — demonstração sem dados reais | AC-2501 | `render.yaml`; `apps/api/app/server.ts`; ADR 0021 |
-| RQ-2502 — mesma origem | AC-2502 | `apps/api/app/web-assets.ts`; `tests/unit/web-assets.test.ts` |
-| RQ-2503 — implantação verificável | AC-2503 | `render.yaml`; `/health`; `tests/unit/server.test.ts` |
+| Requisito                              | Critérios de aceitação | Evidência determinística                                      |
+| -------------------------------------- | ---------------------- | ------------------------------------------------------------- |
+| RQ-2501 — demonstração sem dados reais | AC-2501                | `render.yaml`; `apps/api/app/server.ts`; ADR 0021             |
+| RQ-2502 — mesma origem                 | AC-2502                | `apps/api/app/web-assets.ts`; `tests/unit/web-assets.test.ts` |
+| RQ-2503 — implantação verificável      | AC-2503                | `render.yaml`; `/health`; `tests/unit/server.test.ts`         |
+
+## Spec 026 — conversa aberta e contextual
+
+| Requisito                          | Critérios de aceitação     | Evidência planejada                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-2601 — mensagens geradas        | AC-2601 e AC-2606          | `apps/api/answers/setup-message.ts`; `apps/api/answers/setup-turn.ts`; `apps/api/answers/prompt-catalog.ts`; `apps/web/App.tsx`; `tests/unit/setup-message.test.ts`; `tests/unit/setup-turn.test.ts`; `tests/unit/api-setup-message.test.ts`                                                                                                           |
+| RQ-2602 — perguntas abertas        | AC-2602 e AC-2603          | `apps/api/answers/prompt-catalog.ts`; `apps/api/answers/openai-answer-gateway.ts`; `tests/unit/prompt-catalog.test.ts`; evals novos pendentes                                                                                                                                                                                                      |
+| RQ-2603 — fatos locais e anexos    | AC-2604, AC-2607 e AC-2608 | `apps/api/answers/answer-use-case.ts`; `tests/unit/openai-answer-gateway.test.ts`; testes existentes de isolamento e anexos; evals novos pendentes                                                                                                                                                                                                 |
+| RQ-2604 — franqueza construtiva    | AC-2605                    | `apps/api/answers/prompt-catalog.ts`; evals de tom e firmeza pendentes                                                                                                                                                                                                                                                                             |
+| RQ-2605 — provedores e validação   | AC-2606, AC-2607 e AC-2609 | `apps/api/answers/openai-answer-gateway.ts`; `apps/api/answers/gemini-answer-gateway.ts`; `apps/api/answers/answer-gateway.ts`; `apps/api/app/server.ts`; `tests/unit/openai-answer-gateway.test.ts`; `tests/unit/gemini-answer-gateway.test.ts`; ADRs 0022–0023                                                                                   |
+| RQ-2606 — fotos durante a migração | AC-2609                    | `apps/api/documents/openai-image-analysis.ts`; `apps/api/documents/gemini-image-analysis.ts`; `apps/api/retrieval/openai-image-embedding.ts`; `apps/api/retrieval/gemini-multimodal-embedding.ts`; `apps/api/retrieval/postgres-scoped-retrieval.ts`; `tests/unit/openai-visual-image.test.ts`; `tests/unit/gemini-visual-image.test.ts`; ADR 0023 |
+
+O prompt da Spec 026 foi aprovado em 2026-10-15 e incorporado à versão `answer-prompt-v22`.
+O adaptador foi verificado por transporte simulado; ativação com dados reais, evals novos e
+verificação ao vivo do provedor permanecem pendentes.
+Na migração gradual para OpenAI, os adaptadores dos dois provedores foram preservados e verificados
+com transporte simulado; a reindexação de fotos antigas, a verificação ao vivo e os evals
+específicos de recuperação visual permanecem pendentes. O runtime prefere OpenAI quando
+configurada e usa Gemini como alternativa temporária, sem misturar perfis vetoriais.
+
+Em 2026-10-15, após a decisão explícita de não excluir a Gemini, o gateway de resposta, a análise
+visual e o embedding Gemini foram preservados no runtime. Uma verificação local real confirmou
+`aiProvider: gemini` e gerou com sucesso a pergunta inicial da Alvitra sem expor a chave. O gate
+`pnpm run check` aprovou 89 arquivos e 516 testes, com 88,00% de statements, 80,46% de branches,
+95,37% de functions e 90,15% de lines; o build web também passou. Dados reais continuam bloqueados.
+
+Ainda em 2026-10-15, a validação do nome de tratamento passou a rejeitar saudações e respostas
+genéricas antes de persistir o perfil, além de entender construções naturais de apresentação.
+Perfis locais incompletos gravados anteriormente com “olá” como nome deixam de ser restaurados e
+retornam à pergunta correta. Saudações recebem uma resposta cordial antes da nova pergunta, sem
+exemplos ou nomes sugeridos. A regressão está coberta em `tests/unit/development-identity.test.ts`,
+`tests/unit/conversational-setup-ui.test.ts` e `tests/unit/setup-message.test.ts`.
+Em 2026-10-15, `pnpm run check` passou: cobertura 88,09% em statements, 80,54% em branches,
+95,74% em functions e 90,13% em lines; `pnpm run test:e2e` passou 23 testes, `pnpm run evals`
+passou 20 casos sintéticos e `pnpm run build:web` concluiu. Não houve chamada paga ao provedor.
+Após a correção da resposta a saudações, o gate completo passou novamente com 89 arquivos e 519
+testes, cobertura de 87,98% em statements, 80,44% em branches, 95,37% em functions e 90,13% em
+lines. O build web também passou, e a jornada foi conferida no navegador local: ao receber “Olá”,
+a Alvitra respondeu à saudação antes de perguntar o nome, sem exemplos ou nomes sugeridos.
+Na verificação sintética desta implementação, `pnpm run check` passou com 505 testes e cobertura
+de 87,93% em statements, 80,02% em branches, 95,30% em functions e 90,08% em lines. O build web,
+23 cenários E2E e os 20 evals sintéticos existentes também passaram. Nenhuma chamada paga ao
+provedor foi executada.
+
+Em 2026-10-15, a orientação documental foi corrigida para distinguir necessidade de envio imediato
+de necessidade para uma conclusão local: o cadastro continua sem anexos, mas a Alvitra informa que
+os documentos relevantes são necessários para conhecer o condomínio e podem ser enviados depois,
+aos poucos. O prompt `answer-prompt-v22` proíbe chamar esses documentos de opcionais e mantém apenas
+orientação geral enquanto a evidência local não chega. `pnpm run check` aprovou 90 arquivos e 528
+testes, com cobertura de 87,99% em statements, 81,06% em branches, 95,44% em functions e 90,35% em
+lines. O build web, os 23 testes E2E e os 20 evals sintéticos também passaram.
+
+## Spec 027 — identidade provisória e cadastro único
+
+| Requisito                                        | Critérios de aceitação | Evidência determinística                                                                                                                         |
+| ------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| RQ-2701 — entrada provisória transparente        | AC-2701                | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/chat-single-page.test.ts`                                                                 |
+| RQ-2702 — identidade sintética estável e isolada | AC-2702 e AC-2705      | `apps/web/development-identity.ts`; `tests/unit/development-identity.test.ts`; testes de autorização existentes                                  |
+| RQ-2703 — cadastro uma única vez                 | AC-2703                | `apps/api/answers/setup-turn.ts`; `apps/api/app/create-api.ts`; `apps/web/App.tsx`; `tests/unit/setup-turn.test.ts`; `tests/unit/api-setup-message.test.ts`; `tests/unit/conversational-setup-ui.test.ts`; `tests/unit/chat-bootstrap.test.ts` |
+| RQ-2704 — tratamento pelo nome                   | AC-2704                | `apps/api/answers/answer-use-case.ts`; `apps/api/answers/setup-message.ts`; `tests/unit/api-answers.test.ts`; `tests/unit/setup-message.test.ts` |
+
+A interpretação conversacional de RQ-2703 é feita pelo modelo a partir da etapa e do histórico
+recente, com decisão estruturada validada no servidor. O navegador não classifica a intenção por
+frases ou palavras-chave. `tests/unit/setup-turn.test.ts`, `tests/unit/api-setup-message.test.ts` e
+`tests/unit/conversational-setup-ui.test.ts` cobrem pedidos de exemplo que permanecem na pergunta,
+números por extenso, correção de nome durante outra etapa, limites dos campos e remoção de marcas de
+Markdown antes da exibição. `tests/unit/development-identity.test.ts` limita-se a validar valores já
+confirmados antes de persistir o perfil local.
+Na verificação de 2026-10-15, `pnpm run check` aprovou 90 arquivos e 527 testes, com cobertura de
+87,99% em statements, 81,06% em branches, 95,44% em functions e 90,35% em lines. O build web e os
+23 testes E2E também passaram, assim como os 20 evals sintéticos. A jornada foi conferida com o
+provedor configurado no navegador local: um pedido de exemplo recebeu explicação sem virar nome;
+uma dúvida sobre o motivo da pergunta permaneceu na etapa; “Cuido de dois hoje” foi interpretado
+como quantidade; e uma correção de nome retomou a pergunta de condomínio sem perder o contexto.
+Na verificação de 2026-10-15, `pnpm run check` aprovou 89 arquivos e 520 testes, com cobertura de
+87,96% em statements, 80,42% em branches, 95,37% em functions e 90,11% em lines. O build web e os
+23 testes E2E também passaram. O fluxo foi conferido no navegador local com pedido de exemplo,
+declaração inicial e correção do nome no meio da configuração.
+
+Verificação da Spec 027 em 2026-10-15: depois de separar o nome de usuário do nome de tratamento, 41
+testes focados em sete arquivos passaram. No gate completo, 87 arquivos e 501 testes passaram, com
+88,04% de statements, 80,31% de branches, 95,74% de functions e 90,08% de lines. Também passaram o
+build web, a formatação, o lint, a tipagem, o gate de visão das 27 specs e o scanner de segredos.
 
 - Novo requisito exige ao menos um critério de aceitação.
 - Requisito de segurança exige teste determinístico.
 - Comportamento probabilístico exige eval.
 - Nenhum requisito pode ser marcado como entregue enquanto sua evidência de verificação estiver ausente.
+
+## Correções de segurança e degradação local — 2026-10-19
+
+| Requisito | Aceitação | Implementação e regressão |
+| --- | --- | --- |
+| RQ-3503 — impedir literal protegido na saída completa | AC-3503 | `document-instruction-policy.ts`, `answer-use-case.ts`; `tests/unit/document-instruction-security.test.ts`, `tests/e2e/protected-document-output.e2e.test.ts` (10 cenários, incluindo erro, fallback e persistência) |
+| RQ-3404 — chave não habilita OCR de uploads | AC-3407 | `openai-ocr.ts`, `server.ts`, `worker.ts`; `tests/unit/openai-ocr.test.ts`, `tests/unit/offline-demo-ui.test.ts` |
+| RQ-2705 — abrir demonstração sem inventar conversa | AC-2706 | `App.tsx`, `styles.css`; `tests/unit/offline-demo-ui.test.ts`; conferência visual desktop e 390 × 844 com identidade fictícia nova |
+
+Verificação desta árvore local: `pnpm run check` passou 638 testes em 105 arquivos;
+cobertura: statements 89,04%, branches 82,72%, functions 95,77%, lines 91,31%.
+Também passaram 50 testes E2E, 20 evals locais, 50 casos documentais determinísticos,
+build web e 7 testes de integração Neon exclusivamente sintéticos (sem migração).
+O gate das 36 specs e o scanner de segredos passaram. Nenhuma chamada real de IA foi feita.
+
+A revisão local das correções não é aprovação independente do branch nem autorização de merge.
+Limites: defesa lexical não universal; OCR de uploads permanece indisponível; novo cadastro
+offline continua pendente; 50 casos semânticos e revisão especializada continuam sem aprovação.
+Detalhes em `docs/reviews/2026-10-19-correcoes-seguranca-local.md`.

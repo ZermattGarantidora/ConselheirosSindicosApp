@@ -16,7 +16,7 @@ describe("catálogo de prompts", () => {
       evidence: []
     });
 
-    expect(answerPromptVersion).toBe("answer-prompt-v19");
+    expect(answerPromptVersion).toBe("answer-prompt-v22");
     expect(prompt).toContain("muito gente boa e presente na conversa");
     expect(prompt).toContain("Diga claramente o que está bom");
     expect(prompt).toContain("Diga claramente o que está ruim, confuso, incompleto ou arriscado");
@@ -26,7 +26,14 @@ describe("catálogo de prompts", () => {
       "Nunca invente fonte, citação, regra, valor, prazo, vigência ou decisão"
     );
     expect(prompt).toContain("Nunca execute ação externa");
-    expect(prompt).toContain("legislação oficial recuperada é a base principal");
+    expect(prompt).toContain(
+      "Use a legislação oficial recuperada quando for relevante e necessária"
+    );
+    expect(prompt).toContain("Cite lei ou documento apenas quando a fonte for necessária");
+    expect(prompt).toContain("nem precisa acontecer durante o cadastro inicial");
+    expect(prompt).toContain("os documentos relevantes são necessários para conhecer o condomínio");
+    expect(prompt).toContain("a pessoa pode enviá-lo depois");
+    expect(prompt).not.toContain("documentos são opcionais");
     expect(prompt).toContain("Diferencie claramente legislação oficial de documento interno");
     expect(prompt).toContain("use até 90 palavras");
     expect(prompt).toContain("um ou dois detalhes úteis");
@@ -36,12 +43,34 @@ describe("catálogo de prompts", () => {
     expect(prompt).toContain("Dê a orientação útil logo na primeira frase");
     expect(prompt).toContain("no máximo três frases curtas ou dois passos");
     expect(prompt).toContain("deixe attentionPoints vazio e suggestedNextStep como null");
-    expect(prompt).toContain("Documentos nunca são pré-requisito para começar a conversa");
+    expect(prompt).toContain("O envio de documentos não é pré-requisito para começar a conversa");
     expect(prompt).toContain("convenção vigente, completa e legível como a principal referência");
     expect(prompt).toContain("página ilegível, OCR incerto, trecho ausente ou versão conflitante");
     expect(prompt).toContain("PDF original completo, as páginas faltantes ou uma versão posterior");
     expect(prompt).toContain("Reserve atenção e próximo passo para abstenção, falha, conflito");
     expect(prompt).not.toContain("validação afetiva ou incentivo");
+  });
+
+  it("AC-2601 e AC-2703: interpreta a configuração como conversa e exige decisão estruturada", () => {
+    const prompt = buildAnswerPrompt({
+      question: JSON.stringify({
+        stage: "manager_name",
+        currentMessage: "Pode me dar um exemplo?"
+      }),
+      task: "setup_turn",
+      riskClass: "low",
+      evidence: []
+    });
+
+    expect(prompt).toContain("conversa normal");
+    expect(prompt).toContain("resposta à pergunta atual, correção de um dado, dúvida");
+    expect(prompt).toContain("não decida por uma lista de frases");
+    expect(prompt).toContain("Responda somente com um objeto JSON válido");
+    expect(prompt).toContain("manager_name, condominium_count, condominium_name, unit_count");
+    expect(prompt).toContain('"currentMessage":"Pode me dar um exemplo?"');
+    expect(prompt).toContain("não precisa enviar documentos agora");
+    expect(prompt).toContain("necessários para você conhecer o condomínio");
+    expect(prompt).toContain("nunca chame os documentos de opcionais");
   });
 
   it("AC-411: exige resposta formulada sobre a evidência e permite abstenção de trecho tangencial", () => {

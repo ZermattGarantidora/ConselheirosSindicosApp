@@ -78,9 +78,7 @@ function answerSchema() {
           type: "object",
           additionalProperties: false,
           required: ["evidenceId"],
-          properties: {
-            evidenceId: { type: "string" }
-          }
+          properties: { evidenceId: { type: "string" } }
         }
       },
       attentionPoints: { type: "array", items: { type: "string" } },
@@ -135,17 +133,11 @@ function parseOutput(text: string): ProviderGeneratedAnswer {
   }
 }
 
-/**
- * Conversas de orientação não têm fatos documentais a comprovar. A resposta
- * textual é envolvida localmente no contrato seguro, sem citações ou alegações
- * sobre regras do condomínio.
- */
 function conversationalOutput(text: string): GeneratedAnswer {
   const answer = text.trim();
   if (answer.length === 0) {
     throw new AnswerGatewayUnavailableError("A Gemini não retornou texto.");
   }
-
   return Object.freeze({
     answer,
     answerMode: "abstained" as const,
@@ -157,7 +149,6 @@ function conversationalOutput(text: string): GeneratedAnswer {
   });
 }
 
-/** A Gemini escolhe o evidenceId; a fonte exibida é sempre reconstruída localmente. */
 function canonicalizeCitations(
   output: ProviderGeneratedAnswer,
   input: AnswerGatewayInput
@@ -193,9 +184,7 @@ function requestBody(input: AnswerGatewayInput): string {
     contents: [{ role: "user", parts: [{ text: buildAnswerPrompt(input) }] }],
     generationConfig: { maxOutputTokens: input.budget.maximumOutputTokens }
   };
-  if (input.evidence.length === 0) {
-    return JSON.stringify(request);
-  }
+  if (input.evidence.length === 0) return JSON.stringify(request);
   return JSON.stringify({
     ...request,
     generationConfig: {
@@ -227,9 +216,7 @@ function isRetryableStatus(status: number): boolean {
 function retryAfterMilliseconds(value: string | null, nowMs = Date.now()): number | undefined {
   if (value === null) return undefined;
   const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return Math.round(seconds * 1_000);
-  }
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1_000);
   const date = Date.parse(value);
   return Number.isFinite(date) ? Math.max(0, date - nowMs) : undefined;
 }
@@ -287,9 +274,7 @@ export function createGeminiAnswerGateway(options: GeminiAnswerGatewayOptions): 
           });
           if (!response.ok) {
             const message = providerFailureMessage(response.status);
-            if (!isRetryableStatus(response.status)) {
-              throw new NonRetryableGeminiError(message);
-            }
+            if (!isRetryableStatus(response.status)) throw new NonRetryableGeminiError(message);
             retryAfterMs = retryAfterMilliseconds(response.headers.get("retry-after"));
             throw new AnswerGatewayUnavailableError(message);
           }

@@ -71,7 +71,8 @@ A configuração registra build com lockfile, comando de início e `/health` par
 
 ## 6. Critérios de sucesso
 
-- a URL abre a página de entrada e o chat sintético;
+- a URL abre a página de entrada e a interface de chat; sem chave, a Alvitra comunica
+  indisponibilidade em vez de gerar fala simulada;
 - `/health` responde `200`;
 - não há `DATABASE_URL` ou chave de IA configurada;
 - reinício não preserva contexto ou arquivo enviado;

@@ -14,7 +14,9 @@
 **Então** a primeira mensagem é da Alvitra  
 **E** pergunta como a pessoa prefere ser chamada  
 **E** não apresenta perguntas prontas ou sugestões clicáveis  
-**E** depois pergunta quantos condomínios ela administra.
+**E** depois pergunta quantos condomínios ela administra\
+**E** a mensagem fica à esquerda, com fundo transparente e uma linha lateral anil discreta\
+**E** não repete o nome “Alvitra” sobre o texto da mensagem.
 
 ## AC-2403 — Adaptar a configuração à quantidade
 
@@ -26,12 +28,13 @@
 **Então** a Alvitra pede nome e quantidade de apartamentos de um condomínio por vez  
 **E** informa o progresso ao passar para o seguinte.
 
-## AC-2404 — Cadastro sem documento
+## AC-2404 — Cadastro sem envio imediato
 
 **Dado** que a pessoa concluiu o cadastro dos condomínios  
 **Quando** a Alvitra confirma a conclusão  
 **Então** não pede documento nem aguarda uma confirmação sobre anexos  
-**E** explica que documentos enviados depois melhoram a precisão e o embasamento das respostas  
+**E** explica que os documentos relevantes são necessários para conhecer o condomínio e dar respostas locais confiáveis
+**E** informa que eles podem ser enviados depois, aos poucos
 **E** permite iniciar uma conversa imediatamente.
 
 ## AC-2405 — Menu de condomínios e dados

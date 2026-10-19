@@ -10,19 +10,26 @@ import {
   buildConversationTitleFromQuestions
 } from "./conversation-title.js";
 import { requestDocumentUploadWithAuthorizationRecovery } from "./document-upload-request.js";
-import { splitBoldText } from "./message-format.js";
 import {
-  buildInitialCondominiumNamePrompt,
-  buildSetupCompletionMessage
-} from "./setup-conversation.js";
+  createDevelopmentIdentity,
+  loadDevelopmentIdentity,
+  loadDevelopmentSetupProfile,
+  rememberDevelopmentCondominium,
+  rememberDevelopmentManagerName,
+  saveDevelopmentIdentity,
+  type DevelopmentIdentity
+} from "./development-identity.js";
+import { splitBoldText } from "./message-format.js";
+import type { DocumentAnalysisReport } from "../api/analysis/document-analysis.js";
 
 type AuthMode = "development" | "real";
-type AiProvider = "gemini" | "local" | "unavailable";
+type AiProvider = "openai" | "gemini" | "local" | "unavailable";
 
 type ContextResponse = Readonly<{
   condominiumId: string;
   role: string;
   permissions: readonly string[];
+  preferredName?: string;
 }>;
 
 type Citation = Readonly<{
@@ -51,6 +58,7 @@ type PublicAnswer = Readonly<{
   condominiumId: string;
   riskClass: "low" | "medium" | "high";
   createdAt: string;
+  documentAnalysis?: DocumentAnalysisReport;
 }>;
 
 type ConversationHistoryEntry = Readonly<{
@@ -93,16 +101,20 @@ type SetupMessage = Readonly<{
   role: "assistant" | "user";
   text: string;
 }>;
+type SetupTurnUpdate =
+  | Readonly<{ field: "manager_name"; value: string }>
+  | Readonly<{ field: "condominium_name"; value: string }>
+  | Readonly<{ field: "condominium_count"; value: number }>
+  | Readonly<{ field: "unit_count"; value: number }>;
+type SetupTurnResponse = Readonly<{
+  message: string;
+  intent: "answer" | "correction" | "question" | "small_talk" | "unclear";
+  update: SetupTurnUpdate | null;
+}>;
 
 type FeedbackClassification = "correct" | "incorrect" | "incomplete" | "outdated";
 type DocumentMemoryStatus = "ready" | "pending_confirmation" | "needs_review" | "failed";
 
-const developmentUserId = "sindico-demo";
-const initialSetupMessage: SetupMessage = Object.freeze({
-  id: "setup-welcome",
-  role: "assistant",
-  text: "Oi! Que bom ter você por aqui. Antes de começarmos, como você prefere ser chamado(a)?"
-});
 const documentTypeLabels = Object.freeze({
   convention: "Convenções",
   internal_rules: "Regimentos internos",
@@ -127,8 +139,19 @@ function calculateKnowledgeProgress(documents: readonly DocumentListItem[]): num
   return [...readyTypes].reduce((total, type) => total + weights[type], 0);
 }
 
-function requestHeaders(authMode: AuthMode | undefined): Readonly<Record<string, string>> {
-  return authMode === "development" ? { "x-development-user-id": developmentUserId } : {};
+function requestHeaders(
+  authMode: AuthMode | undefined,
+  identity: DevelopmentIdentity | undefined,
+  preferredName?: string
+): Readonly<Record<string, string>> {
+  return authMode === "development" && identity !== undefined
+    ? {
+        "x-development-user-id": identity.userId,
+        ...(preferredName === undefined || preferredName.trim() === ""
+          ? {}
+          : { "x-development-user-name": encodeURIComponent(preferredName.trim()) })
+      }
+    : {};
 }
 
 function isPdf(file: Pick<File, "type" | "name">): boolean {
@@ -261,7 +284,7 @@ function AnswerSources({
   );
 }
 
-function AnswerMessage({
+export function AnswerMessage({
   answer,
   question,
   onSelectCitation,
@@ -314,6 +337,23 @@ function AnswerMessage({
           </div>
         ) : null}
       </article>
+      {answer.documentAnalysis === undefined ? null : (
+        <section className="document-analysis" aria-label="Conferência documental calculada">
+          <strong>{answer.documentAnalysis.title}</strong>
+          <p>Relatório calculado a partir dos documentos disponíveis neste turno.</p>
+          {answer.documentAnalysis.rows.map((row, index) => (
+            <div key={`${row.label}:${index}`}>
+              <p>
+                <strong>{row.label}</strong>: {row.detail}
+              </p>
+              <AnswerSources citations={row.citations} onSelect={onSelectCitation} />
+            </div>
+          ))}
+          {answer.documentAnalysis.limitations.map((limitation) => (
+            <p key={limitation}>{limitation}</p>
+          ))}
+        </section>
+      )}
       {isConversationalResponse ? null : (
         <AnswerSources citations={answer.citations} onSelect={onSelectCitation} />
       )}
@@ -325,6 +365,13 @@ export function App() {
   const [authMode, setAuthMode] = useState<AuthMode>();
   const [aiProvider, setAiProvider] = useState<AiProvider>("unavailable");
   const [entered, setEntered] = useState(false);
+  const rememberedDevelopmentIdentity = useMemo(
+    () =>
+      typeof window === "undefined" ? undefined : loadDevelopmentIdentity(window.localStorage),
+    []
+  );
+  const [loginName, setLoginName] = useState(rememberedDevelopmentIdentity?.displayName ?? "");
+  const [developmentIdentity, setDevelopmentIdentity] = useState<DevelopmentIdentity>();
   const [context, setContext] = useState<ContextResponse>();
   const [chats, setChats] = useState<readonly Chat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string>();
@@ -339,9 +386,7 @@ export function App() {
   const [documentsPending, setDocumentsPending] = useState(false);
   const [documentsError, setDocumentsError] = useState("");
   const [setupStage, setSetupStage] = useState<SetupStage>("manager_name");
-  const [setupMessages, setSetupMessages] = useState<readonly SetupMessage[]>([
-    initialSetupMessage
-  ]);
+  const [setupMessages, setSetupMessages] = useState<readonly SetupMessage[]>([]);
   const [setupCondominiumTotal, setSetupCondominiumTotal] = useState(0);
   const [setupCondominiumIndex, setSetupCondominiumIndex] = useState(1);
   const [setupCondominiumName, setSetupCondominiumName] = useState("");
@@ -354,6 +399,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [runtimePending, setRuntimePending] = useState(true);
   const [entryPending, setEntryPending] = useState(false);
+  const offlineDemo = authMode === "development" && aiProvider === "local";
   const [conversationError, setConversationError] = useState("");
   const [pendingChatDocument, setPendingChatDocument] = useState<File>();
   const [sentChatDocumentName, setSentChatDocumentName] = useState("");
@@ -387,11 +433,13 @@ export function App() {
         if (!active) return;
         setAuthMode(mode);
         setAiProvider(
-          runtime.aiProvider === "gemini"
-            ? "gemini"
-            : runtime.aiProvider === "local"
-              ? "local"
-              : "unavailable"
+          runtime.aiProvider === "openai"
+            ? "openai"
+            : runtime.aiProvider === "gemini"
+              ? "gemini"
+              : runtime.aiProvider === "local"
+                ? "local"
+                : "unavailable"
         );
       } catch (error: unknown) {
         if (!active || controller.signal.aborted) return;
@@ -462,28 +510,95 @@ export function App() {
   const serviceLabel = useMemo(() => {
     if (runtimePending) return "Preparando a conversa";
     if (entryPending) return "Entrando na conversa";
+    if (setupStage === "manager_name") return "Conhecendo você";
     if (setupStage !== "complete") {
       return setupCondominiumTotal === 1
         ? "Configurando seu condomínio"
         : "Configurando seus condomínios";
     }
     if (context === undefined) return "Conversa indisponível";
-    if (aiProvider === "gemini") return "Online · memória documental ativa";
+    if (aiProvider === "openai") return "Online · memória documental ativa";
     return "Online · memória documental local";
   }, [aiProvider, context, entryPending, runtimePending, setupCondominiumTotal, setupStage]);
 
   async function enterConversation(): Promise<void> {
     if (authMode === undefined || runtimePending || entryPending) return;
 
+    let selectedIdentity: DevelopmentIdentity;
+    try {
+      selectedIdentity = createDevelopmentIdentity(loginName);
+    } catch (error: unknown) {
+      setConversationError(
+        error instanceof Error ? error.message : "Digite um nome de usuário válido."
+      );
+      return;
+    }
+
     setEntryPending(true);
     setConversationError("");
+    setDevelopmentIdentity(selectedIdentity);
+    setSetupManagerName("");
+    saveDevelopmentIdentity(window.localStorage, selectedIdentity);
+    const savedProfile =
+      authMode === "development"
+        ? loadDevelopmentSetupProfile(window.localStorage, selectedIdentity)
+        : undefined;
     try {
       const bootstrapResponse = await fetch("/v1/chat/bootstrap", {
         cache: "no-store",
         credentials: "same-origin",
-        headers: requestHeaders(authMode)
+        headers: requestHeaders(authMode, selectedIdentity)
       });
       if (bootstrapResponse.status === 404) {
+        if (
+          savedProfile?.completed === true &&
+          savedProfile.managerName !== "" &&
+          savedProfile.condominiums.length > 0
+        ) {
+          let restoredContext: ContextResponse | undefined;
+          for (const condominium of savedProfile.condominiums) {
+            const restoreResponse = await fetch("/v1/development/test-condominiums", {
+              method: "POST",
+              credentials: "same-origin",
+              headers: {
+                "content-type": "application/json",
+                ...requestHeaders(authMode, selectedIdentity)
+              },
+              body: JSON.stringify({
+                ...condominium,
+                contact: { managerName: savedProfile.managerName }
+              })
+            });
+            if (!restoreResponse.ok && restoreResponse.status !== 409) {
+              throw new Error(
+                await readMessage(restoreResponse, "Não consegui restaurar seu cadastro agora.")
+              );
+            }
+            if (restoreResponse.ok && restoredContext === undefined) {
+              restoredContext = (await restoreResponse.json()) as ContextResponse;
+            }
+          }
+          if (restoredContext !== undefined) {
+            const welcome = await requestSetupMessage(
+              { stage: "returning", managerName: savedProfile.managerName },
+              selectedIdentity
+            );
+            const chatId = crypto.randomUUID();
+            setContext(restoredContext);
+            setSetupManagerName(savedProfile.managerName);
+            setSetupStage("complete");
+            setSetupMessages([{ id: crypto.randomUUID(), role: "assistant", text: welcome }]);
+            setChats([{ id: chatId, title: "Nova conversa", entries: [] }]);
+            setActiveChatId(chatId);
+            setEntered(true);
+            return;
+          }
+        }
+        const welcome = await requestSetupMessage({ stage: "welcome" }, selectedIdentity);
+        setContext(undefined);
+        setSetupManagerName("");
+        setSetupStage("manager_name");
+        setSetupMessages([{ id: crypto.randomUUID(), role: "assistant", text: welcome }]);
         setEntered(true);
         return;
       }
@@ -497,13 +612,29 @@ export function App() {
       }
 
       const authorizedContext = (await bootstrapResponse.json()) as ContextResponse;
+      const managerName =
+        savedProfile?.managerName ?? authorizedContext.preferredName?.trim() ?? "";
+      if (managerName === "") {
+        const welcome = await requestSetupMessage({ stage: "welcome" }, selectedIdentity);
+        setContext(authorizedContext);
+        setSetupManagerName("");
+        setSetupStage("manager_name");
+        setSetupMessages([{ id: crypto.randomUUID(), role: "assistant", text: welcome }]);
+        setEntered(true);
+        return;
+      }
+      const welcome = await requestSetupMessage(
+        { stage: "returning", managerName },
+        selectedIdentity
+      );
       setContext(authorizedContext);
+      setSetupManagerName(managerName);
       setSetupStage("complete");
       setSetupMessages([
         {
-          id: "returning-welcome",
+          id: crypto.randomUUID(),
           role: "assistant",
-          text: "Oi! Estou por aqui para ajudar com o seu condomínio. O que você precisa resolver hoje?"
+          text: welcome
         }
       ]);
       setEntered(true);
@@ -513,7 +644,7 @@ export function App() {
         {
           cache: "no-store",
           credentials: "same-origin",
-          headers: requestHeaders(authMode)
+          headers: requestHeaders(authMode, selectedIdentity)
         }
       );
       if (historyResponse.ok) {
@@ -554,7 +685,7 @@ export function App() {
       const response = await fetch("/v1/chat/condominiums", {
         cache: "no-store",
         credentials: "same-origin",
-        headers: requestHeaders(authMode)
+        headers: requestHeaders(authMode, developmentIdentity)
       });
       if (!response.ok) {
         throw new Error(await readMessage(response, "Não foi possível carregar os condomínios."));
@@ -567,7 +698,11 @@ export function App() {
         body.condominiums.map(async (item) => {
           const documentResponse = await fetch(
             `/v1/condominiums/${encodeURIComponent(item.condominiumId)}/documents`,
-            { cache: "no-store", credentials: "same-origin", headers: requestHeaders(authMode) }
+            {
+              cache: "no-store",
+              credentials: "same-origin",
+              headers: requestHeaders(authMode, developmentIdentity)
+            }
           );
           if (!documentResponse.ok) {
             throw new Error(
@@ -603,7 +738,11 @@ export function App() {
     try {
       const contextResponse = await fetch(
         `/v1/condominiums/${encodeURIComponent(item.condominiumId)}/context`,
-        { cache: "no-store", credentials: "same-origin", headers: requestHeaders(authMode) }
+        {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: requestHeaders(authMode, developmentIdentity)
+        }
       );
       if (!contextResponse.ok) {
         throw new Error(await readMessage(contextResponse, "Acesso não autorizado."));
@@ -611,7 +750,11 @@ export function App() {
       const authorizedContext = (await contextResponse.json()) as ContextResponse;
       const historyResponse = await fetch(
         `/v1/condominiums/${encodeURIComponent(authorizedContext.condominiumId)}/history?limit=50`,
-        { cache: "no-store", credentials: "same-origin", headers: requestHeaders(authMode) }
+        {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: requestHeaders(authMode, developmentIdentity)
+        }
       );
       if (!historyResponse.ok) {
         throw new Error(
@@ -648,46 +791,78 @@ export function App() {
     setDocumentScreen("current");
   }
 
-  function startCondominiumConversation(): void {
+  async function requestSetupMessage(
+    input: Readonly<Record<string, string | number>>,
+    identity: DevelopmentIdentity | undefined = developmentIdentity
+  ): Promise<string> {
+    if (authMode === undefined) throw new Error("A conversa ainda não está disponível.");
+    if (offlineDemo && (input.stage === "welcome" || input.stage === "returning")) return "";
+    const setupInput =
+      setupManagerName.trim() === "" || input.managerName !== undefined
+        ? input
+        : { ...input, managerName: setupManagerName };
+    const response = await fetch("/v1/chat/setup-message", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json", ...requestHeaders(authMode, identity) },
+      body: JSON.stringify(setupInput)
+    });
+    if (!response.ok)
+      throw new Error(await readMessage(response, "A Alvitra está indisponível no momento."));
+    const body = (await response.json()) as Readonly<{ message: string }>;
+    return body.message;
+  }
+
+  async function requestSetupTurn(message: string): Promise<SetupTurnResponse> {
+    if (authMode === undefined || setupStage === "complete")
+      throw new Error("A conversa ainda não está disponível.");
+    const response = await fetch("/v1/chat/setup-turn", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "content-type": "application/json",
+        ...requestHeaders(authMode, developmentIdentity)
+      },
+      body: JSON.stringify({
+        stage: setupStage,
+        message,
+        history: setupMessages.slice(-12).map(({ role, text }) => ({ role, text })),
+        ...(setupManagerName === "" ? {} : { managerName: setupManagerName }),
+        ...(setupCondominiumName === "" ? {} : { condominiumName: setupCondominiumName }),
+        ...(setupCondominiumTotal < 1
+          ? {}
+          : { condominiumCount: setupCondominiumTotal, condominiumIndex: setupCondominiumIndex }),
+        hasExistingContext: context !== undefined
+      })
+    });
+    if (!response.ok)
+      throw new Error(await readMessage(response, "A Alvitra está indisponível no momento."));
+    return (await response.json()) as SetupTurnResponse;
+  }
+
+  async function startCondominiumConversation(): Promise<void> {
     setAccountMenuOpen(false);
+    setConversationError("");
+    const message = await requestSetupMessage({ stage: "create_another" }).catch(
+      (error: unknown) => {
+        setConversationError(
+          error instanceof Error ? error.message : "A Alvitra está indisponível no momento."
+        );
+        return undefined;
+      }
+    );
+    if (message === undefined) return;
     setSetupCondominiumTotal(1);
     setSetupCondominiumIndex(1);
     setSetupCondominiumName("");
     setSetupStage("condominium_name");
-    setSetupMessages((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        text: "Vamos adicionar outro condomínio. Qual é o nome dele?"
-      }
-    ]);
+    appendSetupMessage("assistant", message);
     setQuestion("");
     window.setTimeout(() => composerInput.current?.focus(), 0);
   }
 
   function appendSetupMessage(role: SetupMessage["role"], text: string): void {
     setSetupMessages((current) => [...current, { id: crypto.randomUUID(), role, text }]);
-  }
-
-  function finishCurrentCondominium(): void {
-    if (setupCondominiumIndex < setupCondominiumTotal) {
-      const nextIndex = setupCondominiumIndex + 1;
-      setSetupCondominiumIndex(nextIndex);
-      setSetupCondominiumName("");
-      setSetupStage("condominium_name");
-      appendSetupMessage(
-        "assistant",
-        `Tudo certo com esse. Agora vamos ao condomínio ${nextIndex} de ${setupCondominiumTotal}: qual é o nome dele?`
-      );
-      return;
-    }
-
-    setSetupStage("complete");
-    appendSetupMessage(
-      "assistant",
-      buildSetupCompletionMessage(setupCondominiumTotal, setupManagerName)
-    );
   }
 
   async function createCondominiumFromSetup(name: string, unitCount: number): Promise<void> {
@@ -704,18 +879,35 @@ export function App() {
       authMode === "development" ? "/v1/development/test-condominiums" : "/v1/condominiums";
     const payload =
       authMode === "development"
-        ? { condominiumId: developmentCondominiumId, name, unitCount }
+        ? {
+            condominiumId: developmentCondominiumId,
+            name,
+            unitCount,
+            contact: { managerName: setupManagerName }
+          }
         : { name, unitCount };
     const response = await fetch(endpoint, {
       method: "POST",
       credentials: "same-origin",
-      headers: { "content-type": "application/json", ...requestHeaders(authMode) },
+      headers: {
+        "content-type": "application/json",
+        ...requestHeaders(authMode, developmentIdentity)
+      },
       body: JSON.stringify(payload)
     });
     if (!response.ok) {
       throw new Error(await readMessage(response, "Não consegui salvar esse condomínio agora."));
     }
     const created = (await response.json()) as ContextResponse;
+    if (authMode === "development" && developmentIdentity !== undefined) {
+      rememberDevelopmentCondominium(
+        window.localStorage,
+        developmentIdentity,
+        setupManagerName,
+        { condominiumId: developmentCondominiumId, name, unitCount },
+        setupCondominiumIndex >= setupCondominiumTotal
+      );
+    }
     setContext(created);
     const chatId = crypto.randomUUID();
     setChats([{ id: chatId, title: "Nova conversa", entries: [] }]);
@@ -732,79 +924,59 @@ export function App() {
     appendSetupMessage("user", trimmedAnswer);
     setQuestion("");
     setConversationError("");
-
-    if (setupStage === "manager_name") {
-      if (trimmedAnswer.length < 2 || trimmedAnswer.length > 100) {
-        appendSetupMessage(
-          "assistant",
-          "Quero usar um nome com entre 2 e 100 caracteres. Como você prefere ser chamado(a)?"
-        );
+    setBusy(true);
+    try {
+      const turn = await requestSetupTurn(trimmedAnswer);
+      const update = turn.update;
+      if (update === null) {
+        appendSetupMessage("assistant", turn.message);
         return;
       }
-      setSetupManagerName(trimmedAnswer);
-      setSetupStage("condominium_count");
-      appendSetupMessage(
-        "assistant",
-        `Prazer, ${trimmedAnswer}. Quantos condomínios você administra hoje?`
+
+      if (update.field === "manager_name") {
+        setSetupManagerName(update.value);
+        if (authMode === "development" && developmentIdentity !== undefined) {
+          rememberDevelopmentManagerName(window.localStorage, developmentIdentity, update.value);
+        }
+        if (setupStage === "manager_name") {
+          setSetupStage(context === undefined ? "condominium_count" : "complete");
+        }
+        appendSetupMessage("assistant", turn.message);
+        return;
+      }
+
+      if (update.field === "condominium_count") {
+        setSetupCondominiumTotal(update.value);
+        if (setupStage === "condominium_count") {
+          setSetupCondominiumIndex(1);
+          setSetupStage("condominium_name");
+        }
+        appendSetupMessage("assistant", turn.message);
+        return;
+      }
+
+      if (update.field === "condominium_name") {
+        setSetupCondominiumName(update.value);
+        if (setupStage === "condominium_name") setSetupStage("unit_count");
+        appendSetupMessage("assistant", turn.message);
+        return;
+      }
+
+      await createCondominiumFromSetup(setupCondominiumName, update.value);
+      if (setupCondominiumIndex < setupCondominiumTotal) {
+        setSetupCondominiumIndex(setupCondominiumIndex + 1);
+        setSetupCondominiumName("");
+        setSetupStage("condominium_name");
+      } else {
+        setSetupStage("complete");
+      }
+      appendSetupMessage("assistant", turn.message);
+    } catch (error: unknown) {
+      setConversationError(
+        error instanceof Error ? error.message : "A Alvitra está indisponível no momento."
       );
-      return;
-    }
-
-    if (setupStage === "condominium_count") {
-      const total = /^\d+$/u.test(trimmedAnswer) ? Number(trimmedAnswer) : Number.NaN;
-      if (!Number.isInteger(total) || total < 1 || total > 100) {
-        appendSetupMessage(
-          "assistant",
-          "Me diga apenas um número entre 1 e 100. Quantos condomínios você administra?"
-        );
-        return;
-      }
-      setSetupCondominiumTotal(total);
-      setSetupCondominiumIndex(1);
-      setSetupStage("condominium_name");
-      appendSetupMessage("assistant", buildInitialCondominiumNamePrompt(total));
-      return;
-    }
-
-    if (setupStage === "condominium_name") {
-      if (trimmedAnswer.length < 2 || trimmedAnswer.length > 120) {
-        appendSetupMessage(
-          "assistant",
-          "Preciso de um nome entre 2 e 120 caracteres. Como se chama esse condomínio?"
-        );
-        return;
-      }
-      setSetupCondominiumName(trimmedAnswer);
-      setSetupStage("unit_count");
-      appendSetupMessage("assistant", `Quantos apartamentos ou unidades há no ${trimmedAnswer}?`);
-      return;
-    }
-
-    if (setupStage === "unit_count") {
-      const unitCount = /^\d+$/u.test(trimmedAnswer) ? Number(trimmedAnswer) : Number.NaN;
-      if (!Number.isInteger(unitCount) || unitCount < 1 || unitCount > 100_000) {
-        appendSetupMessage(
-          "assistant",
-          "Informe uma quantidade de apartamentos ou unidades entre 1 e 100.000."
-        );
-        return;
-      }
-      setBusy(true);
-      try {
-        await createCondominiumFromSetup(setupCondominiumName, unitCount);
-        finishCurrentCondominium();
-      } catch (error: unknown) {
-        setConversationError(
-          error instanceof Error ? error.message : "Não consegui salvar esse condomínio agora."
-        );
-        appendSetupMessage(
-          "assistant",
-          "Não consegui salvar esse condomínio. Confira sua conexão e envie novamente a quantidade de apartamentos."
-        );
-      } finally {
-        setBusy(false);
-      }
-      return;
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -854,7 +1026,9 @@ export function App() {
         documentType,
         mediaType,
         authMode,
-        developmentUserId
+        ...(developmentIdentity === undefined
+          ? {}
+          : { developmentUserId: developmentIdentity.userId })
       });
       if (!response.ok) {
         throw new Error(await readMessage(response, "Não foi possível receber o documento."));
@@ -926,7 +1100,7 @@ export function App() {
           credentials: "same-origin",
           headers: {
             "content-type": "application/json",
-            ...requestHeaders(authMode)
+            ...requestHeaders(authMode, developmentIdentity, setupManagerName)
           },
           signal: controller.signal,
           body: JSON.stringify({ question: trimmedQuestion })
@@ -1054,7 +1228,7 @@ export function App() {
           credentials: "same-origin",
           headers: {
             "content-type": "application/json",
-            ...requestHeaders(authMode)
+            ...requestHeaders(authMode, developmentIdentity)
           },
           body: JSON.stringify({ classification })
         }
@@ -1073,7 +1247,14 @@ export function App() {
   if (!entered) {
     return (
       <main className="login-page">
-        <section className="login-card" aria-labelledby="login-title">
+        <form
+          className="login-card"
+          aria-labelledby="login-title"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void enterConversation();
+          }}
+        >
           <div className="login-brand">
             <strong>Alvitra</strong>
           </div>
@@ -1082,16 +1263,37 @@ export function App() {
             <h1 id="login-title">Cuidar bem começa com uma boa conversa.</h1>
             <p>Entre para conversar com a Alvitra e organizar seus condomínios em um só lugar.</p>
           </div>
+          <div className="login-fields">
+            <label htmlFor="login-name">Nome de usuário</label>
+            <input
+              id="login-name"
+              name="username"
+              type="text"
+              autoComplete="username"
+              value={loginName}
+              onChange={(event) => setLoginName(event.target.value)}
+              minLength={2}
+              maxLength={60}
+              placeholder="Escolha um nome para acessar"
+              required
+              autoFocus
+            />
+            <p className="login-notice">
+              Este é um acesso provisório para testes, sem senha. Use o mesmo nome para retomar seu
+              cadastro em outra aba ou depois de reiniciar o app. Esse nome serve somente para o
+              acesso; no primeiro login, a Alvitra perguntará como você prefere ser chamado. Mais
+              adiante, a entrada será feita pelo WhatsApp.
+            </p>
+          </div>
           <button
             className="login-entry-button"
-            type="button"
-            onClick={() => void enterConversation()}
+            type="submit"
             disabled={authMode === undefined || runtimePending || entryPending}
           >
             {entryPending ? "Entrando..." : "Entrar"}
           </button>
           {conversationError === "" ? null : <p role="alert">{conversationError}</p>}
-        </section>
+        </form>
       </main>
     );
   }
@@ -1254,7 +1456,7 @@ export function App() {
                   <button
                     className="start-condominium-chat"
                     type="button"
-                    onClick={startCondominiumConversation}
+                    onClick={() => void startCondominiumConversation()}
                   >
                     + Adicionar condomínio pela conversa
                   </button>
@@ -1390,17 +1592,28 @@ export function App() {
 
       <section className="conversation" aria-label="Conversa com a Alvitra">
         <div className="messages" aria-live="polite">
-          {setupMessages.map((message) =>
-            message.role === "assistant" ? (
-              <article className="assistant-message setup-message" key={message.id}>
-                <p>{message.text}</p>
-              </article>
-            ) : (
-              <div className="user-message" key={message.id}>
-                <p>{message.text}</p>
-              </div>
-            )
-          )}
+          {offlineDemo ? (
+            <p className="operational-notice" role="status">
+              Modo local de teste, sem IA externa. A configuração conversacional de um novo perfil
+              está indisponível. Contextos já configurados podem consultar documentos autorizados;
+              as respostas locais são simulações, não validação de IA.
+            </p>
+          ) : null}
+          {setupMessages
+            .filter((message) => message.text.trim() !== "")
+            .map((message) =>
+              message.role === "assistant" ? (
+                <article className="assistant-message setup-message" key={message.id}>
+                  <p>
+                    <FormattedText text={message.text} />
+                  </p>
+                </article>
+              ) : (
+                <div className="user-message" key={message.id}>
+                  <p>{message.text}</p>
+                </div>
+              )
+            )}
 
           {setupStage === "complete"
             ? conversationHistory.map((entry) => (
@@ -1619,6 +1832,7 @@ export function App() {
               maxLength={4000}
               disabled={
                 authMode === undefined ||
+                (offlineDemo && setupStage !== "complete") ||
                 runtimePending ||
                 entryPending ||
                 (setupStage === "complete" && context === undefined)
@@ -1630,6 +1844,7 @@ export function App() {
               onClick={sendComposer}
               disabled={
                 authMode === undefined ||
+                (offlineDemo && setupStage !== "complete") ||
                 (setupStage === "complete" && context === undefined) ||
                 busy ||
                 chatDocumentUploading ||

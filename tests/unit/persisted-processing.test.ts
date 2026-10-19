@@ -9,7 +9,7 @@ import { createPostgresDocumentProcessingRepository } from "../../apps/api/docum
 import { createPostgresDocumentUploadRepository } from "../../apps/api/documents/postgres-document-upload-repository.js";
 import type { UploadedDocumentRecord } from "../../apps/api/documents/upload-document.js";
 import { createPostgresProcessingJobQueue } from "../../apps/api/worker/postgres-processing-job-queue.js";
-import { geminiImageEmbeddingProfile } from "../../apps/api/retrieval/gemini-multimodal-embedding.js";
+import { openAiImageEmbeddingProfile } from "../../apps/api/retrieval/openai-image-embedding.js";
 
 type QueryHandler = (sql: string, parameters: readonly unknown[]) => QueryResult<never>;
 
@@ -297,7 +297,7 @@ describe("adaptadores persistidos de documentos", () => {
     expect(fixture.queries.at(-1)).toBe("COMMIT");
   });
 
-  it("persiste o embedding Gemini separado do perfil local no mesmo chunk do condomínio", async () => {
+  it("persiste o embedding OpenAI da descrição separado do perfil local no mesmo chunk do condomínio", async () => {
     const embeddingProfiles: unknown[] = [];
     const fixture = createFakePool((sql, values) => {
       if (sql.includes("SELECT 1 AS active")) {
@@ -338,7 +338,7 @@ describe("adaptadores persistidos de documentos", () => {
           contentSha256: contentSha256ForChunk,
           multimodalEmbeddings: [
             {
-              ...geminiImageEmbeddingProfile,
+              ...openAiImageEmbeddingProfile,
               contentSha256: contentSha256ForChunk,
               values: Array(768).fill(0.125)
             }
@@ -370,7 +370,7 @@ describe("adaptadores persistidos de documentos", () => {
     });
 
     expect(embeddingProfiles).toHaveLength(2);
-    expect(embeddingProfiles).toContain(geminiImageEmbeddingProfile.embeddingProfile);
+    expect(embeddingProfiles).toContain(openAiImageEmbeddingProfile.embeddingProfile);
     expect(fixture.queries.some((sql) => sql.includes("INSERT INTO app.document_chunks"))).toBe(
       true
     );
