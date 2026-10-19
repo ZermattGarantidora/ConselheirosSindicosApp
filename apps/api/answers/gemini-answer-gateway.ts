@@ -184,13 +184,40 @@ function requestBody(input: AnswerGatewayInput): string {
     contents: [{ role: "user", parts: [{ text: buildAnswerPrompt(input) }] }],
     generationConfig: { maxOutputTokens: input.budget.maximumOutputTokens }
   };
-  if (input.evidence.length === 0) return JSON.stringify(request);
+  const schema =
+    input.task === "setup_turn"
+      ? {
+          type: "object",
+          additionalProperties: false,
+          required: ["intent", "field", "value", "reply"],
+          properties: {
+            intent: {
+              type: "string",
+              enum: ["answer", "correction", "question", "small_talk", "unclear"]
+            },
+            field: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: ["manager_name", "condominium_count", "condominium_name", "unit_count"]
+                },
+                { type: "null" }
+              ]
+            },
+            value: { anyOf: [{ type: "string" }, { type: "integer" }, { type: "null" }] },
+            reply: { type: "string" }
+          }
+        }
+      : input.evidence.length > 0
+        ? answerSchema()
+        : undefined;
+  if (schema === undefined) return JSON.stringify(request);
   return JSON.stringify({
     ...request,
     generationConfig: {
       ...request.generationConfig,
       responseMimeType: "application/json",
-      responseJsonSchema: answerSchema()
+      responseJsonSchema: schema
     }
   });
 }

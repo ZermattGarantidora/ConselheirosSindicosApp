@@ -124,6 +124,13 @@ alternativa temporária quando o provedor principal estiver indisponível. O apl
 autorização antes de enviar contexto e valida saída, citações e risco depois da geração. Falha dos
 provedores não pode produzir uma resposta fabricada como se fosse da Alvitra.
 
+Na interpretação `setup_turn`, a Gemini também recebe um JSON Schema de saída com exatamente
+`intent`, `field`, `value` e `reply`, todos obrigatórios, sem propriedades adicionais. O formato
+é pedido no transporte mesmo sem evidência documental; o validador local continua recusando
+campos extras, tipos e transições inválidos. Não descartar silenciosamente um campo extra para
+avançar o cadastro nem alterar o prompt aprovado. Isso detalha briefing §§6 e 10: conversa
+natural sem transformar saída arbitrária do provedor em dado cadastral.
+
 ### RQ-2606 — Fotos durante a migração de provedor
 
 Uma foto autorizada pode ser interpretada pelo adaptador OpenAI preferencial ou pelo adaptador

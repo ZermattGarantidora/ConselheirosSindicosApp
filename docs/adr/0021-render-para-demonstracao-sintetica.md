@@ -3,6 +3,10 @@
 **Status:** aceito para demonstração sintética
 **Data:** 2026-10-15
 
+> Em 2026-10-19, a proibição de provedor de conversa neste serviço foi revisada pela decisão
+> explícita do usuário registrada no ADR 0025. Permanecem modo demonstração, ausência de
+> banco persistente, somente dados fictícios e segredos fora do repositório.
+
 ## Contexto
 
 É necessário testar a experiência web da Alvitra fora da máquina de desenvolvimento. O ambiente não

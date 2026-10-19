@@ -663,3 +663,17 @@ e segredos passaram. Também passaram 66 E2E, 7 integrações Neon sintéticas s
 de IA; os 50 casos semânticos e a revisão especializada permanecem pendentes.
 Registro dos defeitos, correções e limites em `docs/reviews/2026-10-19-revisao-pr-14.md`.
 Autorrevisão não é aprovação independente nem autorização de merge.
+
+## Publicação e contrato de cadastro Gemini — 2026-10-19
+
+| Requisito | Aceitação | Evidência |
+| --- | --- | --- |
+| RQ-2501 e RQ-2503 — demonstração atualizada e sem banco | AC-2501 e AC-2503 | Serviço e Blueprint Render passam a acompanhar `main`; commit `725d911` publicado, cliente `index-RcE-rAYV.js`, runtime de desenvolvimento; ADR 0025 registra autorização da chave somente no serviço |
+| RQ-2504 — conversa externa autorizada para teste fictício | AC-2504 | Chave transferida por autorização explícita, segredo fora do repositório, `GEMINI_MAX_ATTEMPTS=1`; observações e limitações em `docs/reviews/2026-10-19-render-gemini-testes.md`; conferência final deve ser registrada no PR |
+| RQ-2601, RQ-2605 e RQ-2703 — formato da interpretação não depende só do prompt | AC-2601 e AC-2703 | `gemini-answer-gateway.ts`; `tests/unit/gemini-setup-contract.test.ts` verifica schema e rejeição de campo extra; testes de conversa geral e documental preservados; teste real local confirmou nome e pergunta seguinte após a correção |
+
+O ensaio publicado encontrou uma falha real de contrato e não foi contado como jornada aprovada.
+Os seis testes novos incluem cinco falhas reproduzidas antes da correção e um controle de
+rejeição local mantido. Nenhuma asserção foi relaxada. O prompt e o modelo não foram alterados.
+Somente mensagens e identidades fictícias foram utilizadas. Não se aprovou avaliação semântica,
+dados reais, piloto ou teto monetário global; consumo real e testes simulados são distintos.

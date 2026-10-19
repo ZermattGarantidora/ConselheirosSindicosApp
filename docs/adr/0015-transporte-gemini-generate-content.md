@@ -20,6 +20,14 @@ Substituir somente o detalhe de transporte da ADR 0010 pelo endpoint REST `model
 - a chave permanece apenas no backend;
 - a saída continua sujeita aos validadores locais de contrato, citações, risco e isolamento.
 
+Complemento em 2026-10-19: a interpretação `setup_turn` das Specs 026–027 solicita seu próprio
+JSON Schema (`intent`, `field`, `value`, `reply`, sem campos adicionais), mesmo com evidência
+vazia. A validação local estrita e o formato textual das demais conversas são preservados.
+O teste real reproduziu a inclusão indevida de `risk_class` sem schema, recusada pelo servidor.
+Não é mudança de modelo, personalidade ou autorização de dados reais.
+
+Referência: [saída estruturada da Gemini](https://ai.google.dev/gemini-api/docs/generate-content/structured-output?hl=en).
+
 O transporte usa até três tentativas totais para falhas transitórias de rede, timeout,
 resposta vazia ou inválida, HTTP 408, 429 e 5xx. As tentativas compartilham um único
 orçamento de tempo e usam espera exponencial curta, limitada pelo cabeçalho
