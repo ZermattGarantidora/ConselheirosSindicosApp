@@ -2,7 +2,7 @@
 
 **Status:** implementação sintética em validação; dados reais bloqueados
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-10-15
+**Atualizado em:** 2026-10-19
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -132,6 +132,11 @@ verificáveis no original. Cada índice usa o perfil vetorial compatível com o 
 comparar silenciosamente vetores OpenAI e Gemini. Busca, processamento na API e no worker,
 autorização, retenção e citações seguem escopados ao condomínio. Fotos antigas não podem ser
 declaradas migradas sem recomputar seus vetores.
+
+O teste de disponibilidade e a consulta vetorial de fotos usam o perfil do adaptador ativo,
+não uma constante de provedor. O vetor devolvido deve corresponder a todos os identificadores
+desse perfil e ter dimensões/valores válidos; mesma dimensão não torna perfis compatíveis.
+Sem fotos elegíveis no perfil ativo, não há chamada externa de embedding de imagem.
 
 ## 8. Contratos
 

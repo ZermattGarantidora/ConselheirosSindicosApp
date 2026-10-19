@@ -646,3 +646,20 @@ A revisão local das correções não é aprovação independente do branch nem 
 Limites: defesa lexical não universal; OCR de uploads permanece indisponível; novo cadastro
 offline continua pendente; 50 casos semânticos e revisão especializada continuam sem aprovação.
 Detalhes em `docs/reviews/2026-10-19-correcoes-seguranca-local.md`.
+
+## Correções após revisão do PR 14 — 2026-10-19
+
+| Requisito | Aceitação | Implementação e regressão |
+| --- | --- | --- |
+| RQ-2606 — fotos usam exclusivamente o perfil ativo | AC-2609 | `postgres-scoped-retrieval.ts`; `tests/unit/postgres-scoped-retrieval.test.ts`, `tests/unit/retrieval-profile-isolation.test.ts`; `tests/integration/rls-tenant-isolation.test.ts` com OpenAI/Gemini e dois condomínios sintéticos |
+| RQ-2802 — sinais negativos tipográficos não viram positivos | AC-2806 | `extract-structured-document.ts`; `tests/unit/structured-document-extraction.test.ts`, cobrindo PDF/OCR e hífen interno legítimo |
+| RQ-3501 e RQ-3503 — títulos também são dados não confiáveis | AC-3501 e AC-3503 | `document-instruction-policy.ts`; `tests/unit/document-instruction-security.test.ts`, `tests/e2e/protected-document-output.e2e.test.ts`, incluindo erros, fallback e persistência |
+| RQ-3504 e RQ-3204 — relatório não contorna a barreira documental | AC-3506 | `document-analysis.ts`; `tests/e2e/document-analysis-security.e2e.test.ts`, com páginas fora da seleção do retriever, título e controle de obrigação humana legítima |
+
+Verificação final desta rodada: 718 testes em 109 arquivos; cobertura de statements 89,26%,
+branches 83,02%, functions 95,80% e lines 91,52%. Gates de formatação, lint, tipagem, 36 specs
+e segredos passaram. Também passaram 66 E2E, 7 integrações Neon sintéticas sem migração,
+20 evals locais, 50 casos documentais determinísticos e build web. Não houve chamada paga
+de IA; os 50 casos semânticos e a revisão especializada permanecem pendentes.
+Registro dos defeitos, correções e limites em `docs/reviews/2026-10-19-revisao-pr-14.md`.
+Autorrevisão não é aprovação independente nem autorização de merge.

@@ -9,6 +9,7 @@ import {
 } from "./financial-analysis.js";
 import { assertAnalysisLimits, type AnalysisDocument } from "./document-analysis-reader.js";
 import { validateDocumentAnalysisSources } from "./document-analysis-validation.js";
+import { containsHostileInstruction } from "../security/document-instructions/document-instruction-policy.js";
 import {
   analyzeNormativeDocuments,
   normativeFactsFromPages
@@ -85,6 +86,15 @@ export function analyzeDocumentRequest(
     throw new Error("Fonte de outro condomínio na análise documental.");
   }
   assertAnalysisLimits(documents);
+  if (
+    documents.some(
+      (document) =>
+        containsHostileInstruction(document.documentTitle) ||
+        document.pages.some((page) => containsHostileInstruction(page.extractedText))
+    )
+  ) {
+    throw new Error("Não foi possível concluir a conferência com segurança documental.");
+  }
   const rows: DocumentAnalysisRow[] = [];
   const limitations: string[] = [];
   const extractions = documents.map((document) => ({

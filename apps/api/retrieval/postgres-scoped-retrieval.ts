@@ -3,9 +3,10 @@ import type { Pool, PoolClient } from "pg";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 import { createLocalSyntheticEmbeddingAdapter } from "./local-embedding.js";
 import { formatPgVector } from "./local-embedding.js";
-import { openAiImageEmbeddingProfile } from "./openai-image-embedding.js";
 import {
   type EmbeddingAdapter,
+  type EmbeddingProfile,
+  type GeneratedEmbedding,
   type RetrievableChunk,
   type ScopedRetrievalIndex
 } from "./retrieval-contract.js";
@@ -77,6 +78,25 @@ function normalizeSemanticScore(value: RetrievalRow["semantic_score"]): number |
   return Math.min(1, Math.max(0, score));
 }
 
+function assertQueryEmbedding(embedding: GeneratedEmbedding, profile: EmbeddingProfile): void {
+  const fields = [
+    "embeddingProfile",
+    "providerKey",
+    "modelKey",
+    "modelVersion",
+    "pipelineVersion",
+    "dimensions"
+  ] as const;
+  if (
+    fields.some((field) => embedding[field] !== profile[field]) ||
+    !Array.isArray(embedding.values) ||
+    embedding.values.length !== profile.dimensions ||
+    embedding.values.some((value) => !Number.isFinite(value))
+  ) {
+    throw new Error("O embedding da consulta não corresponde ao perfil configurado.");
+  }
+}
+
 function mapRow(row: RetrievalRow): RetrievableChunk {
   return Object.freeze({
     id: row.chunk_id,
@@ -122,12 +142,7 @@ export function createPostgresScopedRetrievalIndex(
         content: input.query,
         contentSha256: "0".repeat(64)
       });
-      if (
-        queryEmbedding.dimensions !== embeddingAdapter.profile.dimensions ||
-        queryEmbedding.values.length !== embeddingAdapter.profile.dimensions
-      ) {
-        throw new Error("O embedding da consulta não corresponde ao perfil configurado.");
-      }
+      assertQueryEmbedding(queryEmbedding, embeddingAdapter.profile);
 
       const client = await pool.connect();
       let hasEligibleImages = false;
@@ -163,7 +178,7 @@ export function createPostgresScopedRetrievalIndex(
                 AND (dvs.valid_until IS NULL OR dvs.valid_until > $1::timestamptz)
             ) AS available
           `,
-          [input.asOf.toISOString(), openAiImageEmbeddingProfile.embeddingProfile]
+          [input.asOf.toISOString(), imageEmbeddingAdapter?.profile.embeddingProfile ?? null]
         );
         hasEligibleImages = imageAvailability.rows[0]?.available === true;
         const result = await client.query<RetrievalRow>(
@@ -354,14 +369,7 @@ export function createPostgresScopedRetrievalIndex(
         content: input.query,
         contentSha256: "0".repeat(64)
       });
-      if (
-        imageQueryEmbedding.dimensions !== imageEmbeddingAdapter.profile.dimensions ||
-        imageQueryEmbedding.values.length !== imageEmbeddingAdapter.profile.dimensions ||
-        imageQueryEmbedding.values.some((value) => !Number.isFinite(value))
-      )
-        throw new Error(
-          "O embedding multimodal da consulta não corresponde ao perfil configurado."
-        );
+      assertQueryEmbedding(imageQueryEmbedding, imageEmbeddingAdapter.profile);
 
       const imageClient = await pool.connect();
       try {
@@ -425,7 +433,7 @@ export function createPostgresScopedRetrievalIndex(
             LIMIT $5
           `,
           [
-            openAiImageEmbeddingProfile.embeddingProfile,
+            imageEmbeddingAdapter.profile.embeddingProfile,
             formatPgVector(imageQueryEmbedding.values),
             input.asOf.toISOString(),
             input.minimumQualityScore,

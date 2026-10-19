@@ -1,7 +1,7 @@
 # Critérios de aceitação — Spec 028
 
 **Status:** aprovada para implementação local  
-**Atualizado em:** 2026-10-16
+**Atualizado em:** 2026-10-19
 
 ## AC-2801 — Procedência de rubrica (P0)
 
@@ -24,6 +24,8 @@
 **Quando** o extrator a avalia  
 **Então** não produz período ou tipo em estado `known` nem transforma o número em valor positivo  
 **E** registra a incerteza ou o aviso verificável.
+
+Regressões obrigatórias: sinais ASCII e tipográficos (`−`, `‒`, `–`, `—`, `―`, `﹣`, `－`) antes de `R$` e entre a moeda e o número, incluindo páginas oriundas de OCR. Um controle positivo com hífen interno na rubrica continua extraindo o valor e preservando a fonte original.
 
 ## AC-2803 — Período não é vigência (P0)
 

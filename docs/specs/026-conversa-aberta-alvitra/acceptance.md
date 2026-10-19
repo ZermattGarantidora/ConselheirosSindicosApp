@@ -83,3 +83,8 @@
 **Dado** vetores gerados por provedores diferentes  
 **Quando** uma busca é executada  
 **Então** eles não são comparados silenciosamente como se fossem do mesmo perfil.
+
+Regressão obrigatória: executar com perfis OpenAI e Gemini separadamente e com índice misto;
+as duas consultas SQL filtram pelo perfil ativo. Índice apenas de outro perfil não dispara
+embedding de foto. Retorno com perfil divergente, mesmo com 768 dimensões, é recusado antes
+da consulta vetorial. Nenhum teste chama provedor real.

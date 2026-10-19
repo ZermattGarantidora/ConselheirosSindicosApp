@@ -56,6 +56,11 @@ Impedir que instruções encontradas em documentos recuperados controlem geraç�
 
 Trecho com pedido de revelar segredo, apagar histórico de respostas ou ignorar regras/permissões não é enviado ao gateway como evidência. Pedidos de contato/ação dirigidos à Alvitra, ao assistente ou ao modelo também são bloqueados. O modo imperativo e a menção a fornecedor, isoladamente, não demonstram ataque: obrigações documentais destinadas às pessoas permanecem evidência, nunca autorização para execução. A triagem por padrões é defesa limitada, não classificador universal; a geração continua sem ferramentas de ação e sujeita aos controles de evidência.
 
+O título documental também é dado não confiável enviado ao gateway e incluído em citações.
+Título com padrão hostil invalida a evidência inteira: não se reaproveita a página com o
+mesmo título nem se fabrica um título sanitizado. Os literais protegidos são coletados tanto
+do conteúdo quanto do título bloqueado, sem persistir seus valores.
+
 ### RQ-3502 — Falha segura
 
 Sem evidência segura restante, o servidor responde por abstenção e não invoca o gateway.
@@ -65,6 +70,16 @@ Sem evidência segura restante, o servidor responde por abstenção e não invoc
 Saída que reproduz literal sensível extraído de instrução hostil é reprovada antes de retornar ao usuário.
 
 Os literais explicitamente marcados por `segredo:`, `senha:`, `token:` ou `chave:` (ou `=`) permanecem somente na memória do pedido, separados da evidência segura. A checagem final cobre toda a resposta pública e claims, inclusive orientação geral, erros e fallback. A comparação normaliza caixa, Unicode e espaços; não registra o literal em logs/telemetria. Reprovação produz falha segura genérica, sem nova chamada de modelo. A defesa é lexical e não promete detectar toda paráfrase, codificação ou forma de exfiltração.
+
+### RQ-3504 — Relatório calculado não contorna a barreira
+
+O relatório da Spec 032 é uma saída pública e recebe a mesma detecção de instruções hostis
+antes da extração de achados, inclusive páginas não selecionadas pela recuperação textual.
+Se uma página ou título contém padrão hostil, o relatório inteiro fica indisponível com
+limitação genérica, sem copiar comandos, literais ou detalhes do erro. Não se publica uma
+visão parcial como se fosse completa. Obrigações legítimas destinadas às pessoas continuam
+permitidas. A defesa permanece lexical e limitada, sem alterar prompt, provedor ou fonte.
+Esta extensão aplica os mesmos §§8–10 do briefing ao campo `documentAnalysis`.
 
 ## 5. Critérios de sucesso
 

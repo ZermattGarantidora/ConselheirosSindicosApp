@@ -163,6 +163,53 @@ describe("extração documental estruturada", () => {
     }
   );
 
+  it.each(
+    ["−", "‒", "–", "—", "―", "﹣", "－"].flatMap((sign) => [`${sign} R$ 10,00`, `R$ ${sign}10,00`])
+  )("não converte sinal tipográfico em valor positivo: %s", (amount) => {
+    for (const extractionMethod of ["pdf_text", "ocr"] as const) {
+      const extraction = extractStructuredDocument({
+        condominiumId,
+        documentId: "document-1",
+        documentVersionId: "version-1",
+        pages: [
+          {
+            pageNumber: 1,
+            extractionMethod,
+            qualityScore: 1,
+            extractedText: `Balancete 01/2026\nDespesa ${amount}`
+          }
+        ]
+      });
+      expect(extraction.financialEntries).toEqual([]);
+      expect(extraction.warnings).not.toEqual([]);
+    }
+  });
+
+  it("preserva hífen interno da rubrica sem confundi-lo com sinal monetário", () => {
+    const excerpt = "Manutenção - elevador R$ 10,00";
+    const extraction = extractStructuredDocument({
+      condominiumId,
+      documentId: "document-1",
+      documentVersionId: "version-1",
+      pages: [
+        {
+          pageNumber: 1,
+          extractionMethod: "pdf_text",
+          qualityScore: 1,
+          extractedText: `Balancete 01/2026\n${excerpt}`
+        }
+      ]
+    });
+    expect(extraction.financialEntries).toHaveLength(1);
+    expect(extraction.financialEntries[0]).toMatchObject({
+      originalLabel: "Manutenção - elevador",
+      originalAmount: "R$ 10,00",
+      amountMinor: "1000",
+      source: { excerpt, uncertainty: [] }
+    });
+    expect(extraction.warnings).toEqual([]);
+  });
+
   it.each([
     ["CONVENÇÃO DO CONDOMÍNIO", "convention"],
     ["REGIMENTO INTERNO", "internal_rules"],

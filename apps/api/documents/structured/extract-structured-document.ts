@@ -192,7 +192,7 @@ function findFinancialPeriod(
 }
 
 function parseBrazilianAmount(input: string): string | null {
-  if (/[-()]/u.test(input)) return null;
+  if (/[-−‒–—―﹣－()]/u.test(input)) return null;
   const normalized = input.replace(/\s/g, "").replace(/^R\$/iu, "");
   if (!/^\d{1,3}(?:\.\d{3})*,\d{2}$|^\d+,\d{2}$/.test(normalized)) return null;
   const [whole, cents] = normalized.replaceAll(".", "").split(",");
@@ -327,7 +327,7 @@ function extractFinancialEntries(
   const tables: StructuredTable[] = [];
   const warnings: string[] = [];
   const moneyPattern =
-    /(?:-\s*)?R\$\s*(?:-\s*)?(?:\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})(?![\d,])/giu;
+    /(?:[-−‒–—―﹣－]\s*)?R\$\s*(?:[-−‒–—―﹣－]\s*)?(?:\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2})(?![\d,])/giu;
   for (const page of input.pages) {
     let offset = 0;
     for (const line of page.extractedText.split("\n")) {

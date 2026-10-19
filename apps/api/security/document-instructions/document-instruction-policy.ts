@@ -15,7 +15,7 @@ const hostileInstructions = [
   /\b(?:envie|contate|chame|execute|apague|exclua|delete)\b[\s\S]{0,100}\b(?:alvitra|assistente|modelo|chatgpt|assistant|system)\b/u
 ];
 
-function containsHostileInstruction(content: string): boolean {
+export function containsHostileInstruction(content: string): boolean {
   const normalized = content
     .normalize("NFD")
     .replaceAll(/[\u0300-\u036f]/gu, "")
@@ -60,19 +60,28 @@ function declarativeFragments(item: RetrievalEvidence): readonly RetrievalEviden
 export function screenDocumentInstructions(
   evidence: readonly RetrievalEvidence[]
 ): DocumentInstructionScreening {
-  const blocked = evidence.filter((item) => containsHostileInstruction(item.content));
+  const blocked = evidence.filter(
+    (item) =>
+      containsHostileInstruction(item.content) || containsHostileInstruction(item.documentTitle)
+  );
   const safeEvidence = evidence.flatMap((item) =>
-    blocked.includes(item) ? declarativeFragments(item) : [item]
+    containsHostileInstruction(item.documentTitle)
+      ? []
+      : blocked.includes(item)
+        ? declarativeFragments(item)
+        : [item]
   );
-  const protectedLiterals = blocked.flatMap((item) =>
-    [
-      ...item.content.matchAll(
-        /\b(?:segredo|senha|token|chave)\s*[:=]\s*(?:"([^"\r\n]{1,256})"|'([^'\r\n]{1,256})'|([\p{L}\p{N}_-]{1,256}))/giu
-      )
-    ]
-      .map((match) => match[1] ?? match[2] ?? match[3] ?? "")
-      .filter((literal) => literal.length > 0)
-  );
+  const protectedLiterals = blocked
+    .flatMap((item) => [item.content, item.documentTitle])
+    .flatMap((content) =>
+      [
+        ...content.matchAll(
+          /\b(?:segredo|senha|token|chave)\s*[:=]\s*(?:"([^"\r\n]{1,256})"|'([^'\r\n]{1,256})'|([\p{L}\p{N}_-]{1,256}))/giu
+        )
+      ]
+        .map((match) => match[1] ?? match[2] ?? match[3] ?? "")
+        .filter((literal) => literal.length > 0)
+    );
   return Object.freeze({
     safeEvidence: Object.freeze(safeEvidence),
     blockedEvidenceIds: Object.freeze(blocked.map((item) => item.id)),

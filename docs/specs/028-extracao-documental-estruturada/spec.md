@@ -2,7 +2,7 @@
 
 **Status:** aprovada para implementação local
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-10-16
+**Atualizado em:** 2026-10-19
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -79,6 +79,8 @@ Todo campo estruturado contém `condominiumId`, `documentId`, `documentVersionId
 ### RQ-2802 — Valor financeiro exato
 
 Um valor só é extraído quando uma linha contém exatamente uma rubrica não vazia e um único valor monetário positivo em BRL inequívoco. Valor negativo, parênteses contábeis, token incompleto ou coluna ambígua ficam em revisão. O valor é representado como `amountMinor` decimal inteiro em texto, nunca ponto flutuante.
+
+Sinais negativos tipográficos (menos Unicode, hífen de largura cheia e traços) imediatamente antes de `R$` ou entre a moeda e o número também impedem a publicação do valor. O sinal não pode ser descartado como parte da rubrica para converter um negativo em positivo; um hífen interno na descrição da rubrica não é, por si só, um sinal monetário.
 
 ### RQ-2803 — Período e tipo conservadores
 

@@ -89,6 +89,9 @@ Isso comprova a localização do trecho, não sua sustentação semântica nem a
 O cálculo e a conferência funcionam mesmo se a geração da conversa falhar, sem nova chamada
 de IA ou envio externo de documentos. A fala contextual permanece separada do relatório.
 
+O relatório também aplica RQ-3504 antes de extrair campos: uma fonte com instrução hostil
+invalida a conferência integralmente, sem ecoar o conteúdo na degradação segura.
+
 O alinhamento adicional aplica briefing §§8–10 e §12 e o gate competitivo: mantém o chat e
 o Bloco 7 autorizado, reforça provas e abstenção além de um chat genérico, mede localização
 literal e resultados sem rede e usa apenas um validador local reversível, sem serviço novo.
