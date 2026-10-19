@@ -69,6 +69,9 @@ describe("gateway Gemini preservado durante a migração", () => {
     expect(fetch.mock.calls[0]?.[1]?.headers).toMatchObject({
       "x-goog-api-key": "synthetic-key"
     });
+    const request = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body));
+    expect(request.generationConfig).not.toHaveProperty("responseJsonSchema");
+    expect(request.generationConfig).not.toHaveProperty("responseMimeType");
   });
 
   it("só ativa o gateway quando existe chave e permite desligamento explícito", () => {

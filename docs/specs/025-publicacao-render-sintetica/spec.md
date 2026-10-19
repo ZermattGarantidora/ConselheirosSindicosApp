@@ -1,8 +1,8 @@
 # Spec 025 — Demonstração online sintética no Render
 
-**Status:** implementada e aguardando publicação
+**Status:** demonstração publicada; conversa externa autorizada para teste sintético
 **Responsável:** engenharia
-**Atualizado em:** 2026-10-15
+**Atualizado em:** 2026-10-19
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -12,12 +12,12 @@
 | --- | --- | --- |
 | Experiência principal | §§1 e 6 | Permite validar a conversa por uma URL, sem mudar a experiência. |
 | Estratégia técnica | §12 | Mantém TypeScript, Fastify e React/Vite em uma implantação reversível. |
-| Segurança e confiança | §§8–10 | Restringe a demonstração a dados sintéticos e não expõe segredos ou banco. |
+| Segurança e confiança | §§8–10 | Restringe a demonstração a dados sintéticos e mantém credenciais somente no servidor, sem banco persistente. |
 | Validação | §13 | Permite observar tempo até a primeira conversa útil fora do ambiente local. |
 
 ### Limites respeitados
 
-- Não recebe dados reais, documentos de clientes, credenciais de provedor ou banco persistente.
+- Não recebe dados reais, documentos de clientes ou banco persistente. A chave de conversa autorizada fica somente no segredo do serviço, nunca no navegador ou no GitHub.
 - Não inicia piloto, convite, autenticação definitiva, WhatsApp, ação externa ou funcionalidade de
   blocos futuros.
 - Não substitui os gates da Spec 011 para piloto real.
@@ -25,6 +25,14 @@
 ### Divergências da visão
 
 Nenhuma.
+
+Em 2026-10-19 o usuário autorizou explicitamente a transferência da chave Gemini local para o
+serviço Render existente e sua ativação para testes, após aviso de endereço público, consumo de
+cota/saldo e ausência de teto financeiro global. O ajuste aplica briefing §§1, 6, 10 e 12 e
+Specs 026–027; não libera piloto, dados reais, OCR externo ou fotos. O gate competitivo preserva
+a conversa como interface e valida a jornada já autorizada com a menor mudança operacional,
+sem novo provedor ou módulo. Conferência manual com identidade fictícia mede a jornada inicial;
+não substitui avaliação semântica ou aprovação profissional. Ver ADR 0025.
 
 ### Checklist de alinhamento
 
@@ -48,18 +56,22 @@ Disponibilizar uma URL HTTPS para testar remotamente a conversa sintética da Al
 
 - Web Service gratuito no Render configurado por `render.yaml`.
 - API e build web entregues pela mesma origem, com endpoint de saúde.
-- Demonstração explicitamente sem banco, IA externa ou persistência.
+- Demonstração sem banco ou persistência no servidor; Gemini opcional, somente com autorização operacional registrada e segredo no Render.
 
 ## 4. Fora do escopo
 
 - Piloto, banco remoto, uploads ou documentos reais.
-- Dados pessoais, contas reais, e-mail, OAuth, WhatsApp ou serviços pagos.
+- Dados pessoais, contas reais, e-mail, OAuth, WhatsApp, contratação ou mudança de plano.
+- Habilitação de OCR, análise de fotos, OpenAI ou chamadas com documentos reais.
 
 ## 5. Requisitos
 
 ### RQ-2501 — URL demonstrativa segura
 
-O ambiente inicia somente em modo demonstração e não contém configuração de segredo ou banco.
+O ambiente mantém `DEMO_MODE=true`, sem `DATABASE_URL`. Sem autorização explícita, não recebe
+chave de IA. Na exceção de teste autorizada pelo ADR 0025, somente a chave Gemini fica no
+segredo do serviço; não é incluída no build, em logs ou no repositório. A entrada provisória
+continua restrita a testes fictícios e não equivale a autenticação real.
 
 ### RQ-2502 — Mesma origem
 
@@ -69,11 +81,25 @@ O build React é servido pela API para que chamadas relativas e cookies continue
 
 A configuração registra build com lockfile, comando de início e `/health` para verificar disponibilidade.
 
+O serviço deve apontar para `main` e o commit publicado precisa ser conferido no Render.
+Configurações de origem do Blueprint também devem ser verificadas antes de sincronizações
+futuras para não voltar a publicar um branch antigo. Alteração operacional não faz merge.
+
+### RQ-2504 — Conversa sintética autorizada
+
+Com chave autorizada e `GEMINI_ENABLED=true`, o runtime deve informar `aiProvider: gemini` e
+a jornada das Specs 026–027 deve perguntar o nome de tratamento e os condomínios após a entrada
+com usuário fictício. Sem chave ou com indisponibilidade, a interface informa o limite, sem
+fingir fala gerada. Não contratar plano ou ativar faturamento; chamadas podem consumir a
+cota/saldo já existente. Limites de requisição e retry não são teto financeiro global.
+
 ## 6. Critérios de sucesso
 
 - a URL abre a página de entrada e a interface de chat; sem chave, a Alvitra comunica
   indisponibilidade em vez de gerar fala simulada;
 - `/health` responde `200`;
-- não há `DATABASE_URL` ou chave de IA configurada;
-- reinício não preserva contexto ou arquivo enviado;
+- não há `DATABASE_URL`; uma chave Gemini só pode existir no serviço sob a autorização registrada;
+- reinício apaga o estado em memória do servidor e os arquivos enviados; a retomada do perfil mínimo fictício segue a Spec 027;
 - a publicação não afirma prontidão para piloto real.
+- com Gemini autorizada, uma identidade nova percorre nome de tratamento, quantidade de condomínios, nome e unidades; a retomada não repete o cadastro;
+- modelo e chamada real de teste são informados separadamente dos testes simulados e dos casos semânticos pendentes.

@@ -15,6 +15,12 @@
 **E** o cliente não classifica a mensagem por uma lista de frases ou palavras-chave  
 **E** o cadastro só avança quando a interpretação produz um valor estruturado válido para a etapa atual.
 
+Regressão obrigatória da Gemini: o pedido `setup_turn`, sem documentos, inclui o schema com
+os quatro campos obrigatórios e `additionalProperties: false`, aceitando nome, quantidade e
+ausência de atualização (`null`). Resposta com campo extra como `risk_class` continua recusada
+localmente; a correção solicita o formato correto, não enfraquece a validação. Conversa geral
+sem documentos continua em texto e o schema documental permanece separado.
+
 ## AC-2602 — Pergunta geral
 
 **Dado** uma pergunta sobre rotina de sindicatura sem documento local  
