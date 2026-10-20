@@ -10,7 +10,7 @@ describe("envio documental pelo chat", () => {
     expect(app).toContain("function selectChatDocument(file: File): void");
     expect(app).toContain("setPendingChatDocument(file);");
     expect(app).toContain("function sendComposer(): void");
-    expect(app).toContain("void addChatDocument(pendingChatDocument);");
+    expect(app).toContain("void addChatDocument(pendingChatDocument).finally(finish);");
     expect(app).toContain("onClick={sendComposer}");
     expect(app).toContain("Enviar documento selecionado");
     expect(app).toContain("Adicionar documento ou foto");
@@ -20,9 +20,12 @@ describe("envio documental pelo chat", () => {
     expect(app).toContain("setSentChatDocumentName(file.name);");
     expect(app).toContain('attachmentPickerKind === "document"');
     expect(app).toContain("image/jpeg,.jpg,.jpeg,image/png,.png");
-    expect(app).toContain("O processamento e a vetorização continuam em segundo plano.");
-    expect(app).toContain("Ela é a principal referência interna deste condomínio");
+    expect(app).toContain("Documento recebido. Lendo e preparando para consulta...");
+    expect(app).toContain("sendDocumentMessage({");
+    expect(app).toContain("ask: (text) => askQuestion(text)");
     expect(app).toContain("o PDF original completo e legível");
     expect(app).toContain("requestDocumentUploadWithAuthorizationRecovery");
+    expect(app).toContain("setSubmittedQuestion(message);");
+    expect(app).toContain("composerSending.current");
   });
 });
