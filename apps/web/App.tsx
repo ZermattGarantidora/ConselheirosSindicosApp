@@ -11,6 +11,12 @@ import {
 } from "./conversation-title.js";
 import { requestDocumentUploadWithAuthorizationRecovery } from "./document-upload-request.js";
 import {
+  documentProcessingLabel,
+  sendDocumentMessage,
+  waitForDocumentProcessing
+} from "./document-processing-request.js";
+import { DocumentViewer, type DocumentToView } from "./DocumentViewer.js";
+import {
   createDevelopmentIdentity,
   loadDevelopmentIdentity,
   loadDevelopmentSetupProfile,
@@ -86,6 +92,7 @@ type DocumentListItem = Readonly<{
   condominiumId: string;
   condominiumName: string;
   documentId: string;
+  documentVersionId: string;
   title: string;
   documentType: "convention" | "internal_rules" | "meeting_minutes" | "contract" | "other";
   processingStatus: string;
@@ -113,8 +120,6 @@ type SetupTurnResponse = Readonly<{
 }>;
 
 type FeedbackClassification = "correct" | "incorrect" | "incomplete" | "outdated";
-type DocumentMemoryStatus = "ready" | "pending_confirmation" | "needs_review" | "failed";
-
 const documentTypeLabels = Object.freeze({
   convention: "Convenções",
   internal_rules: "Regimentos internos",
@@ -395,6 +400,8 @@ export function App() {
   const [submittedQuestion, setSubmittedQuestion] = useState("");
   const [answer, setAnswer] = useState<PublicAnswer>();
   const [selectedCitation, setSelectedCitation] = useState<Citation>();
+  const [viewedDocument, setViewedDocument] = useState<DocumentToView>();
+  const [sentChatDocument, setSentChatDocument] = useState<DocumentToView>();
   const [feedback, setFeedback] = useState<FeedbackClassification>();
   const [busy, setBusy] = useState(false);
   const [runtimePending, setRuntimePending] = useState(true);
@@ -410,6 +417,7 @@ export function App() {
   const [attachmentPickerKind, setAttachmentPickerKind] = useState<AttachmentKind>("document");
   const composerInput = useRef<HTMLTextAreaElement>(null);
   const chatDocumentInput = useRef<HTMLInputElement>(null);
+  const composerSending = useRef(false);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const activeChat = chats.find((chat) => chat.id === activeChatId);
   const conversationHistory = activeChat?.entries ?? [];
@@ -463,6 +471,26 @@ export function App() {
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [answer, busy, chatDocumentMessage, conversationError, setupMessages, submittedQuestion]);
+
+  useEffect(() => {
+    setViewedDocument(undefined);
+    setSentChatDocument(undefined);
+    setSentChatDocumentName("");
+    setPendingChatDocument(undefined);
+    setChatDocumentMessage("");
+  }, [context?.condominiumId, activeChatId]);
+
+  function openCitation(citation: Citation): void {
+    setSelectedCitation(citation);
+    if (citation.sourceRemoved || citation.sourceScope === "legislation" || context === undefined)
+      return;
+    setViewedDocument({
+      condominiumId: context.condominiumId,
+      documentVersionId: citation.documentVersionId,
+      title: citation.title,
+      page: citation.page
+    });
+  }
 
   const canUpload = context?.permissions.includes("document:upload") === true;
   const conversationStarted =
@@ -972,6 +1000,7 @@ export function App() {
       }
       appendSetupMessage("assistant", turn.message);
     } catch (error: unknown) {
+      setQuestion((current) => (current === "" ? trimmedAnswer : current));
       setConversationError(
         error instanceof Error ? error.message : "A Alvitra está indisponível no momento."
       );
@@ -1012,57 +1041,79 @@ export function App() {
     if (context === undefined || authMode === undefined) return;
     const mediaType = chatFileMediaType(file);
     if (mediaType === undefined) return;
-
+    const message = question.trim();
+    preserveActiveTurn();
+    setSubmittedQuestion(message);
+    setQuestion("");
+    setConversationError("");
     setChatDocumentUploading(true);
     setSentChatDocumentName(file.name);
-    setChatDocumentMessage("");
+    setSentChatDocument(undefined);
+    setChatDocumentMessage("Enviando documento...");
     setChatDocumentMessageIsError(false);
     try {
-      const documentType = inferDocumentType(file.name);
-      const response = await requestDocumentUploadWithAuthorizationRecovery(fetch, {
-        condominiumId: context.condominiumId,
-        content: file,
-        title: file.name,
-        documentType,
-        mediaType,
-        authMode,
-        ...(developmentIdentity === undefined
-          ? {}
-          : { developmentUserId: developmentIdentity.userId })
+      let versionId = "";
+      await sendDocumentMessage({
+        message,
+        receive: async () => {
+          const response = await requestDocumentUploadWithAuthorizationRecovery(fetch, {
+            condominiumId: context.condominiumId,
+            content: file,
+            title: file.name,
+            documentType: inferDocumentType(file.name),
+            mediaType,
+            authMode,
+            signal: AbortSignal.timeout(60_000),
+            ...(developmentIdentity === undefined
+              ? {}
+              : { developmentUserId: developmentIdentity.userId })
+          });
+          if (!response.ok)
+            throw new Error(await readMessage(response, "Não foi possível receber o documento."));
+          const result = (await response.json()) as Readonly<{ documentVersionId: string }>;
+          versionId = result.documentVersionId;
+          setSentChatDocument({
+            condominiumId: context.condominiumId,
+            documentVersionId: versionId,
+            title: file.name
+          });
+          setPendingChatDocument(undefined);
+          setChatDocumentMessage("Documento recebido. Lendo e preparando para consulta...");
+        },
+        waitUntilProcessed: async () => {
+          const status = await waitForDocumentProcessing(fetch, {
+            condominiumId: context.condominiumId,
+            documentVersionId: versionId,
+            headers: requestHeaders(authMode, developmentIdentity),
+            signal: AbortSignal.timeout(60_000)
+          });
+          setChatDocumentMessage(
+            status === "ready"
+              ? "Documento pronto para consulta."
+              : status === "needs_review"
+                ? "A leitura precisa de revisão. Confira o original ou envie o PDF original completo e legível."
+                : "Não foi possível concluir a leitura. O original recebido continua disponível."
+          );
+          setChatDocumentMessageIsError(status !== "ready");
+          return status;
+        },
+        ask: (text) => askQuestion(text)
       });
-      if (!response.ok) {
-        throw new Error(await readMessage(response, "Não foi possível receber o documento."));
-      }
-      const result = (await response.json()) as Readonly<{
-        memoryStatus?: DocumentMemoryStatus;
-      }>;
-      setPendingChatDocument(undefined);
-      setChatDocumentMessage(
-        documentType === "convention" && result.memoryStatus === "needs_review"
-          ? "Recebi a convenção, mas a leitura precisa de revisão antes de ela servir de base. Se puder, envie o PDF original completo e legível ou as páginas que ficaram difíceis de ler."
-          : documentType === "convention" && result.memoryStatus === "ready"
-            ? "Recebi e processei a convenção. Ela é a principal referência interna deste condomínio; se houver uma versão posterior, envie-a também para eu comparar a vigência."
-            : result.memoryStatus === "needs_review"
-              ? "Recebi o arquivo, mas ele precisa de revisão antes de fundamentar respostas."
-              : result.memoryStatus === "failed"
-                ? "Recebi o arquivo, mas não consegui incluí-lo na memória documental."
-                : result.memoryStatus === "ready"
-                  ? "Recebi, processei e incluí o documento na memória desta conversa."
-                  : "Recebi o documento. O processamento e a vetorização continuam em segundo plano."
-      );
-      setChatDocumentMessageIsError(result.memoryStatus === "failed");
     } catch (error: unknown) {
       setChatDocumentMessage(
-        error instanceof Error ? error.message : "Não foi possível receber o documento agora."
+        error instanceof Error && error.name !== "TimeoutError" && error.name !== "AbortError"
+          ? error.message
+          : "A espera pelo documento excedeu o limite. Confira o estado em Dados antes de tentar novamente. Sua mensagem foi preservada."
       );
       setChatDocumentMessageIsError(true);
+      setQuestion((current) => (current === "" ? message : current));
     } finally {
       setChatDocumentUploading(false);
     }
   }
 
-  async function askQuestion(): Promise<void> {
-    const trimmedQuestion = question.trim();
+  async function askQuestion(message = question): Promise<void> {
+    const trimmedQuestion = message.trim();
     if (trimmedQuestion.length === 0 || context === undefined || authMode === undefined) return;
 
     if (answer !== undefined && submittedQuestion !== "") {
@@ -1112,6 +1163,7 @@ export function App() {
       setAnswer((await response.json()) as PublicAnswer);
     } catch (error: unknown) {
       setAnswer(undefined);
+      setQuestion((current) => (current === "" ? trimmedQuestion : current));
       setConversationError(
         error instanceof Error && error.name !== "AbortError"
           ? error.message
@@ -1201,21 +1253,31 @@ export function App() {
   }
 
   function sendComposer(): void {
+    if (composerSending.current || busy || chatDocumentUploading) return;
+    composerSending.current = true;
+    const finish = () => {
+      composerSending.current = false;
+    };
     if (pendingChatDocument !== undefined) {
-      void addChatDocument(pendingChatDocument);
+      void addChatDocument(pendingChatDocument).finally(finish);
       return;
     }
     if (setupStage !== "complete") {
-      void advanceSetup(question);
+      void advanceSetup(question).finally(finish);
       return;
     }
-    void askQuestion();
+    void askQuestion().finally(finish);
   }
 
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
-    if (!busy && !chatDocumentUploading && question.trim().length > 0) sendComposer();
+    if (
+      !busy &&
+      !chatDocumentUploading &&
+      (question.trim().length > 0 || pendingChatDocument !== undefined)
+    )
+      sendComposer();
   }
 
   async function submitFeedback(classification: FeedbackClassification): Promise<void> {
@@ -1298,6 +1360,15 @@ export function App() {
     );
   }
 
+  const documentViewer =
+    viewedDocument === undefined ? null : (
+      <DocumentViewer
+        document={viewedDocument}
+        headers={requestHeaders(authMode, developmentIdentity)}
+        onClose={() => setViewedDocument(undefined)}
+      />
+    );
+
   if (documentScreen === "current") {
     return (
       <main className="document-page">
@@ -1347,12 +1418,15 @@ export function App() {
                   <article key={document.documentId}>
                     <DocumentIcon />
                     <span>
-                      <strong>{document.title}</strong>
-                      <small>
-                        {document.processingStatus === "ready"
-                          ? "Disponível para consulta"
-                          : "Em processamento"}
-                      </small>
+                      <button
+                        type="button"
+                        className="document-open-button"
+                        onClick={() => setViewedDocument(document)}
+                        aria-label={`Visualizar ${document.title}`}
+                      >
+                        {document.title}
+                      </button>
+                      <small>{documentProcessingLabel(document.processingStatus)}</small>
                     </span>
                   </article>
                 ))}
@@ -1360,6 +1434,7 @@ export function App() {
             ))}
           </div>
         </section>
+        {documentViewer}
       </main>
     );
   }
@@ -1477,12 +1552,17 @@ export function App() {
                         <article key={`${document.condominiumId}-${document.documentId}`}>
                           <DocumentIcon />
                           <span>
-                            <strong>{document.title}</strong>
+                            <button
+                              type="button"
+                              className="document-open-button"
+                              onClick={() => setViewedDocument(document)}
+                              aria-label={`Visualizar ${document.title}`}
+                            >
+                              {document.title}
+                            </button>
                             <small>
                               {document.condominiumName} ·{" "}
-                              {document.processingStatus === "ready"
-                                ? "Disponível para consulta"
-                                : "Em processamento"}
+                              {documentProcessingLabel(document.processingStatus)}
                             </small>
                           </span>
                         </article>
@@ -1508,12 +1588,15 @@ export function App() {
                         <article key={document.documentId}>
                           <DocumentIcon />
                           <span>
-                            <strong>{document.title}</strong>
-                            <small>
-                              {document.processingStatus === "ready"
-                                ? "Disponível para consulta"
-                                : "Em processamento"}
-                            </small>
+                            <button
+                              type="button"
+                              className="document-open-button"
+                              onClick={() => setViewedDocument(document)}
+                              aria-label={`Visualizar ${document.title}`}
+                            >
+                              {document.title}
+                            </button>
+                            <small>{documentProcessingLabel(document.processingStatus)}</small>
                           </span>
                         </article>
                       ))}
@@ -1625,7 +1708,7 @@ export function App() {
                     answer={entry.answer}
                     question={entry.question}
                     compact
-                    onSelectCitation={setSelectedCitation}
+                    onSelectCitation={openCitation}
                   />
                 </div>
               ))
@@ -1647,7 +1730,18 @@ export function App() {
           {sentChatDocumentName === "" ? null : (
             <div className="user-message document-message">
               <DocumentIcon />
-              <p>{sentChatDocumentName}</p>
+              {sentChatDocument === undefined ? (
+                <p>{sentChatDocumentName}</p>
+              ) : (
+                <button
+                  type="button"
+                  className="document-open-button"
+                  onClick={() => setViewedDocument(sentChatDocument)}
+                  aria-label={`Visualizar ${sentChatDocumentName}`}
+                >
+                  {sentChatDocumentName}
+                </button>
+              )}
             </div>
           )}
 
@@ -1694,7 +1788,7 @@ export function App() {
               <AnswerMessage
                 answer={answer}
                 question={submittedQuestion}
-                onSelectCitation={setSelectedCitation}
+                onSelectCitation={openCitation}
               />
               {isSimpleConversationMessage(submittedQuestion) ? null : (
                 <div className="feedback" aria-label="Avaliar resposta">
@@ -1723,7 +1817,9 @@ export function App() {
             </div>
           )}
 
-          {selectedCitation === undefined ? null : (
+          {selectedCitation === undefined ||
+          (!selectedCitation.sourceRemoved &&
+            selectedCitation.sourceScope !== "legislation") ? null : (
             <aside className="source-viewer" aria-label="Trecho da fonte">
               <div>
                 <span>{selectedCitation.sourceRemoved ? "TRECHO HISTÓRICO" : "FONTE ABERTA"}</span>
@@ -1759,6 +1855,7 @@ export function App() {
               <button
                 type="button"
                 aria-label={`Remover ${pendingChatDocument.name}`}
+                disabled={chatDocumentUploading || busy}
                 onClick={() => setPendingChatDocument(undefined)}
               >
                 ×
@@ -1832,6 +1929,8 @@ export function App() {
               maxLength={4000}
               disabled={
                 authMode === undefined ||
+                busy ||
+                chatDocumentUploading ||
                 (offlineDemo && setupStage !== "complete") ||
                 runtimePending ||
                 entryPending ||
@@ -1862,6 +1961,7 @@ export function App() {
         </div>
         <p>A Alvitra pode cometer erros. Confira as fontes e valide decisões importantes.</p>
       </footer>
+      {documentViewer}
     </main>
   );
 }
