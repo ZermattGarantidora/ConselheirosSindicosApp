@@ -38,6 +38,13 @@ export type SetupTurnResult = Readonly<{
   update: SetupTurnUpdate | null;
 }>;
 
+export class InvalidSetupInterpretationError extends Error {
+  public constructor(message: string) {
+    super(message);
+    this.name = "InvalidSetupInterpretationError";
+  }
+}
+
 const intents: readonly SetupTurnIntent[] = [
   "answer",
   "correction",
@@ -127,11 +134,14 @@ function normalizedPersonName(value: unknown): string {
   if (
     name.length < 2 ||
     name.length > 60 ||
-    /\p{Cc}/u.test(name) ||
-    !/^[\p{L}\p{M}]+(?:[ '\-’][\p{L}\p{M}]+)*$/u.test(name)
+    /\p{Cc}/u.test(value) ||
+    !/\p{L}/u.test(name) ||
+    !/^[\p{L}\p{M}\p{N}]+(?:[ '\-’][\p{L}\p{M}\p{N}]+)*$/u.test(name)
   )
     throw new Error("O nome interpretado é inválido.");
-  return `${name.charAt(0).toLocaleUpperCase("pt-BR")}${name.slice(1)}`;
+  return /\p{N}/u.test(name)
+    ? name
+    : `${name.charAt(0).toLocaleUpperCase("pt-BR")}${name.slice(1)}`;
 }
 
 function normalizedCondominiumName(value: unknown): string {
@@ -207,12 +217,18 @@ export async function interpretSetupTurn(
     evidence: [],
     budget: { maximumOutputTokens: 500, maximumCostMicrounits: 100_000 }
   });
-  const output = parsedProviderOutput(result.output.answer);
-  if (typeof output.intent !== "string" || !intents.includes(output.intent as SetupTurnIntent))
-    throw new Error("A intenção interpretada é inválida.");
-  const intent = output.intent as SetupTurnIntent;
-  if ((output.field === null) !== (output.value === null))
-    throw new Error("A atualização interpretada está incompleta.");
-  const update = validatedUpdate(output, intent, request.stage);
-  return Object.freeze({ message: plainReply(output.reply), intent, update });
+  try {
+    const output = parsedProviderOutput(result.output.answer);
+    if (typeof output.intent !== "string" || !intents.includes(output.intent as SetupTurnIntent))
+      throw new Error("A intenção interpretada é inválida.");
+    const intent = output.intent as SetupTurnIntent;
+    if ((output.field === null) !== (output.value === null))
+      throw new Error("A atualização interpretada está incompleta.");
+    const update = validatedUpdate(output, intent, request.stage);
+    return Object.freeze({ message: plainReply(output.reply), intent, update });
+  } catch (error: unknown) {
+    throw new InvalidSetupInterpretationError(
+      error instanceof Error ? error.message : "A interpretação da conversa é inválida."
+    );
+  }
 }

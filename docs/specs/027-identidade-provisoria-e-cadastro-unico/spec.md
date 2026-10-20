@@ -2,7 +2,7 @@
 
 **Status:** implementada e aguardando validação do usuário
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-10-19
+**Atualizado em:** 2026-10-20
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -126,6 +126,13 @@ tratamento confirmado na conversa acompanha o contexto da resposta. As etapas se
 cadastro, a retomada e as respostas usam esse nome explicitamente. O gateway recebe o nome de
 tratamento como contexto e a resposta final é endereçada à pessoa mesmo quando o provedor omite o
 vocativo.
+
+O tratamento confirmado pode ser um apelido com letras e números, como `teste4`, dentro do limite
+de 2 a 60 caracteres. Apelidos alfanuméricos preservam sua grafia ao salvar e restaurar o perfil;
+isso não muda a identidade de acesso nem permissões. Números isolados, HTML e caracteres de
+controle continuam inválidos. Uma interpretação inválida não pode ser apresentada como queda da
+IA: a API distingue `setup_interpretation_invalid` (502) de `ai_provider_unavailable` (503), com
+avisos operacionais sem conteúdo do usuário. Em erro, a mensagem digitada permanece para repetir.
 
 ### RQ-2705 — Entrada degradada sem provedor
 

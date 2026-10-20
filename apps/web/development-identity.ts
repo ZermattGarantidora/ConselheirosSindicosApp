@@ -49,6 +49,7 @@ function comparisonText(value: string): string {
 }
 
 function normalizeManagerNameCandidate(input: string): string | undefined {
+  if (/\p{Cc}/u.test(input)) return undefined;
   const candidate = input
     .trim()
     .replace(/^[“”"'`]+|[“”"'`.,!?;:]+$/gu, "")
@@ -62,12 +63,15 @@ function normalizeManagerNameCandidate(input: string): string | undefined {
       comparable
     ) ||
     /\bexemplo\b/u.test(comparable) ||
-    !/^[\p{L}\p{M}]+(?:[ '\-’][\p{L}\p{M}]+)*$/u.test(candidate)
+    !/\p{L}/u.test(candidate) ||
+    !/^[\p{L}\p{M}\p{N}]+(?:[ '\-’][\p{L}\p{M}\p{N}]+)*$/u.test(candidate)
   ) {
     return undefined;
   }
 
-  return `${candidate.charAt(0).toLocaleUpperCase("pt-BR")}${candidate.slice(1)}`;
+  return /\p{N}/u.test(candidate)
+    ? candidate
+    : `${candidate.charAt(0).toLocaleUpperCase("pt-BR")}${candidate.slice(1)}`;
 }
 
 export function parseDevelopmentManagerName(input: string): string | undefined {

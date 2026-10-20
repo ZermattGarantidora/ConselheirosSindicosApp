@@ -10,7 +10,11 @@ import {
   type AnswerGateway
 } from "../answers/answer-gateway.js";
 import { generateSetupMessage, isSetupMessageRequest } from "../answers/setup-message.js";
-import { interpretSetupTurn, isSetupTurnRequest } from "../answers/setup-turn.js";
+import {
+  InvalidSetupInterpretationError,
+  interpretSetupTurn,
+  isSetupTurnRequest
+} from "../answers/setup-turn.js";
 import {
   isFeedbackClassification,
   type SubmitFeedbackInput
@@ -109,6 +113,7 @@ import {
   TenantWorkLimitExceededError,
   type TenantWorkLimiter
 } from "../operations/tenant-work-limiter.js";
+import type { DemoWorkAdmission } from "../operations/demo-work-admission.js";
 
 export type CreateApiOptions = Readonly<{
   membershipRepository: MembershipRepository;
@@ -138,6 +143,7 @@ export type CreateApiOptions = Readonly<{
   processPendingDocuments?: () => Promise<void>;
   tenantWorkLimiter?: TenantWorkLimiter;
   documentAnalysisReader?: DocumentAnalysisReader;
+  demoWorkAdmission?: DemoWorkAdmission;
 }>;
 
 type AskBody = Readonly<{ question: string }>;
@@ -374,6 +380,37 @@ function accountAuthErrorResponse(
 
 export function createApi(options: CreateApiOptions): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: maximumDocumentUploadBytes });
+  const pendingDocumentProcessing = new Set<Promise<void>>();
+  app.addHook("onClose", async () => {
+    await Promise.allSettled(pendingDocumentProcessing);
+  });
+  const documentReservations = new WeakMap<
+    FastifyRequest,
+    { release: () => void; transferred: boolean }
+  >();
+  const releaseUnclaimedDocument = (request: FastifyRequest) => {
+    const reservation = documentReservations.get(request);
+    if (reservation === undefined || reservation.transferred) return;
+    reservation.release();
+    documentReservations.delete(request);
+  };
+  app.addHook("onRequest", async (request, reply) => {
+    const admission = options.demoWorkAdmission;
+    if (admission === undefined || request.method !== "POST") return;
+    const busy = () =>
+      reply.header("retry-after", "5").code(503).send({
+        code: "server_busy",
+        message: "O servidor está ocupado. Aguarde alguns instantes e tente novamente."
+      });
+    if (!admission.hasMemoryCapacity()) return busy();
+    if (request.routeOptions.url !== "/v1/condominiums/:condominiumId/documents") return;
+    // Reserve before accepting a potentially large body; keep the slot through background parsing.
+    const release = admission.acquireDocument();
+    if (release === undefined) return busy();
+    documentReservations.set(request, { release, transferred: false });
+  });
+  app.addHook("onResponse", async (request) => releaseUnclaimedDocument(request));
+  app.addHook("onRequestAbort", async (request) => releaseUnclaimedDocument(request));
   const now = options.now ?? (() => new Date());
   const version = options.version ?? "0.1.0";
   const aiProvider = options.aiProvider ?? "local";
@@ -516,8 +553,17 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     try {
       const turn = await interpretSetupTurn(options.setupMessageGateway, request.body);
       return reply.header("cache-control", "no-store").send(turn);
-    } catch {
-      return reply.code(503).send({ message: "A Alvitra está indisponível no momento." });
+    } catch (error: unknown) {
+      if (error instanceof InvalidSetupInterpretationError) {
+        return reply.code(502).send({
+          code: "setup_interpretation_invalid",
+          message: "Não consegui confirmar essa informação. Tente reformular sua mensagem."
+        });
+      }
+      return reply.code(503).send({
+        code: "ai_provider_unavailable",
+        message: "A Alvitra está indisponível no momento."
+      });
     }
   });
 
@@ -1792,22 +1838,41 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         mediaType,
         validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
       });
-      const memoryStatus = await options.developmentDocumentMemory?.indexUploaded({
-        record: uploaded,
-        content: request.body,
-        validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
-      });
-      if (memoryStatus !== undefined && documentCatalogRepository.updateProcessingStatus) {
-        const processingStatus =
-          memoryStatus === "needs_review"
-            ? "needs_review"
-            : memoryStatus === "failed"
-              ? "failed"
-              : "ready";
-        await documentCatalogRepository.updateProcessingStatus(context, {
-          documentVersionId: uploaded.documentVersionId,
-          processingStatus
+      const memory = options.developmentDocumentMemory;
+      if (memory !== undefined) {
+        const reservation = documentReservations.get(request);
+        if (reservation !== undefined) reservation.transferred = true;
+        // Yield until the original has been acknowledged; parsing must not block the upload.
+        const task = new Promise<void>((resolve) => setImmediate(resolve)).then(async () => {
+          try {
+            await documentCatalogRepository.updateProcessingStatus?.(context, {
+              documentVersionId: uploaded.documentVersionId,
+              processingStatus: "processing"
+            });
+            const status = await memory.indexUploaded({
+              record: uploaded,
+              content: request.body,
+              validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
+            });
+            await documentCatalogRepository.updateProcessingStatus?.(context, {
+              documentVersionId: uploaded.documentVersionId,
+              processingStatus: status === "pending_confirmation" ? "ready" : status
+            });
+          } catch {
+            await documentCatalogRepository.updateProcessingStatus?.(context, {
+              documentVersionId: uploaded.documentVersionId,
+              processingStatus: "failed"
+            });
+          }
         });
+        pendingDocumentProcessing.add(task);
+        void task
+          .finally(() => {
+            pendingDocumentProcessing.delete(task);
+            reservation?.release();
+            documentReservations.delete(request);
+          })
+          .catch(() => undefined);
       }
       void options.processPendingDocuments?.().catch(() => undefined);
 
@@ -1815,8 +1880,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         documentId: uploaded.documentId,
         documentVersionId: uploaded.documentVersionId,
         processingStatus: uploaded.processingStatus,
-        validityStatus: uploaded.validityStatus,
-        ...(memoryStatus === undefined ? {} : { memoryStatus })
+        validityStatus: uploaded.validityStatus
       });
     } catch (error: unknown) {
       if (error instanceof AccessDeniedError) {

@@ -2,7 +2,7 @@
 
 **Status:** implementada e aguardando aprovação do usuário  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-09
+**Atualizado em:** 2026-10-20
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -16,6 +16,10 @@
 | Memória documental | §8 | Upload preserva original, estado, vetorização e escopo autorizado. |
 | Evidências e confiança | §§9 e 10 | Sem fonte suficiente, a resposta se abstém e indica somente o material pertinente. |
 | Validação | §13 | Mede esforço para fornecer contexto e abstenções corretas. |
+
+A correção solicitada em 2026-10-20 detalha §§6.5–6.6, 8 e 12: mensagem e anexo
+seguem o mesmo envio, a recepção não aguarda a extração e a visualização usa o original
+privado completo. Não altera parser, prompt, provedor ou regras de análise.
 
 ### Limites respeitados
 
@@ -55,8 +59,48 @@ Quando não houver evidência suficiente para uma conclusão documental, a Alvit
 
 Um documento enviado explicitamente continua no pipeline privado existente e, após processamento, só pode fundamentar consultas do mesmo `condominium_id` autorizado.
 
+### RQ-2004 — Mensagem junto com o anexo
+
+A seta e Enter enviam o arquivo selecionado e preservam a mensagem digitada. O texto aparece
+imediatamente no turno e a consulta é executada uma única vez depois que a versão enviada fica
+pronta. Não há pergunta automática quando o envio contém somente arquivo. Falha no envio,
+leitura incompleta ou espera excedida preserva a mensagem para nova tentativa e explica a
+limitação, sem consultar silenciosamente outra base como se o anexo estivesse pronto.
+
+### RQ-2005 — Recepção e leitura com estados distintos
+
+Após armazenar e registrar o original, a API retorna 202 com a versão recebida sem aguardar
+extração e indexação, inclusive na demonstração. O cliente acompanha essa versão no catálogo
+autorizado, distingue envio, processamento, pronto, revisão e falha e limita sua espera a 60
+segundos. O original continua disponível enquanto a leitura ocorre ou exige revisão. Avisos
+operacionais são apresentados como estados da interface, sem fala fixa atribuída à Alvitra.
+
+### RQ-2006 — Abrir o documento inteiro
+
+Os documentos no catálogo, o anexo recebido e as citações de arquivos disponíveis abrem o
+original completo em visualizador sobre o chat, preservando páginas, imagens e diagramação.
+PDF usa o visualizador do navegador e imagens usam sua apresentação original. Há opção de
+baixar o arquivo e fechar para voltar à conversa. A citação pode indicar a página inicial,
+sem limitar o arquivo a um trecho. A leitura binária revalida autorização e versão na API;
+não usa URL pública nem identidade na URL. URLs locais temporárias são revogadas ao fechar,
+trocar documento ou condomínio. Fonte removida conserva somente seu trecho histórico;
+fontes legais sem original no catálogo mantêm a referência existente.
+
+### Gate competitivo da correção
+
+1. Mantém conversa e visualização contextual, sem novo módulo.
+2. Corrige o envio já autorizado nos Blocos 4 e 6, sem antecipar blocos.
+3. Reduz perda de mensagens e espera opaca; permite conferir a leitura no original.
+4. Preserva isolamento, evidências, abstenção, conflitos e confirmação de envio.
+5. Conserva memória autorizada e citação por versão, página e trecho além do anexo momentâneo.
+6. Regressões verificam ordem upload/leitura/pergunta, falhas, original binário e acesso cruzado.
+7. Reutiliza storage, catálogo, fila e visualização do navegador, sem dependência nova.
+
 ## 3. Critérios de sucesso
 
 - nenhum documento é exigido durante o cadastro e a necessidade dos arquivos para respostas locais fica clara;
 - abstenções explicam o que falta sem inventar regra local;
 - upload, vetorização, citações e isolamento existentes continuam cobertos pelos testes do núcleo documental.
+- mensagem e anexo são tratados em um envio sem segunda ação do síndico;
+- recepção não espera a leitura e nenhum estado pendente é apresentado como pronto;
+- a visualização preserva o arquivo inteiro e o controle de acesso.

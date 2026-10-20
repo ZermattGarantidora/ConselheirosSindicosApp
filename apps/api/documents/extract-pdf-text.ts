@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { fileURLToPath } from "node:url";
+import type { getDocument as createPdfDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 export const maximumPdfPageCount = 500;
-const standardFontDataUrl = new URL(
-  "../../../node_modules/pdfjs-dist/standard_fonts/",
-  import.meta.url
-).href;
+const standardFontDataUrl = fileURLToPath(
+  new URL("../../../node_modules/pdfjs-dist/standard_fonts/", import.meta.url)
+).replaceAll("\\", "/");
 
 export type ExtractedPdfPage = Readonly<{
   pageIndex: number;
@@ -46,9 +46,10 @@ function normalizePageText(items: readonly unknown[]): string {
 }
 
 export async function extractPdfTextByPage(content: Buffer): Promise<readonly ExtractedPdfPage[]> {
-  let loadingTask: ReturnType<typeof getDocument> | undefined;
+  let loadingTask: ReturnType<typeof createPdfDocument> | undefined;
 
   try {
+    const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
     loadingTask = getDocument({
       data: new Uint8Array(content),
       stopAtErrors: true,
@@ -66,6 +67,7 @@ export async function extractPdfTextByPage(content: Buffer): Promise<readonly Ex
       const page = await pdf.getPage(pageIndex + 1);
       const textContent = await page.getTextContent();
       const extractedText = normalizePageText(textContent.items);
+      page.cleanup();
 
       pages.push(
         Object.freeze({

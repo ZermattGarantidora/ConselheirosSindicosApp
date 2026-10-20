@@ -65,6 +65,8 @@ pnpm install --frozen-lockfile
 pnpm run check
 pnpm run test:e2e
 pnpm run build:web
+pnpm run build:api
+pnpm run test:production
 ```
 
 O gate específico de specs pode ser executado separadamente:
@@ -137,6 +139,30 @@ simulada por frases prontas. Para testar a conversa, configure a API em ambiente
 controlado, com orçamento e sem dados reais.
 Não envie documentos reais, dados pessoais ou credenciais. Um piloto persistente continua bloqueado
 pelos pré-requisitos da [Spec 011](docs/specs/011-piloto-real-controlado/spec.md).
+
+## Capacidade da demonstração publicada
+
+O Render compila a API com `pnpm run build:api` durante o build e inicia diretamente
+`node dist/api/app/main.js`. `pnpm start` também exige esse build prévio. O desenvolvimento
+continua usando `pnpm run dev:api`. O processo publicado não executa pnpm/tsx nem carrega
+o leitor de PDFs antes do primeiro documento.
+
+Na demonstração em produção, somente um envio/processamento documental é admitido de cada vez.
+A reserva começa antes de aceitar o corpo e só termina quando a leitura em segundo plano acaba;
+rejeições e falhas liberam a reserva. Novas operações POST são recusadas com 503 `server_busy`
+quando o RSS alcança 320 MiB, preservando margem para a instância de 512 MB. O cliente mantém
+o arquivo/mensagem para repetir; originais, catálogo, histórico e saúde permanecem acessíveis.
+Nenhum documento é removido automaticamente para liberar espaço.
+
+O servidor registra `server_memory` ao iniciar e a cada minuto, somente com valores agregados de
+RSS, heap, memória externa e buffers, sem perguntas, documentos ou identidades. O guard usa RSS
+do processo e não é um limite absoluto de memória nativa de um PDF individual. O resultado deve
+ser acompanhado no Render após publicar; não há promessa de que 512 MB atende qualquer arquivo
+ou volume. A memória documental e o histórico da demonstração continuam efêmeros.
+
+`pnpm run test:production`, executado depois do build da API, valida a versão compilada com dois
+PDFs sintéticos, originais integrais e vinte perguntas documentais sem provedor externo, e informa
+o RSS medido. Os números locais não substituem a verificação na instância Linux publicada.
 
 ## Documentos e vetorização
 
