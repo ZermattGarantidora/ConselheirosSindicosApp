@@ -4,6 +4,7 @@ import { createDevelopmentDocumentMemory } from "../../apps/api/documents/develo
 import { createDevelopmentDocumentUploadRepository } from "../../apps/api/documents/development-document-upload-repository.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 import { createSyntheticPdf } from "../fixtures/synthetic-pdfs.js";
+import { expectDocumentReady } from "../fixtures/wait-for-document.js";
 
 describe("análise documental integrada ao turno", () => {
   it.each([
@@ -55,7 +56,8 @@ describe("análise documental integrada ao turno", () => {
           )
         });
         expect(upload.statusCode).toBe(202);
-        expect(upload.json().memoryStatus).toBe("ready");
+        expect(upload.json().processingStatus).toBe("uploaded");
+        await expectDocumentReady(app, upload.json().documentVersionId);
         const response = await app.inject({
           method: "POST",
           url: "/v1/condominiums/alameda/questions",
@@ -122,7 +124,8 @@ describe("análise documental integrada ao turno", () => {
           payload: createSyntheticPdf([`BALANCETE ${period}`, `Energia R$ ${value}`])
         });
         expect(response.statusCode).toBe(202);
-        expect(response.json().memoryStatus).toBe("ready");
+        expect(response.json().processingStatus).toBe("uploaded");
+        await expectDocumentReady(app, response.json().documentVersionId);
         ids.push(response.json().documentId);
       }
       const ask = () =>

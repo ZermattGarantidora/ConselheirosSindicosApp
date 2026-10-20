@@ -6,6 +6,7 @@ import { createDevelopmentDocumentMemory } from "../../apps/api/documents/develo
 import { createDevelopmentDocumentUploadRepository } from "../../apps/api/documents/development-document-upload-repository.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 import { createSyntheticPdf } from "../fixtures/synthetic-pdfs.js";
+import { expectDocumentReady } from "../fixtures/wait-for-document.js";
 import { createRetrievalResult, fixedNow } from "../unit/answer-fixtures.js";
 
 describe("barreira documental no relatório calculado", () => {
@@ -71,7 +72,8 @@ describe("barreira documental no relatório calculado", () => {
           payload: createSyntheticPdf(pages, { pageWidth: 1200, fontSize: 10 })
         });
         expect(upload.statusCode).toBe(202);
-        expect(upload.json().memoryStatus).toBe("ready");
+        expect(upload.json().processingStatus).toBe("uploaded");
+        await expectDocumentReady(app, upload.json().documentVersionId);
         const result = await app.inject({
           method: "POST",
           url: "/v1/condominiums/alameda/questions",
