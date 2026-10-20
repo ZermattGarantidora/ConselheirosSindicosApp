@@ -3,8 +3,8 @@ services:
     name: alvitra-demo-sintetica
     runtime: node
     plan: free
-    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm run build:web
-    startCommand: pnpm run start
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm run build:api && pnpm run build:web
+    startCommand: node dist/api/app/main.js
     healthCheckPath: /health
     envVars:
       - key: APP_ENV
