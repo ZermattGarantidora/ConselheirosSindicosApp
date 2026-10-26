@@ -17,3 +17,5 @@ test-results/
 .vitest-temp/
 .local/
 reports/documentary-semantic-*.json
+reports/supabase-integration/
+reports/neon-integration/

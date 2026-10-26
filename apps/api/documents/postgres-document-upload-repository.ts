@@ -64,6 +64,7 @@ type DocumentCatalogRow = Readonly<{
   ocr_quality_score: number | string | null;
   storage_object_id: string;
   uploaded_by_current_user: boolean;
+  condominium_check?: RegisteredDocument["condominiumCheck"];
 }>;
 
 export function createPostgresDocumentUploadRepository(
@@ -152,9 +153,10 @@ export function createPostgresDocumentUploadRepository(
           `
             INSERT INTO app.document_versions (
               condominium_id, id, document_id, version_number, storage_object_id,
-              content_sha256, media_type, size_bytes, source_kind, uploaded_by_user_id
+              content_sha256, media_type, size_bytes, source_kind, uploaded_by_user_id,
+              source_description
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'user_upload', $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'user_upload', $9, $10)
           `,
           [
             record.condominiumId,
@@ -165,18 +167,25 @@ export function createPostgresDocumentUploadRepository(
             record.contentSha256,
             record.mediaType,
             record.sizeBytes,
-            databaseUserId
+            databaseUserId,
+            record.title
           ]
         );
 
         await client.query(
           `
             INSERT INTO app.document_version_states (
-              condominium_id, document_version_id, processing_status, validity_status
+              condominium_id, document_version_id, processing_status, validity_status,
+              selected_condominium_name
             )
-            VALUES ($1, $2, 'uploaded', $3)
+            VALUES ($1, $2, 'uploaded', $3, $4)
           `,
-          [record.condominiumId, record.documentVersionId, record.validityStatus]
+          [
+            record.condominiumId,
+            record.documentVersionId,
+            record.validityStatus,
+            record.selectedCondominiumName ?? null
+          ]
         );
 
         const jobId = randomUUID();
@@ -246,6 +255,7 @@ export function createPostgresDocumentUploadRepository(
               version_state.extraction_completeness,
               version_state.extraction_method,
               version_state.ocr_quality_score,
+              version_state.condominium_check,
               latest_version.created_at
             FROM app.documents AS documents
             JOIN LATERAL (
@@ -294,11 +304,55 @@ export function createPostgresDocumentUploadRepository(
               extractionMethod: row.extraction_method ?? null,
               ocrQualityScore: row.ocr_quality_score == null ? null : Number(row.ocr_quality_score),
               storageObjectId: row.storage_object_id,
-              uploadedByCurrentUser: row.uploaded_by_current_user
+              uploadedByCurrentUser: row.uploaded_by_current_user,
+              ...(row.condominium_check == null ? {} : { condominiumCheck: row.condominium_check })
             })
           )
         );
       } catch (error: unknown) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async confirmCondominium(context, documentVersionId) {
+      if (!context.permissions.includes("document:upload")) return false;
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await setRuntimeContext(client, context);
+        const result = await client.query(
+          `UPDATE app.document_version_states AS state
+           SET processing_status = state.condominium_check->>'resumeProcessingStatus',
+               condominium_check = state.condominium_check || jsonb_build_object(
+                 'status', 'confirmed', 'confirmedByUserId', app.current_user_id(),
+                 'confirmedAt', now()),
+               updated_at = now()
+           WHERE state.condominium_id = $1 AND state.document_version_id = $2
+             AND state.processing_status = 'needs_review'
+             AND state.condominium_check->>'status' = 'pending'
+             AND EXISTS (
+               SELECT 1 FROM app.document_versions AS version
+               JOIN app.documents AS document
+                 ON document.condominium_id = version.condominium_id
+                 AND document.id = version.document_id
+               WHERE version.condominium_id = state.condominium_id
+                 AND version.id = state.document_version_id
+                 AND document.status = 'active'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM app.document_versions AS newer
+                   WHERE newer.condominium_id = version.condominium_id
+                     AND newer.document_id = version.document_id
+                     AND newer.version_number > version.version_number
+                 )
+             )`,
+          [context.condominiumId, documentVersionId]
+        );
+        await client.query("COMMIT");
+        return result.rowCount === 1;
+      } catch (error) {
         await rollback(client);
         throw error;
       } finally {

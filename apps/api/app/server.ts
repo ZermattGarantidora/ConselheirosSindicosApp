@@ -13,6 +13,7 @@ import { createGeminiAnswerGatewayFromEnvironment } from "../answers/gemini-answ
 import { createInMemoryAnswerPersistence } from "../answers/in-memory-answer-persistence.js";
 import { createPostgresAnswerPersistence } from "../answers/postgres-answer-persistence.js";
 import { createApi } from "./create-api.js";
+import { createPostgresChatRepository } from "../chats/postgres-chat-repository.js";
 import { createPostgresDocumentUploadRepository } from "../documents/postgres-document-upload-repository.js";
 import { createScopedPostgresDocumentProcessor } from "../documents/postgres-document-processing-repository.js";
 import { createDevelopmentDocumentMemory } from "../documents/development-document-memory.js";
@@ -51,6 +52,24 @@ import { createScopedTextRetriever } from "../retrieval/text-retrieval.js";
 import { drainProcessingQueue } from "../worker/processing-worker.js";
 import { createPostgresProcessingJobQueue } from "../worker/postgres-processing-job-queue.js";
 import { registerWebAssets } from "./web-assets.js";
+import { createDemoWorkAdmission } from "../operations/demo-work-admission.js";
+import { startMemoryDiagnostics } from "../operations/memory-diagnostics.js";
+import { createVerifiedLegalLibrary } from "../legislation/verified-legal-library.js";
+import { createPostgresLegalCopyReader } from "../legislation/postgres-legal-copy-reader.js";
+
+function attachMemoryDiagnostics(
+  app: ReturnType<typeof createApi>,
+  environment: NodeJS.ProcessEnv
+): void {
+  if (environment.APP_ENV?.trim().toLowerCase() !== "production") return;
+  let stop: (() => void) | undefined;
+  app.addHook("onListen", async () => {
+    stop = startMemoryDiagnostics();
+  });
+  app.addHook("onClose", async () => {
+    stop?.();
+  });
+}
 
 function publishedWebDirectory(environment: NodeJS.ProcessEnv): string | undefined {
   const value = environment.WEB_DIST_DIR?.trim();
@@ -102,6 +121,7 @@ export async function startServer(
   }
 
   if (useDevelopmentRuntime) {
+    const legalLibrary = createVerifiedLegalLibrary();
     const seededRetrievalFixtures = demoSeedDocuments ? developmentRetrievalFixtures : [];
     const seededDevelopmentChunks = demoSeedDocuments ? developmentChunks : [];
     const developmentMembershipRegistry = createDevelopmentIdentityRepository();
@@ -195,21 +215,30 @@ export async function startServer(
       developmentMembershipRegistry,
       condominiumProfileRepository,
       developmentDocumentMemory,
+      legalCopyReader: legalLibrary,
+      ...(environment.APP_ENV?.trim().toLowerCase() === "production"
+        ? { demoWorkAdmission: createDemoWorkAdmission() }
+        : {}),
       documentUploadRepository: developmentDocumentRepository,
       documentCatalogRepository: developmentDocumentRepository,
       aiProvider,
       ...(setupMessageGateway === undefined ? {} : { setupMessageGateway }),
       answerUseCase: createAnswerUseCase({
-        retriever: createScopedTextRetriever(developmentDocumentMemory.index),
+        retriever: createScopedTextRetriever(
+          legalLibrary.composeIndex(developmentDocumentMemory.index)
+        ),
         gateway: answerGateway,
         persistence: createInMemoryAnswerPersistence()
       }),
       retriever: createScopedTextRetriever(
-        createDevelopmentScopedRetrievalIndex(seededDevelopmentChunks)
+        legalLibrary.composeIndex(createDevelopmentScopedRetrievalIndex(seededDevelopmentChunks))
       ),
       answerService: createAnswerService(createLocalExtractiveGateway()),
-      documentSourceReader: createDevelopmentDocumentSourceReader(seededDevelopmentChunks)
+      documentSourceReader: legalLibrary.composeReader(
+        createDevelopmentDocumentSourceReader(seededDevelopmentChunks)
+      )
     });
+    attachMemoryDiagnostics(app, environment);
     if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
     await app.listen(listeningOptions);
     return app;
@@ -264,6 +293,7 @@ export async function startServer(
   };
   const app = createApi({
     membershipRepository: createPostgresMembershipRepository(pool),
+    chatRepository: createPostgresChatRepository(pool),
     accountAuth: createPostgresAccountAuth(pool),
     accountSecurity,
     ...(accountActionDelivery === undefined ? {} : { accountActionDelivery }),
@@ -273,6 +303,7 @@ export async function startServer(
     secureCookies: environment.APP_ENV?.trim().toLowerCase() === "production",
     authSessionRestore: environment.AUTH_SESSION_AUTO_RESTORE?.trim().toLowerCase() !== "false",
     aiProvider,
+    legalCopyReader: createPostgresLegalCopyReader(pool),
     ...(setupMessageGateway === undefined ? {} : { setupMessageGateway }),
     documentStorage,
     imageUploadsEnabled: imageAnalysisAdapter !== undefined && imageEmbeddingAdapter !== undefined,
@@ -294,6 +325,7 @@ export async function startServer(
     answerTraceStore: createPostgresAnswerTraceStore(pool),
     documentSourceReader: createPostgresDocumentSourceReader(pool)
   });
+  attachMemoryDiagnostics(app, environment);
   if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
   let documentWorkerTimer: ReturnType<typeof setInterval> | undefined;
   await purgeExpiredDocuments();

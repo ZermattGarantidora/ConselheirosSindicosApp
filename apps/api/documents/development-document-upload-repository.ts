@@ -5,6 +5,7 @@ import type {
   RegisteredDocument
 } from "./document-catalog.js";
 import type { DocumentProcessingStatus } from "./document-model.js";
+import type { DocumentCondominiumCheck } from "./document-condominium-check.js";
 import type { DocumentUploadRepository, UploadedDocumentRecord } from "./upload-document.js";
 
 export type DevelopmentDocumentRepository = DocumentUploadRepository & DocumentCatalogRepository;
@@ -107,6 +108,7 @@ export function createDevelopmentDocumentUploadRepository(
       input: Readonly<{
         documentVersionId: string;
         processingStatus: DocumentProcessingStatus;
+        condominiumCheck?: DocumentCondominiumCheck;
       }>
     ) {
       const index = documents.findIndex(
@@ -118,8 +120,42 @@ export function createDevelopmentDocumentUploadRepository(
       if (current === undefined) return;
       documents[index] = Object.freeze({
         ...current,
-        processingStatus: input.processingStatus
+        processingStatus: input.processingStatus,
+        ...(input.condominiumCheck === undefined
+          ? {}
+          : { condominiumCheck: input.condominiumCheck })
       });
+    },
+
+    async confirmCondominium(context, documentVersionId) {
+      if (!context.permissions.includes("document:upload")) return false;
+      const index = documents.findIndex(
+        (document) =>
+          document.condominiumId === context.condominiumId &&
+          document.documentVersionId === documentVersionId
+      );
+      const current = documents[index];
+      if (
+        current?.condominiumCheck?.status !== "pending" ||
+        current.processingStatus !== "needs_review" ||
+        archivedAtByDocumentId.has(current.documentId) ||
+        documents.some(
+          (document) =>
+            document.condominiumId === context.condominiumId &&
+            document.documentId === current.documentId &&
+            document.versionNumber > current.versionNumber
+        )
+      )
+        return false;
+      documents[index] = Object.freeze({
+        ...current,
+        processingStatus: current.condominiumCheck.resumeProcessingStatus,
+        condominiumCheck: Object.freeze({
+          ...current.condominiumCheck,
+          status: "confirmed" as const
+        })
+      });
+      return true;
     },
 
     async archiveAuthorized(context, documentId) {

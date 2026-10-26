@@ -33,6 +33,21 @@ describe("mensagens geradas da configuração conversacional", () => {
     ).resolves.toBe("Ana, quantos condomínios você administra?");
   });
 
+  it("inicia uma conversa nova sem repetir o cadastro", async () => {
+    const generate = vi.fn(async (input: AnswerGatewayInput) => {
+      expect(input.question).toContain("abrindo uma conversa nova");
+      expect(input.question).toContain('"managerName":"Ana"');
+      return { output: { answer: "Olá, Ana. Como posso ajudar você agora?" } };
+    });
+
+    await expect(
+      generateSetupMessage({ generate } as unknown as AnswerGateway, {
+        stage: "new_conversation",
+        managerName: "Ana"
+      })
+    ).resolves.toBe("Olá, Ana. Como posso ajudar você agora?");
+  });
+
   it("AC-2404: conclui sem exigir envio imediato e sem chamar documentos de opcionais", async () => {
     const generate = vi.fn(async (input: AnswerGatewayInput) => {
       expect(input.question).toContain("não precisa enviar documentos agora");

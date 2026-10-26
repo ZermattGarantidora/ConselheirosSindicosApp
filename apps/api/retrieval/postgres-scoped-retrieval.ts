@@ -259,8 +259,8 @@ export function createPostgresScopedRetrievalIndex(
                 version.version_number,
                 'ready'::text AS processing_status,
                 'confirmed'::text AS validity_status,
-                NULL::timestamptz AS valid_from,
-                NULL::timestamptz AS valid_until,
+                version.verified_at AS valid_from,
+                version.review_due_at AS valid_until,
                 chunk.search_vector,
                 ts_rank_cd(
                   chunk.search_vector,
@@ -277,6 +277,8 @@ export function createPostgresScopedRetrievalIndex(
                 ON source.id = version.legal_source_id
               WHERE source.status = 'active'
                 AND version.is_current
+                AND (version.verified_at IS NULL OR
+                  (version.verified_at <= $3::timestamptz AND version.review_due_at > $3::timestamptz))
                 AND page.quality_score >= $4
                 AND chunk.embedding_profile = $6
             ), authorized_chunks AS (

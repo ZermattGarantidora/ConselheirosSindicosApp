@@ -6,6 +6,7 @@ import { createDevelopmentDocumentMemory } from "../../apps/api/documents/develo
 import { createDevelopmentDocumentUploadRepository } from "../../apps/api/documents/development-document-upload-repository.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 import { createSyntheticPdf } from "../fixtures/synthetic-pdfs.js";
+import { expectDocumentReady } from "../fixtures/wait-for-document.js";
 import { createRetrievalResult, fixedNow } from "../unit/answer-fixtures.js";
 
 describe("fronteira entre geração e cálculo local", () => {
@@ -64,7 +65,8 @@ describe("fronteira entre geração e cálculo local", () => {
             payload: createSyntheticPdf([`BALANCETE ${period}`, `Energia R$ ${value}`])
           });
           expect(uploaded.statusCode).toBe(202);
-          expect(uploaded.json().memoryStatus).toBe("ready");
+          expect(uploaded.json().processingStatus).toBe("uploaded");
+          await expectDocumentReady(app, uploaded.json().documentVersionId);
         }
         const result = await app.inject({
           method: "POST",

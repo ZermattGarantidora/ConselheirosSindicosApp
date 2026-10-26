@@ -1,11 +1,11 @@
 # ADR 0007 — Neon temporário para integração sintética
 
-**Status:** aceito  
+**Status:** aceito até validação do Supabase
 **Data:** 2026-09-01
 
 ## Contexto
 
-O ambiente local com Docker exige uma instalação que ainda não está disponível na máquina de desenvolvimento. A Spec 001 e o ADR 0005 exigem PostgreSQL real para provar RLS; SQLite não é alternativa válida. O usuário autorizou explicitamente usar Neon enquanto o ambiente local não estiver pronto.
+O ambiente local com Docker exige uma instalação que ainda não está disponível na máquina de desenvolvimento. A Spec 001 e o ADR 0005 exigem PostgreSQL real para provar RLS; SQLite não é alternativa válida. Neon permanece autorizado somente enquanto o Supabase previsto no ADR 0030 não for provisionado e validado.
 
 ## Decisão
 

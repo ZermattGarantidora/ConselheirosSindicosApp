@@ -1,4 +1,8 @@
 import { createHash } from "node:crypto";
+import {
+  checkDocumentCondominium,
+  type DocumentCondominiumCheck
+} from "./document-condominium-check.js";
 
 import type { CondominiumId } from "../core/condominium-scope.js";
 import { identifyDocumentType, type DocumentIdentification } from "./document-identification.js";
@@ -57,6 +61,8 @@ export type DocumentProcessingInput = Readonly<{
   documentVersionId: string;
   content: Buffer;
   currentState: DocumentVersionState;
+  selectedCondominiumName?: string;
+  title?: string;
   mediaType?: DocumentMediaType;
   ocrAdapter?: OcrAdapter;
   ocrNumericVerifications?: readonly OcrNumericVerification[];
@@ -64,41 +70,42 @@ export type DocumentProcessingInput = Readonly<{
   imageEmbeddingAdapter?: EmbeddingAdapter;
 }>;
 
-export type DocumentProcessingOutcome = Readonly<
-  | {
-      status: "completed";
-      state: DocumentVersionState;
-      pages: readonly ProcessedDocumentPage[];
-      extractionSummary: DocumentExtractionSummary;
-      documentIdentification?: DocumentIdentification;
-      structuredExtraction?: StructuredDocumentExtraction;
-    }
-  | {
-      status: "failed";
-      state: DocumentVersionState;
-      pages: readonly [];
-      reason: "pdf_parse_failed";
-      extractionSummary: DocumentExtractionSummary;
-      documentIdentification?: DocumentIdentification;
-      structuredExtraction?: StructuredDocumentExtraction;
-    }
-  | {
-      status: "needs_review";
-      state: DocumentVersionState;
-      pages: readonly ProcessedDocumentPage[];
-      reason:
-        | "ocr_unavailable"
-        | "ocr_low_quality"
-        | "ocr_invalid"
-        | "ocr_numeric_unverified"
-        | "ocr_numeric_discrepancy"
-        | "image_analysis_unavailable"
-        | "image_analysis_failed";
-      extractionSummary: DocumentExtractionSummary;
-      documentIdentification?: DocumentIdentification;
-      structuredExtraction?: StructuredDocumentExtraction;
-    }
->;
+export type DocumentProcessingOutcome = Readonly<{ condominiumCheck?: DocumentCondominiumCheck }> &
+  Readonly<
+    | {
+        status: "completed";
+        state: DocumentVersionState;
+        pages: readonly ProcessedDocumentPage[];
+        extractionSummary: DocumentExtractionSummary;
+        documentIdentification?: DocumentIdentification;
+        structuredExtraction?: StructuredDocumentExtraction;
+      }
+    | {
+        status: "failed";
+        state: DocumentVersionState;
+        pages: readonly [];
+        reason: "pdf_parse_failed";
+        extractionSummary: DocumentExtractionSummary;
+        documentIdentification?: DocumentIdentification;
+        structuredExtraction?: StructuredDocumentExtraction;
+      }
+    | {
+        status: "needs_review";
+        state: DocumentVersionState;
+        pages: readonly ProcessedDocumentPage[];
+        reason:
+          | "ocr_unavailable"
+          | "ocr_low_quality"
+          | "ocr_invalid"
+          | "ocr_numeric_unverified"
+          | "ocr_numeric_discrepancy"
+          | "image_analysis_unavailable"
+          | "image_analysis_failed";
+        extractionSummary: DocumentExtractionSummary;
+        documentIdentification?: DocumentIdentification;
+        structuredExtraction?: StructuredDocumentExtraction;
+      }
+  >;
 
 function pageId(documentVersionId: string, pageIndex: number): string {
   return createHash("sha256").update(`${documentVersionId}:page:${pageIndex}`).digest("hex");
@@ -271,6 +278,28 @@ function createExtractionSummary(
 }
 
 export async function processDocumentVersion(
+  input: DocumentProcessingInput
+): Promise<DocumentProcessingOutcome> {
+  const outcome = await processDocumentContent(input);
+  if (outcome.status === "failed" || input.selectedCondominiumName === undefined) return outcome;
+  const condominiumCheck = checkDocumentCondominium({
+    expectedName: input.selectedCondominiumName,
+    title: input.title ?? "",
+    pages: outcome.pages.map((page) => ({
+      pageNumber: page.pageNumber,
+      extractedText: page.recognizedText ?? page.extractedText
+    })),
+    processingStatus: outcome.status === "completed" ? "ready" : "needs_review"
+  });
+  if (condominiumCheck === undefined) return outcome;
+  return Object.freeze({
+    ...outcome,
+    state: Object.freeze({ ...outcome.state, processingStatus: "needs_review" as const }),
+    condominiumCheck
+  });
+}
+
+async function processDocumentContent(
   input: DocumentProcessingInput
 ): Promise<DocumentProcessingOutcome> {
   const processingState = transitionDocumentProcessing(input.currentState, "processing");
@@ -516,6 +545,8 @@ export type StoredDocumentForProcessing = Readonly<{
   documentId: string;
   documentVersionId: string;
   content: Buffer;
+  title?: string;
+  selectedCondominiumName?: string;
   mediaType?: DocumentMediaType;
   state: DocumentVersionState;
 }>;
@@ -573,6 +604,10 @@ export function createScopedDocumentProcessor(
         documentId: stored.documentId,
         documentVersionId: input.documentVersionId,
         content: stored.content,
+        ...(stored.title === undefined ? {} : { title: stored.title }),
+        ...(stored.selectedCondominiumName === undefined
+          ? {}
+          : { selectedCondominiumName: stored.selectedCondominiumName }),
         ...(stored.mediaType === undefined ? {} : { mediaType: stored.mediaType }),
         currentState: stored.state,
         ocrAdapter,

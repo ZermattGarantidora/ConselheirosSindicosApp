@@ -92,13 +92,22 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
       "COMMIT"
     ]);
     expect(fake.client.release).toHaveBeenCalledOnce();
+    const versionInsert = fake.queries.find(({ sql }) =>
+      sql.includes("INSERT INTO app.document_versions")
+    );
+    expect(versionInsert?.sql).toContain("source_description");
+    expect(versionInsert?.values?.at(-1)).toBe(createRecord().title);
   });
 
   it("grava o estado de validade confirmado recebido no upload", async () => {
     const fake = createFakeClient();
     const repository = createPostgresDocumentUploadRepository(createPool(fake.client));
 
-    await repository.recordUploaded({ ...createRecord(), validityStatus: "confirmed" });
+    await repository.recordUploaded({
+      ...createRecord(),
+      validityStatus: "confirmed",
+      selectedCondominiumName: "Residencial Alameda"
+    });
 
     const stateInsert = fake.queries.find(({ sql }) =>
       sql.includes("INSERT INTO app.document_version_states")
@@ -106,7 +115,8 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
     expect(stateInsert?.values).toEqual([
       "alameda",
       "22222222-2222-4222-8222-222222222222",
-      "confirmed"
+      "confirmed",
+      "Residencial Alameda"
     ]);
   });
 
@@ -229,6 +239,41 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
     ]);
     expect(fake.queries[4]?.values).toEqual(["alameda"]);
     expect(fake.client.release).toHaveBeenCalledOnce();
+  });
+
+  it("RQ-3704: confirma sob contexto runtime, grava autor e limita a versão ativa sem mudar vigência", async () => {
+    const fake = createFakeClient();
+    const repository = createPostgresDocumentUploadRepository(createPool(fake.client));
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId("alameda"),
+      userId: createUserId("11111111-1111-4111-8111-111111111111"),
+      permissions: ["document:read", "document:upload"],
+      roleKey: "manager",
+      membershipRevision: "v1"
+    };
+    expect(await repository.confirmCondominium?.(context, "version-1")).toBe(true);
+    const update = fake.queries.find(({ sql }) =>
+      sql.includes("UPDATE app.document_version_states")
+    );
+    expect(update?.values).toEqual(["alameda", "version-1"]);
+    expect(update?.sql).toContain("'confirmedByUserId', app.current_user_id()");
+    expect(update?.sql).toContain("document.status = 'active'");
+    expect(update?.sql).toContain("newer.version_number > version.version_number");
+    expect(update?.sql).not.toContain("validity_status =");
+    expect(fake.queries.at(-1)?.sql).toBe("COMMIT");
+    const count = fake.queries.length;
+    expect(
+      await repository.confirmCondominium?.(
+        { ...context, permissions: ["document:read"] },
+        "version-1"
+      )
+    ).toBe(false);
+    expect(fake.queries).toHaveLength(count);
+    fake.client.query.mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(repository.confirmCondominium?.(context, "version-1")).rejects.toThrow(
+      "database unavailable"
+    );
+    expect(fake.queries.at(-1)?.sql).toBe("ROLLBACK");
   });
 
   it("arquiva o PDF de qualquer remetente autorizado sem apagar o original recuperável", async () => {
@@ -401,6 +446,8 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
           {
             condominium_id: "alameda",
             document_version_id: "version-1",
+            title: "Condomínio Bosque.pdf",
+            selected_condominium_name: "Residencial Alameda",
             storage_object_id: "33333333-3333-4333-8333-333333333333",
             content_sha256: contentSha256,
             processing_status: "uploaded",
@@ -432,8 +479,15 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
     ).resolves.toMatchObject({
       condominiumId: "alameda",
       documentVersionId: "version-1",
+      title: "Condomínio Bosque.pdf",
+      selectedCondominiumName: "Residencial Alameda",
       state: { processingStatus: "uploaded", validityStatus: "pending" }
     });
+    expect(
+      fake.queries.some(({ sql }) =>
+        sql.includes("COALESCE(dv.source_description, documents.title) AS title")
+      )
+    ).toBe(true);
   });
 
   it("distingue versão ausente e original adulterado", async () => {
@@ -490,80 +544,101 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
     ).rejects.toThrow("hash do original");
   });
 
-  it("persiste páginas, chunks e o estado final do processamento", async () => {
-    const fake = createFakeClient([
-      { rows: [] },
-      { rows: [] },
-      { rows: [] },
-      { rows: [] },
-      {
-        rows: [{ active: 1 }],
-        rowCount: 1
-      }
-    ]);
-    const repository = createPostgresDocumentProcessingRepository(createPool(fake.client), {
-      async readOriginal() {
-        return content;
-      }
-    });
-    const outcome: DocumentProcessingOutcome = {
-      status: "completed",
-      state: {
-        processingStatus: "ready",
-        validityStatus: "pending",
-        validFrom: null,
-        validUntil: null,
-        ocrQualityScore: null
-      },
-      pages: [
+  it.each([false, true])(
+    "persiste páginas, chunks e o estado final; confirmação pendente=%s",
+    async (pending) => {
+      const fake = createFakeClient([
+        { rows: [] },
+        { rows: [] },
+        { rows: [] },
+        { rows: [] },
         {
-          id: "page-1",
-          condominiumId: createCondominiumId("alameda"),
-          documentVersionId: "version-1",
-          pageIndex: 0,
-          pageNumber: 1,
-          extractedText: "Regra sintética",
-          extractionMethod: "pdf_text",
-          qualityScore: 1,
-          contentSha256: "c".repeat(64)
+          rows: [{ active: 1 }],
+          rowCount: 1
         }
-      ],
-      extractionSummary: {
-        expectedPageCount: 1,
-        processedPageCount: 1,
-        searchablePageCount: 1,
-        unreadablePageNumbers: [],
-        extractionCompleteness: 1,
-        extractionMethod: "pdf_text",
-        ocrQualityScore: null
-      }
-    };
+      ]);
+      const repository = createPostgresDocumentProcessingRepository(createPool(fake.client), {
+        async readOriginal() {
+          return content;
+        }
+      });
+      const outcome: DocumentProcessingOutcome = {
+        status: "completed",
+        ...(pending
+          ? {
+              condominiumCheck: {
+                status: "pending" as const,
+                expectedName: "Residencial Alameda",
+                detectedNames: ["Condomínio Bosque"],
+                sources: [{ name: "Condomínio Bosque", source: "text" as const, page: 1 }],
+                resumeProcessingStatus: "ready" as const
+              }
+            }
+          : {}),
+        state: {
+          processingStatus: pending ? "needs_review" : "ready",
+          validityStatus: "pending",
+          validFrom: null,
+          validUntil: null,
+          ocrQualityScore: null
+        },
+        pages: [
+          {
+            id: "page-1",
+            condominiumId: createCondominiumId("alameda"),
+            documentVersionId: "version-1",
+            pageIndex: 0,
+            pageNumber: 1,
+            extractedText: "Regra sintética",
+            extractionMethod: "pdf_text",
+            qualityScore: 1,
+            contentSha256: "c".repeat(64)
+          }
+        ],
+        extractionSummary: {
+          expectedPageCount: 1,
+          processedPageCount: 1,
+          searchablePageCount: 1,
+          unreadablePageNumbers: [],
+          extractionCompleteness: 1,
+          extractionMethod: "pdf_text",
+          ocrQualityScore: null
+        }
+      };
 
-    await repository.saveProcessingResult({
-      condominiumId: createCondominiumId("alameda"),
-      documentVersionId: "version-1",
-      jobId: "job-1",
-      attemptCount: 1,
-      outcome
-    });
+      await repository.saveProcessingResult({
+        condominiumId: createCondominiumId("alameda"),
+        documentVersionId: "version-1",
+        jobId: "job-1",
+        attemptCount: 1,
+        outcome
+      });
 
-    expect(fake.queries.map((query) => query.sql)).toEqual([
-      "BEGIN",
-      "SET LOCAL ROLE app_worker",
-      expect.stringContaining("set_config('app.condominium_id'"),
-      expect.stringContaining("set_config('app.processing_job_id'"),
-      expect.stringContaining("FROM app.processing_jobs"),
-      expect.stringContaining("DELETE FROM app.document_chunk_embeddings"),
-      expect.stringContaining("DELETE FROM app.document_chunks"),
-      expect.stringContaining("DELETE FROM app.document_pages"),
-      expect.stringContaining("INSERT INTO app.document_pages"),
-      expect.stringContaining("INSERT INTO app.document_chunks"),
-      expect.stringContaining("INSERT INTO app.document_chunk_embeddings"),
-      expect.stringContaining("UPDATE app.document_version_states"),
-      expect.stringContaining("UPDATE app.processing_jobs"),
-      "COMMIT"
-    ]);
-  });
+      expect(fake.queries.map((query) => query.sql)).toEqual([
+        "BEGIN",
+        "SET LOCAL ROLE app_worker",
+        expect.stringContaining("set_config('app.condominium_id'"),
+        expect.stringContaining("set_config('app.processing_job_id'"),
+        expect.stringContaining("FROM app.processing_jobs"),
+        expect.stringContaining("DELETE FROM app.document_chunk_embeddings"),
+        expect.stringContaining("DELETE FROM app.document_chunks"),
+        expect.stringContaining("DELETE FROM app.document_pages"),
+        expect.stringContaining("INSERT INTO app.document_pages"),
+        expect.stringContaining("INSERT INTO app.document_chunks"),
+        expect.stringContaining("INSERT INTO app.document_chunk_embeddings"),
+        expect.stringContaining("UPDATE app.document_version_states"),
+        expect.stringContaining("UPDATE app.processing_jobs"),
+        "COMMIT"
+      ]);
+      const stateUpdate = fake.queries.find(({ sql }) =>
+        sql.includes("UPDATE app.document_version_states")
+      );
+      expect(stateUpdate?.values?.[3]).toBe(pending ? "needs_review" : "ready");
+      expect(stateUpdate?.values?.at(-1)).toBe(
+        pending ? JSON.stringify(outcome.condominiumCheck) : null
+      );
+    }
+  );
 
   it("mantém o índice dos chunks único em toda a versão, entre páginas", async () => {
     const fake = createFakeClient([

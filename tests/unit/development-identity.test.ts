@@ -12,6 +12,33 @@ import {
 } from "../../apps/web/development-identity.js";
 
 describe("identidade provisória da demonstração", () => {
+  it("preserva teste4 no perfil e restaura seu apelido depois de entrar novamente", () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value)
+    };
+    const identity = createDevelopmentIdentity("acesso-teste4");
+    expect(parseDevelopmentManagerName("teste4")).toBe("teste4");
+    expect(parseDevelopmentManagerName("Teste4")).toBe("Teste4");
+    expect(parseDevelopmentManagerName("teste\n4")).toBeUndefined();
+    rememberDevelopmentManagerName(storage, identity, "teste4");
+    rememberDevelopmentCondominium(
+      storage,
+      identity,
+      "teste4",
+      { condominiumId: "sintetico-teste4", name: "Residencial Sintético", unitCount: 24 },
+      true
+    );
+    expect(loadDevelopmentSetupProfile(storage, identity)).toEqual({
+      completed: true,
+      managerName: "teste4",
+      condominiums: [
+        { condominiumId: "sintetico-teste4", name: "Residencial Sintético", unitCount: 24 }
+      ]
+    });
+  });
+
   it("AC-2702: cria identidade estável sem misturar nomes diferentes", () => {
     const first = createDevelopmentIdentity("  Ana   Souza ");
     const repeated = createDevelopmentIdentity("ana souza");

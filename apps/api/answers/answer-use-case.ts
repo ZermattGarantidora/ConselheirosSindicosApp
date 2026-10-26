@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { chatIdPattern, type HistoryFilter } from "../chats/chat-repository.js";
 
 import { isSimpleConversationMessage } from "../../shared/conversation-intent.js";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
@@ -53,6 +54,7 @@ export type AnswerRetriever = Readonly<{
 }>;
 
 export type AskQuestionInput = Readonly<{
+  chatId?: string;
   question: string;
   requestId: string;
   idempotencyKey?: string;
@@ -63,7 +65,8 @@ export type AnswerUseCase = Readonly<{
   ask(context: AuthorizedCondominiumContext, input: AskQuestionInput): Promise<AnswerRecord>;
   listConversationHistory(
     context: AuthorizedCondominiumContext,
-    limit?: number
+    limit?: number,
+    filter?: HistoryFilter
   ): Promise<readonly ConversationHistoryEntry[]>;
   submitFeedback(
     context: AuthorizedCondominiumContext,
@@ -510,10 +513,12 @@ function createQuestion(
   question: string,
   requestId: string,
   idempotencyKey: string,
-  createdAt: Date
+  createdAt: Date,
+  chatId?: string
 ): QuestionRecord {
   return Object.freeze({
     id,
+    ...(chatId === undefined ? {} : { chatId }),
     condominiumId: context.condominiumId,
     userId: context.userId,
     content: question,
@@ -644,9 +649,11 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
 
   return Object.freeze({
     async ask(context, input): Promise<AnswerRecord> {
+      if (input.chatId !== undefined && !chatIdPattern.test(input.chatId))
+        throw new Error("O identificador da conversa é inválido.");
       const { question, requestId, idempotencyKey, preferredName } = validateQuestion(input);
       const persistedIdempotencyKey = hash(
-        `${context.condominiumId}|${context.userId}|${idempotencyKey}|${question}`
+        `${context.condominiumId}|${context.userId}|${idempotencyKey}|${question}${input.chatId === undefined ? "" : `|chat:${input.chatId}`}`
       );
       const existingAnswer = await options.persistence.findAnswerByIdempotencyKey(
         context,
@@ -665,7 +672,8 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         question,
         requestId,
         persistedIdempotencyKey,
-        startedAt
+        startedAt,
+        input.chatId
       );
       const assessment = classifyQuestionRisk(question);
       const protectedContextRequest = isProtectedContextRequest(question);
@@ -999,8 +1007,8 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
       return record;
     },
 
-    async listConversationHistory(context, limit = 50) {
-      return options.persistence.listConversationHistory(context, limit);
+    async listConversationHistory(context, limit = 50, filter) {
+      return options.persistence.listConversationHistory(context, limit, filter);
     }
   });
 }

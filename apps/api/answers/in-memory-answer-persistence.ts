@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { legacyChatId } from "../chats/chat-repository.js";
 
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 import type {
@@ -90,7 +91,8 @@ export function createInMemoryAnswerPersistence(
 
     async listConversationHistory(
       context,
-      limit = 50
+      limit = 50,
+      filter
     ): Promise<readonly ConversationHistoryEntry[]> {
       return Object.freeze(
         [...interactions.values()]
@@ -99,8 +101,21 @@ export function createInMemoryAnswerPersistence(
               interaction.question.condominiumId === context.condominiumId &&
               interaction.question.userId === context.userId
           )
+          .filter(
+            ({ question }) =>
+              filter?.chatId === undefined || (question.chatId ?? legacyChatId) === filter.chatId
+          )
+          .filter(
+            ({ question }) =>
+              filter?.before === undefined ||
+              question.createdAt.toISOString() < filter.before.createdAt ||
+              (question.createdAt.toISOString() === filter.before.createdAt &&
+                question.id < filter.before.id)
+          )
           .sort(
-            (left, right) => left.question.createdAt.getTime() - right.question.createdAt.getTime()
+            (left, right) =>
+              left.question.createdAt.getTime() - right.question.createdAt.getTime() ||
+              left.question.id.localeCompare(right.question.id)
           )
           .slice(-limit)
           .map((interaction) =>

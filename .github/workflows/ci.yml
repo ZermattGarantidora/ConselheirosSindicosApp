@@ -69,6 +69,12 @@ jobs:
       - name: Build web client
         run: pnpm run build:web
 
+      - name: Build production API
+        run: pnpm run build:api
+
+      - name: Verify compiled production runtime
+        run: pnpm run test:production
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v4

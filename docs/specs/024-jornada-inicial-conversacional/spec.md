@@ -2,7 +2,7 @@
 
 **Status:** implementada; entrada e identidade provisória complementadas pela Spec 027
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-13
+**Atualizado em:** 2026-10-26
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -12,7 +12,7 @@
 | ------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
 | Hipótese e problema | §§2 e 4            | Coleta o contexto mínimo sem formulário e reduz a ambiguidade da primeira conversa.          |
 | Experiência         | §§1 e 6            | Separa a entrada mínima do chat e faz a Alvitra iniciar a configuração.                      |
-| Menu e perfil       | §7, Blocos 4 e 5   | Organiza condomínios e documentos, e coleta nome e unidades pela conversa.                   |
+| Menu e perfil       | §7, Blocos 4 e 5   | Oferece perfil compacto sobre o chat, com nome confirmado, tema, saída e documentos autorizados; coleta nome e unidades pela conversa. |
 | Memória documental  | §8                 | Mantém documentos vinculados ao condomínio autorizado e visíveis por tipo.                   |
 | Segurança           | §§9 e 10           | Nenhum documento cruza condomínio e nenhuma criação ocorre sem resposta explícita da pessoa. |
 | Validação           | §§13 e 14          | Testa tempo até contexto útil, clareza da primeira conversa e configuração sem envio imediato. |
@@ -21,12 +21,20 @@
 
 - A página de entrada não coleta e-mail, senha ou telefone; WhatsApp continua futuro.
 - A configuração não usa formulário, não exige envio imediato de documento e não executa ação externa.
-- “Dados” mostra apenas documentos de condomínios autorizados.
+- “Perfil” permite apenas consulta do nome, alternância de tema, saída e acesso aos documentos de condomínios autorizados; não cria editor, planos, notificações ou configurações avançadas.
 - A conversa continua sendo a única interface de trabalho depois da entrada.
 
 ### Divergências da visão
 
 Nenhuma. O briefing foi atualizado na mesma decisão explícita do usuário para substituir a entrada direta no chat pela página mínima de acesso e redefinir o menu.
+Em 2026-10-20, o usuário solicitou substituir “Dados” por “Perfil”, com modo escuro, saída e poucas
+opções básicas. O ajuste de apresentação foi refletido no Bloco 4 do briefing e na projeção do MVP.
+
+O gate competitivo (§4 da diretriz) mantém o chat como experiência principal e limita a mudança ao
+menu já autorizado: reduz atrito de leitura e troca de acesso, preserva documentos isolados e
+retomada contextual. O valor documental continua vindo da memória verificável, sem alterar a IA.
+Testes de preferências, saída e autorização verificam o resultado; a implementação local não
+introduz dependências, serviços ou custo de IA e não antecipa blocos posteriores.
 
 ### Checklist de alinhamento
 
@@ -54,9 +62,10 @@ Síndico profissional ou morador entrando pela primeira vez ou complementando su
 
 - página anterior ao chat com um único botão “Entrar”;
 - menu sanduíche no canto superior direito do chat;
-- menu com “Condomínios” e “Dados”;
-- atalho para ver somente os documentos do condomínio atualmente selecionado, logo abaixo do nome dele no menu;
-- documentos autorizados agrupados por tipo em “Dados”;
+- menu com “Condomínios” e “Perfil”;
+- identificação visual do condomínio atual dentro da lista de condomínios;
+- perfil compacto com nome confirmado na conversa, escolha de tema claro ou escuro (claro por padrão) e saída da conta;
+- lista expansível de condomínios no próprio menu, com acesso “Documentos enviados” dentro do condomínio selecionado;
 - boas-vindas iniciadas pela Alvitra, que pergunta como a pessoa prefere ser chamada e conduz o cadastro do condomínio;
 - ao retomar um contexto já autorizado, saudação conversacional sem repetir perguntas de cadastro;
 - nenhuma pergunta pronta ou sugestão clicável no início do chat;
@@ -103,17 +112,56 @@ Quando já existir um contexto autorizado, a Alvitra não reinicia o cadastro ne
 
 ### RQ-2404 — Dados documentais organizados
 
-O menu “Dados” consulta somente condomínios autorizados e agrupa os documentos enviados por tipo, identificando o condomínio de origem.
+“Condomínios” expande sua lista no próprio menu, sem abrir uma tela intermediária. O condomínio
+selecionado contém o acesso “Documentos enviados”, que consulta somente os arquivos autorizados
+desse condomínio e os agrupa por tipo. O retorno dessa lista leva ao início do menu.
+
+### RQ-2407 — Perfil compacto
+
+“Perfil” substitui “Dados” no menu. Exibe somente o nome de tratamento confirmado na conversa,
+“Aparência” com as opções “Claro” e “Escuro” e “Sair da conta”. Sem nome confirmado, exibe “Seu
+perfil”, sem usar o identificador provisório como nome pessoal. Mantém um aviso curto de acesso
+provisório quando estiver no modo de demonstração e permanece utilizável a partir de 320 px. A saída
+fica no rodapé do perfil, em um botão vermelho com texto branco.
+
+O menu sanduíche ocupa a lateral direita desde abaixo do cabeçalho até a base da tela, com
+rolagem interna quando necessária. Os itens do menu principal ficam agrupados no topo.
+“Condomínios” fica no início e expande sua lista abaixo do próprio botão; a lista destaca o
+condomínio atual, sem cartão separado no topo do menu. “Documentos enviados” aparece somente
+dentro do condomínio selecionado; o perfil não repete atalhos de condomínios ou documentos.
+
+### RQ-2408 — Tema de aparência
+
+O seletor “Aparência” oferece “Claro” e “Escuro”, funciona por teclado e informa a opção selecionada
+às tecnologias assistivas. Sem escolha válida salva, usa sempre o modo claro, independentemente
+da preferência do sistema operacional.
+Muda as superfícies e textos da entrada, chat, compositor, menus, histórico e tela documental.
+O tema é uma preferência de aparência deste navegador, sem conteúdo de condomínio. A escolha
+persiste após recarga e saída, inclusive quando a pessoa escolheu o modo escuro. Se o
+armazenamento estiver indisponível, o tema continua funcionando na página atual.
+
+### RQ-2409 — Sair da conta
+
+No modo de demonstração, remove apenas a lembrança do último acesso e retorna à entrada com nome
+vazio. A saída descarta o estado em memória da página, incluindo anexos, respostas e operações
+pendentes, preservando cadastros e documentos para retomada explícita posterior. No modo real,
+revoga a sessão pela API existente antes de voltar à entrada. Uma falha de revogação mantém a
+pessoa no perfil, informa o erro e permite tentar novamente; não simula saída bem-sucedida.
 
 ### RQ-2405 — Tela documental do condomínio atual
 
-O menu identifica o condomínio atualmente selecionado e, logo abaixo do nome, oferece o atalho “Ver documentos deste condomínio”. O atalho abre uma tela documental própria, com retorno ao chat, que mostra apenas documentos autorizados para esse mesmo condomínio, agrupados por tipo. A tela exibe um indicador de contexto calculado somente a partir dos tipos de documentos já processados; ele não representa certeza, vigência ou conhecimento não documentado.
+Revisado pelo pedido explícito de 2026-10-26: “Condomínios” expande a lista no próprio menu, que
+destaca o selecionado e contém seu atalho “Documentos enviados”. O cartão de condomínio atual no
+topo e uma tela intermediária de condomínios deixam de ser apresentados. A consulta documental
+continua autorizada e limitada ao condomínio selecionado.
 
 ## 8. Contratos
 
 - `GET /v1/chat/condominiums` lista somente contextos autorizados.
 - `GET /v1/condominiums/:condominiumId/documents` lista documentos autorizados por condomínio.
 - a criação conversacional aceita o mínimo confirmado: nome e quantidade de unidades; dados adicionais podem ser aprendidos depois.
+- `POST /v1/auth/logout` encerra a sessão real com credenciais da mesma origem; nenhuma chamada externa nova é introduzida.
+- somente a preferência `alvitra.appearance` e a remoção de `alvitra.demo.identity` são necessárias no navegador; a saída não apaga perfis nem arquivos.
 
 ## 9. Requisitos não funcionais
 
@@ -129,9 +177,11 @@ O menu identifica o condomínio atualmente selecionado e, logo abaixo do nome, o
 - um único condomínio é configurado sem contagem ou anúncio de sequenciamento;
 - mais de um condomínio é configurado sequencialmente, com progresso útil;
 - o cadastro é concluído com nome da pessoa, quantidade de condomínios, nome e unidades de cada condomínio;
-- “Dados” agrupa documentos por tipo sem misturar tenants;
-- o atalho do condomínio atual não exibe documentos de outro condomínio;
-- a tela documental informa de forma transparente o contexto disponível a partir dos documentos processados;
+- o perfil reúne poucas opções básicas; documentos continuam agrupados por tipo sem misturar tenants;
+- alternar o tema melhora a leitura sem alterar contexto, mensagens ou autorização;
+- sair retorna à entrada sem reapresentar o nome anterior e permite retomar o cadastro explicitamente;
+- o menu alcança a base da tela, mantém os itens no topo e evita atalhos redundantes no perfil;
+- documentos enviados continuam autorizados, agrupados por tipo e identificados por condomínio;
 - o cadastro não solicita documento e a ausência de anexo não bloqueia o uso.
 - um contexto já configurado retoma a conversa sem repetir perguntas de cadastro ou exibir perguntas prontas.
 

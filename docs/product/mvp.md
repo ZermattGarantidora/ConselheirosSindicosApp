@@ -1,7 +1,7 @@
 # Definição do MVP
 
 **Status:** ativa, derivada do briefing
-**Atualizado em:** 2026-10-15
+**Atualizado em:** 2026-10-20
 
 ## Relação com a visão
 
@@ -39,7 +39,7 @@ de fotos e documentos seguem seus fluxos autorizados e suas limitações de evid
 1. limpar a experiência e deixar somente uma entrada mínima antes do chat;
 2. definir a personalidade da Alvitra, com aprovação do prompt antes da aplicação;
 3. adicionar múltiplos chats e barra lateral recolhida;
-4. adicionar menu com condomínios e dados documentais;
+4. adicionar menu com condomínios e perfil compacto, com acesso aos documentos;
 5. construir o perfil pela conversa;
 6. pedir e manter documentos sob demanda;
 7. entregar análise de documentos e raio-X de balancetes;
@@ -48,7 +48,7 @@ de fotos e documentos seguem seus fluxos autorizados e suas limitações de evid
 ## Fatia atual
 
 Os Blocos 1 a 8 foram autorizados explicitamente. O Bloco 2 altera somente o prompt do servidor;
-o Bloco 3 continua limitado à organização visual de conversas:
+o Bloco 3 organiza as conversas sem alterar a trilha documental:
 
 - a raiz apresenta uma página mínima com nome de usuário provisório e “Entrar” na demonstração, e
   só então abre o chat;
@@ -64,10 +64,16 @@ o Bloco 3 continua limitado à organização visual de conversas:
   implementação depende de nova spec, aprovação prévia do prompt e evals antes de ativação;
 - a lista de conversas fica recolhida à esquerda, abre de modo deslizante no desktop e como overlay
   no celular;
-- a pessoa pode criar, acessar, renomear e excluir chats dentro da sessão atual, sem persistir títulos
-  ou alterar a trilha auditável documental.
-- o menu contextual contém “Condomínios” e “Dados”; lista e troca somente contextos autorizados;
-- “Dados” organiza todos os documentos autorizados por tipo e identifica seu condomínio;
+- a pessoa pode criar, acessar, renomear e excluir a organização de chats; cada reentrada abre um
+  novo chat e conserva os anteriores na lateral, com agrupamento por usuário e condomínio no
+  servidor, sem alterar a trilha auditável documental (Spec 038). A demonstração continua sujeita
+  à perda de estado quando seu servidor em memória reinicia.
+- o menu contextual contém "Condomínios" e "Perfil", vai até a base da tela e mantém os itens no topo;
+  lista e troca somente contextos autorizados, sem atalhos redundantes dentro do perfil;
+- "Perfil" mostra o nome confirmado, escolha de tema claro ou escuro (claro por padrão) e saída da conta, e mantém um acesso aos documentos
+  autorizados organizados por tipo e identificados pelo condomínio;
+- “Nova conversa” abre um chat vazio sem copiar cadastro, mensagens, anexos ou rascunho; cliques
+  sucessivos não acumulam conversas vazias e as anteriores salvas permanecem na lateral;
 - a Alvitra pergunta quantos condomínios a pessoa administra; para um, pede diretamente nome e
   quantidade de apartamentos; para vários, configura um por vez e informa o progresso útil;
 - o mesmo nome de usuário retoma o contexto sem repetir o cadastro; na primeira entrada, a Alvitra

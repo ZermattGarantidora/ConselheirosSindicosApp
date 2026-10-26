@@ -10,7 +10,7 @@ import {
 describe("turnos do chat", () => {
   it("AC-1604: preserva histórico e limpa a resposta anterior antes da nova pergunta", async () => {
     const app = await readFile("apps/web/App.tsx", "utf8");
-    const askStart = app.indexOf("async function askQuestion()");
+    const askStart = app.indexOf("async function askQuestion(message = question)");
     const askEnd = app.indexOf("function sendComposer", askStart);
     const askQuestion = app.slice(askStart, askEnd);
 

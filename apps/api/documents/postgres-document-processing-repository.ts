@@ -27,6 +27,8 @@ type DocumentProcessingRow = Readonly<{
   document_id: string;
   document_version_id: string;
   storage_object_id: string;
+  title?: string;
+  selected_condominium_name?: string | null;
   content_sha256: string;
   media_type: DocumentMediaType;
   processing_status: DocumentProcessingStatus;
@@ -92,6 +94,8 @@ export function createPostgresDocumentProcessingRepository(
               dv.document_id,
               dv.id AS document_version_id,
               dv.storage_object_id,
+              COALESCE(dv.source_description, documents.title) AS title,
+              dvs.selected_condominium_name,
               dv.content_sha256,
               so.media_type,
               dvs.processing_status,
@@ -100,6 +104,9 @@ export function createPostgresDocumentProcessingRepository(
               dvs.valid_until,
               dvs.ocr_quality_score
             FROM app.document_versions AS dv
+            JOIN app.documents AS documents
+              ON documents.condominium_id = dv.condominium_id
+              AND documents.id = dv.document_id
             JOIN app.storage_objects AS so
               ON so.condominium_id = dv.condominium_id
               AND so.id = dv.storage_object_id
@@ -140,6 +147,10 @@ export function createPostgresDocumentProcessingRepository(
         documentVersionId: input.documentVersionId,
         content,
         mediaType: row.media_type,
+        ...(row.title === undefined ? {} : { title: row.title }),
+        ...(row.selected_condominium_name == null
+          ? {}
+          : { selectedCondominiumName: row.selected_condominium_name }),
         state: toDocumentVersionState(row)
       });
     },
@@ -364,6 +375,7 @@ export function createPostgresDocumentProcessingRepository(
                 unreadable_page_numbers = $9,
                 extraction_completeness = $10,
                 extraction_method = $11,
+                condominium_check = $12::jsonb,
                 current_processing_job_id = NULL,
                 updated_at = now()
             WHERE condominium_id = $1
@@ -384,7 +396,10 @@ export function createPostgresDocumentProcessingRepository(
             summary.searchablePageCount,
             summary.unreadablePageNumbers,
             summary.extractionCompleteness,
-            summary.extractionMethod
+            summary.extractionMethod,
+            input.outcome.condominiumCheck === undefined
+              ? null
+              : JSON.stringify(input.outcome.condominiumCheck)
           ]
         );
         if (updatedState.rowCount !== 1) {

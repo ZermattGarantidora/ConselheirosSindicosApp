@@ -129,7 +129,7 @@ export function createPostgresDocumentSourceReader(pool: PoolLike): DocumentSour
               JOIN app.legal_sources AS source
                 ON source.id = version.legal_source_id
               WHERE source.id = $1 AND version.id = $2 AND page.page_number = $3
-                AND source.status = 'active' AND version.is_current
+                AND source.status = 'active'
             ) AS authorized_source
             LIMIT 1
           `,

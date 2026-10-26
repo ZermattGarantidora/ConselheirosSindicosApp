@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("degradação local sem provedor", () => {
-  it("limita o modo offline à demonstração, não inventa fala e não libera novo cadastro", async () => {
+  it("limita o modo offline à demonstração, não libera novo cadastro e inicia chat novo com saudação segura", async () => {
     const source = await readFile("apps/web/App.tsx", "utf8");
     expect(source).toContain(
       'const offlineDemo = authMode === "development" && aiProvider === "local"'
@@ -10,6 +10,8 @@ describe("degradação local sem provedor", () => {
     expect(source).toMatch(
       /if \(offlineDemo && \(input.stage === "welcome" \|\| input.stage === "returning"\)\)\s*return "";/u
     );
+    expect(source).toContain('offlineDemo && input.stage === "new_conversation"');
+    expect(source).toContain("Como posso ajudar você agora?");
     expect(source).toContain('className="operational-notice" role="status"');
     expect(source).toContain('message.text.trim() !== ""');
     expect(source.match(/offlineDemo && setupStage !== "complete"/gu)).toHaveLength(2);

@@ -5,9 +5,11 @@ type UploadRequestInput = Readonly<{
   content: BodyInit;
   title: string;
   documentType: string;
+  chatId?: string;
   mediaType?: "application/pdf" | "image/jpeg" | "image/png";
   authMode: "real" | "development";
   developmentUserId?: string;
+  signal?: AbortSignal;
 }>;
 
 function developmentHeaders(input: UploadRequestInput): Record<string, string> {
@@ -25,11 +27,13 @@ export async function requestDocumentUploadWithAuthorizationRecovery(
     fetchRequest(`/v1/condominiums/${condominiumId}/documents`, {
       method: "POST",
       credentials: "same-origin",
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
       headers: {
         "content-type": input.mediaType ?? "application/pdf",
         ...developmentHeaders(input),
         "x-document-title": encodeURIComponent(input.title),
         "x-document-type": input.documentType,
+        ...(input.chatId === undefined ? {} : { "x-chat-id": input.chatId }),
         "x-document-validity-confirmed": "true"
       },
       body: input.content
@@ -40,6 +44,7 @@ export async function requestDocumentUploadWithAuthorizationRecovery(
 
   const contextResponse = await fetchRequest(`/v1/condominiums/${condominiumId}/context`, {
     credentials: "same-origin",
+    ...(input.signal === undefined ? {} : { signal: input.signal }),
     headers: developmentHeaders(input)
   });
   if (!contextResponse.ok) return firstResponse;

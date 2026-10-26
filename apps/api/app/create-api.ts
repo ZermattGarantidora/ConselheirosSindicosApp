@@ -10,7 +10,11 @@ import {
   type AnswerGateway
 } from "../answers/answer-gateway.js";
 import { generateSetupMessage, isSetupMessageRequest } from "../answers/setup-message.js";
-import { interpretSetupTurn, isSetupTurnRequest } from "../answers/setup-turn.js";
+import {
+  InvalidSetupInterpretationError,
+  interpretSetupTurn,
+  isSetupTurnRequest
+} from "../answers/setup-turn.js";
 import {
   isFeedbackClassification,
   type SubmitFeedbackInput
@@ -109,8 +113,19 @@ import {
   TenantWorkLimitExceededError,
   type TenantWorkLimiter
 } from "../operations/tenant-work-limiter.js";
+import type { DemoWorkAdmission } from "../operations/demo-work-admission.js";
+import {
+  chatIdPattern,
+  createInMemoryChatRepository,
+  legacyChatId,
+  parseHistoryCursor,
+  type ChatRepository
+} from "../chats/chat-repository.js";
+import { ChatHttpError, registerChatRoutes } from "../chats/chat-routes.js";
+import type { LegalCopyReader } from "../legislation/verified-legal-library.js";
 
 export type CreateApiOptions = Readonly<{
+  legalCopyReader?: LegalCopyReader;
   membershipRepository: MembershipRepository;
   aiProvider?: "openai" | "gemini" | "local";
   now?: () => Date;
@@ -138,9 +153,11 @@ export type CreateApiOptions = Readonly<{
   processPendingDocuments?: () => Promise<void>;
   tenantWorkLimiter?: TenantWorkLimiter;
   documentAnalysisReader?: DocumentAnalysisReader;
+  demoWorkAdmission?: DemoWorkAdmission;
+  chatRepository?: ChatRepository;
 }>;
 
-type AskBody = Readonly<{ question: string }>;
+type AskBody = Readonly<{ question: string; chatId?: string }>;
 type CreateTestCondominiumBody = Readonly<{
   condominiumId: string;
   name: string;
@@ -162,7 +179,7 @@ type FeedbackBody = Readonly<{
   classification: SubmitFeedbackInput["classification"];
   comment?: string;
 }>;
-type HistoryQuery = Readonly<{ limit?: string }>;
+type HistoryQuery = Readonly<{ limit?: string; chatId?: string; before?: string }>;
 type RegisterAccountBody = Readonly<{ displayName: string; email: string; password: string }>;
 type LoginAccountBody = Readonly<{ email: string; password: string }>;
 type CreateCondominiumBody = CreateCondominiumInput;
@@ -172,7 +189,8 @@ function isAskBody(value: unknown): value is AskBody {
     typeof value === "object" &&
     value !== null &&
     "question" in value &&
-    typeof value.question === "string"
+    typeof value.question === "string" &&
+    (!("chatId" in value) || (typeof value.chatId === "string" && chatIdPattern.test(value.chatId)))
   );
 }
 
@@ -374,6 +392,37 @@ function accountAuthErrorResponse(
 
 export function createApi(options: CreateApiOptions): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: maximumDocumentUploadBytes });
+  const pendingDocumentProcessing = new Set<Promise<void>>();
+  app.addHook("onClose", async () => {
+    await Promise.allSettled(pendingDocumentProcessing);
+  });
+  const documentReservations = new WeakMap<
+    FastifyRequest,
+    { release: () => void; transferred: boolean }
+  >();
+  const releaseUnclaimedDocument = (request: FastifyRequest) => {
+    const reservation = documentReservations.get(request);
+    if (reservation === undefined || reservation.transferred) return;
+    reservation.release();
+    documentReservations.delete(request);
+  };
+  app.addHook("onRequest", async (request, reply) => {
+    const admission = options.demoWorkAdmission;
+    if (admission === undefined || request.method !== "POST") return;
+    const busy = () =>
+      reply.header("retry-after", "5").code(503).send({
+        code: "server_busy",
+        message: "O servidor está ocupado. Aguarde alguns instantes e tente novamente."
+      });
+    if (!admission.hasMemoryCapacity()) return busy();
+    if (request.routeOptions.url !== "/v1/condominiums/:condominiumId/documents") return;
+    // Reserve before accepting a potentially large body; keep the slot through background parsing.
+    const release = admission.acquireDocument();
+    if (release === undefined) return busy();
+    documentReservations.set(request, { release, transferred: false });
+  });
+  app.addHook("onResponse", async (request) => releaseUnclaimedDocument(request));
+  app.addHook("onRequestAbort", async (request) => releaseUnclaimedDocument(request));
   const now = options.now ?? (() => new Date());
   const version = options.version ?? "0.1.0";
   const aiProvider = options.aiProvider ?? "local";
@@ -392,6 +441,21 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       persistence: createInMemoryAnswerPersistence()
     });
   const answerTraceStore = options.answerTraceStore ?? createInMemoryAnswerTraceStore();
+  const chatRepository = options.chatRepository ?? createInMemoryChatRepository(now);
+  registerChatRoutes(app, {
+    repository: chatRepository,
+    resolve: async (request, condominiumId) => {
+      const userId = requestUserId(request);
+      if (userId === undefined) throw new ChatHttpError(401, "Sessão não autenticada.");
+      return resolveAuthorizedCondominiumContext(options.membershipRepository, {
+        userId,
+        condominiumId: createCondominiumId(condominiumId),
+        now: now()
+      });
+    },
+    hasLegacy: async (context) =>
+      (await answerUseCase.listConversationHistory(context, 1, { chatId: legacyChatId })).length > 0
+  });
   const tenantWorkLimiter = options.tenantWorkLimiter ?? createInMemoryTenantWorkLimiter();
   const authenticatedAccounts = new WeakMap<
     FastifyRequest,
@@ -516,8 +580,17 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     try {
       const turn = await interpretSetupTurn(options.setupMessageGateway, request.body);
       return reply.header("cache-control", "no-store").send(turn);
-    } catch {
-      return reply.code(503).send({ message: "A Alvitra está indisponível no momento." });
+    } catch (error: unknown) {
+      if (error instanceof InvalidSetupInterpretationError) {
+        return reply.code(502).send({
+          code: "setup_interpretation_invalid",
+          message: "Não consegui confirmar essa informação. Tente reformular sua mensagem."
+        });
+      }
+      return reply.code(503).send({
+        code: "ai_provider_unavailable",
+        message: "A Alvitra está indisponível no momento."
+      });
     }
   });
 
@@ -1581,7 +1654,18 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           extractionCompleteness: document.extractionCompleteness,
           extractionMethod: document.extractionMethod,
           ocrQualityScore: document.ocrQualityScore,
-          uploadedByCurrentUser: document.uploadedByCurrentUser === true
+          uploadedByCurrentUser: document.uploadedByCurrentUser === true,
+          ...(document.condominiumCheck === undefined
+            ? {}
+            : {
+                condominiumCheck: {
+                  status: document.condominiumCheck.status,
+                  expectedName: document.condominiumCheck.expectedName,
+                  detectedNames: document.condominiumCheck.detectedNames,
+                  sources: document.condominiumCheck.sources,
+                  resumeProcessingStatus: document.condominiumCheck.resumeProcessingStatus
+                }
+              })
         }))
       });
     } catch (error: unknown) {
@@ -1741,6 +1825,55 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
   );
 
   app.post<{
+    Params: { condominiumId: string; documentVersionId: string };
+    Body: unknown;
+  }>(
+    "/v1/condominiums/:condominiumId/documents/:documentVersionId/confirm-condominium",
+    async (request, reply) => {
+      const userId = requestUserId(request);
+      if (userId === undefined) return reply.code(401).send({ message: unauthenticatedMessage });
+      if (
+        typeof request.body !== "object" ||
+        request.body === null ||
+        !("confirm" in request.body) ||
+        request.body.confirm !== true ||
+        Object.keys(request.body).length !== 1
+      )
+        return reply
+          .code(400)
+          .send({ message: "Confirme explicitamente o condomínio deste documento." });
+      try {
+        const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+          userId,
+          condominiumId: createCondominiumId(request.params.condominiumId),
+          now: now()
+        });
+        if (!context.permissions.includes("document:upload"))
+          return reply.code(403).send({ message: "Acesso não autorizado." });
+        const confirmed = await documentCatalogRepository.confirmCondominium?.(
+          context,
+          request.params.documentVersionId
+        );
+        if (confirmed !== true)
+          return reply.code(409).send({
+            message: "Não há confirmação pendente para esta versão ativa neste condomínio."
+          });
+        options.developmentDocumentMemory?.confirmCondominium(
+          context.condominiumId,
+          request.params.documentVersionId
+        );
+        return reply.send({ confirmed: true });
+      } catch (error) {
+        if (error instanceof AccessDeniedError)
+          return reply.code(403).send({ message: "Acesso não autorizado." });
+        return reply
+          .code(500)
+          .send({ message: "Não foi possível confirmar o condomínio do documento." });
+      }
+    }
+  );
+
+  app.post<{
     Params: { condominiumId: string };
     Headers: {
       "x-development-user-id"?: string;
@@ -1748,6 +1881,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       "x-document-type"?: string;
       "x-document-id"?: string;
       "x-document-validity-confirmed"?: string;
+      "x-chat-id"?: string;
       "content-type"?: string;
     };
     Body: Buffer;
@@ -1782,7 +1916,31 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
             "O envio de fotos será liberado quando o processamento seguro estiver configurado."
         });
       }
+      const selectedCondominiumName =
+        accountAuth === undefined
+          ? (options.developmentMembershipRegistry
+              ?.listTestCondominiums(userId)
+              .find((item) => item.condominiumId === context.condominiumId)?.name ??
+            (
+              { alameda: "Residencial Alameda", bosque: "Condomínio Bosque" } as Record<
+                string,
+                string
+              >
+            )[context.condominiumId])
+          : (await options.condominiumDirectory?.listAuthorized(userId))?.find(
+              (item) => item.condominiumId === context.condominiumId
+            )?.name;
+      if (accountAuth !== undefined && selectedCondominiumName === undefined)
+        return reply
+          .code(503)
+          .send({ message: "Não foi possível conferir o nome do condomínio selecionado." });
+      const chatId = request.headers["x-chat-id"];
+      if (chatId !== undefined && (typeof chatId !== "string" || !chatIdPattern.test(chatId)))
+        return reply.code(400).send({ message: "O identificador da conversa é inválido." });
+      if (chatId !== undefined && (await chatRepository.find(context, chatId)) === undefined)
+        return reply.code(404).send({ message: "Conversa indisponível." });
       const uploaded = await uploadDocument(documentStorage, documentUploadRepository, context, {
+        ...(selectedCondominiumName === undefined ? {} : { selectedCondominiumName }),
         title: decodeDocumentTitle(request.headers["x-document-title"] ?? ""),
         documentType: request.headers["x-document-type"] ?? "",
         ...(request.headers["x-document-id"] === undefined
@@ -1792,22 +1950,56 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         mediaType,
         validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
       });
-      const memoryStatus = await options.developmentDocumentMemory?.indexUploaded({
-        record: uploaded,
-        content: request.body,
-        validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
-      });
-      if (memoryStatus !== undefined && documentCatalogRepository.updateProcessingStatus) {
-        const processingStatus =
-          memoryStatus === "needs_review"
-            ? "needs_review"
-            : memoryStatus === "failed"
-              ? "failed"
-              : "ready";
-        await documentCatalogRepository.updateProcessingStatus(context, {
+      const memory = options.developmentDocumentMemory;
+      if (chatId !== undefined)
+        await chatRepository.attachDocument(context, chatId, {
           documentVersionId: uploaded.documentVersionId,
-          processingStatus
+          title: uploaded.title,
+          createdAt: now().toISOString()
         });
+      if (memory !== undefined) {
+        const reservation = documentReservations.get(request);
+        if (reservation !== undefined) reservation.transferred = true;
+        // Yield until the original has been acknowledged; parsing must not block the upload.
+        const task = new Promise<void>((resolve) => setImmediate(resolve)).then(async () => {
+          try {
+            await documentCatalogRepository.updateProcessingStatus?.(context, {
+              documentVersionId: uploaded.documentVersionId,
+              processingStatus: "processing"
+            });
+            const status = await memory.indexUploaded({
+              record: uploaded,
+              content: request.body,
+              validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
+            });
+            await documentCatalogRepository.updateProcessingStatus?.(context, {
+              documentVersionId: uploaded.documentVersionId,
+              processingStatus: status === "pending_confirmation" ? "ready" : status,
+              ...(memory.getCondominiumCheck(context.condominiumId, uploaded.documentVersionId) ===
+              undefined
+                ? {}
+                : {
+                    condominiumCheck: memory.getCondominiumCheck(
+                      context.condominiumId,
+                      uploaded.documentVersionId
+                    )!
+                  })
+            });
+          } catch {
+            await documentCatalogRepository.updateProcessingStatus?.(context, {
+              documentVersionId: uploaded.documentVersionId,
+              processingStatus: "failed"
+            });
+          }
+        });
+        pendingDocumentProcessing.add(task);
+        void task
+          .finally(() => {
+            pendingDocumentProcessing.delete(task);
+            reservation?.release();
+            documentReservations.delete(request);
+          })
+          .catch(() => undefined);
       }
       void options.processPendingDocuments?.().catch(() => undefined);
 
@@ -1815,8 +2007,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         documentId: uploaded.documentId,
         documentVersionId: uploaded.documentVersionId,
         processingStatus: uploaded.processingStatus,
-        validityStatus: uploaded.validityStatus,
-        ...(memoryStatus === undefined ? {} : { memoryStatus })
+        validityStatus: uploaded.validityStatus
       });
     } catch (error: unknown) {
       if (error instanceof AccessDeniedError) {
@@ -1862,9 +2053,36 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         condominiumId,
         now: now()
       });
-      const entries = await answerUseCase.listConversationHistory(context, limit);
+      const chatId = request.query.chatId;
+      if (chatId !== undefined && !chatIdPattern.test(chatId))
+        return reply.code(400).send({ message: "O identificador da conversa é inválido." });
+      if (chatId !== undefined && (await chatRepository.find(context, chatId)) === undefined)
+        return reply.code(404).send({ message: "Conversa indisponível." });
+      let before;
+      try {
+        before = parseHistoryCursor(request.query.before);
+      } catch {
+        return reply.code(400).send({ message: "O cursor do histórico é inválido." });
+      }
+      const entries = await answerUseCase.listConversationHistory(context, limit, {
+        ...(chatId === undefined ? {} : { chatId }),
+        ...(before === undefined ? {} : { before })
+      });
+      const attachments =
+        chatId === undefined ? [] : await chatRepository.listAttachments(context, chatId);
+      const catalog =
+        attachments.length === 0
+          ? []
+          : await listRegisteredDocuments(documentCatalogRepository, context);
 
-      return reply.send({
+      return reply.header("cache-control", "private, no-store").send({
+        nextCursor:
+          entries.length === limit && entries[0] !== undefined
+            ? `${entries[0].createdAt.toISOString()}|${entries[0].questionId}`
+            : null,
+        attachments: attachments.filter((attachment) =>
+          catalog.some((document) => document.documentVersionId === attachment.documentVersionId)
+        ),
         entries: entries.map((entry) => ({
           questionId: entry.questionId,
           question: entry.question,
@@ -1914,7 +2132,13 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         now: now()
       });
       const preferredName = requestPreferredName(request);
+      if (
+        request.body.chatId !== undefined &&
+        (await chatRepository.find(context, request.body.chatId)) === undefined
+      )
+        return reply.code(404).send({ message: "Conversa indisponível." });
       const answer = await answerUseCase.ask(context, {
+        ...(request.body.chatId === undefined ? {} : { chatId: request.body.chatId }),
         question: request.body.question,
         requestId: request.id,
         preferredName: preferredName ?? "",
@@ -2134,6 +2358,36 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         .send({ message: "Não foi possível consultar os documentos com segurança." });
     }
   });
+
+  app.get<{
+    Params: { condominiumId: string; documentId: string; documentVersionId: string };
+  }>(
+    "/v1/condominiums/:condominiumId/legal-sources/:documentId/versions/:documentVersionId/copy",
+    async (request, reply) => {
+      const userId = requestUserId(request);
+      if (userId === undefined) return reply.code(401).send({ message: unauthenticatedMessage });
+      try {
+        const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+          userId,
+          condominiumId: createCondominiumId(request.params.condominiumId),
+          now: now()
+        });
+        const content = await options.legalCopyReader?.getAuthorizedCopy(context, request.params);
+        if (content === undefined)
+          return reply.code(404).send({ message: "Cópia de consulta não encontrada." });
+        return reply
+          .type("application/pdf")
+          .header("content-disposition", "inline; filename=alvitra-copia-de-consulta.pdf")
+          .header("cache-control", "private, no-store")
+          .header("x-content-type-options", "nosniff")
+          .send(content);
+      } catch (error) {
+        if (error instanceof AccessDeniedError)
+          return reply.code(403).send({ message: "Acesso não autorizado." });
+        return reply.code(500).send({ message: "Não foi possível abrir a cópia com segurança." });
+      }
+    }
+  );
 
   app.get<{
     Params: { condominiumId: string; documentId: string; documentVersionId: string; page: string };

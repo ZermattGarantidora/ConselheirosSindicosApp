@@ -1,5 +1,14 @@
 # Critérios de aceitação — Spec 027
 
+## AC-2707 — Apelido alfanumérico e diagnóstico correto
+
+Quando a pessoa confirma que prefere ser chamada de `teste4`, a interpretação estruturada é aceita,
+o cadastro continua e o perfil conserva esse apelido depois de nova entrada. O identificador de
+acesso e as autorizações não mudam. Números isolados, HTML e controles continuam rejeitados.
+Uma resposta inválida da interpretação retorna 502 com `setup_interpretation_invalid`, sem expor
+conteúdo interpretado; indisponibilidade do provedor retorna 503 com `ai_provider_unavailable`.
+Em ambos os erros, a mensagem digitada fica disponível para nova tentativa na mesma etapa.
+
 ## AC-2706 — Demonstração local sem fala fictícia
 
 Dado runtime de desenvolvimento/local, quando entrar, então a interface abre sem requisitar boas-vindas/retomada ao provedor e informa operacionalmente a ausência de IA. Não exibe balão vazio nem fala pronta. Novo cadastro permanece pendente e sem anexos/turnos de configuração; perfil previamente confirmado pode ser restaurado e consultar documentos autorizados. Não inferir nome de usuário como nome de tratamento nem criar contexto automático. Runtime com provedor mantém a configuração normal.

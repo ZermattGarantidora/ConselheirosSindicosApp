@@ -3,6 +3,7 @@ import type { AnswerGateway } from "./answer-gateway.js";
 export const setupMessageStages = [
   "welcome",
   "returning",
+  "new_conversation",
   "condominium_count",
   "condominium_name",
   "unit_count",
@@ -49,6 +50,8 @@ const instructions: Readonly<Record<SetupMessageStage, string>> = {
   welcome: "Dê boas-vindas e pergunte como a pessoa prefere ser chamada.",
   returning:
     "Cumprimente de forma breve e abra espaço para a pessoa dizer o que precisa, sem repetir cadastro.",
+  new_conversation:
+    "Você está abrindo uma conversa nova com uma pessoa cujo contexto já está confirmado. Cumprimente brevemente e pergunte como pode ajudar, sem repetir cadastro nem fazer afirmações sobre o condomínio.",
   condominium_count: "Pergunte quantos condomínios a pessoa administra.",
   condominium_name:
     "Pergunte o nome do condomínio atual. Se houver apenas um, não anuncie sequência nem contagem. Se houver vários, indique o progresso de forma discreta.",
