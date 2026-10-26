@@ -21,14 +21,32 @@ import type { AuthorizedCondominiumContext } from "../../apps/api/identity/autho
 import { createPostgresMembershipRepository } from "../../apps/api/identity/postgres-identity-repository.js";
 import { createSyntheticTextPdf } from "../fixtures/synthetic-pdfs.js";
 import {
-  assertSyntheticIntegrationTarget,
+  assertSyntheticIntegrationTarget as assertNeonIntegrationTarget,
   parseNeonIntegrationUrl,
-  requireSyntheticIntegrationConfirmation
+  requireSyntheticIntegrationConfirmation as requireNeonIntegrationConfirmation
 } from "../../scripts/neon-integration-guard.js";
+import {
+  assertSyntheticIntegrationTarget as assertSupabaseIntegrationTarget,
+  parseSupabaseIntegrationUrl,
+  requireSyntheticIntegrationConfirmation
+} from "../../scripts/supabase-integration-guard.js";
 
-const databaseUrl = process.env.NEON_INTEGRATION_DATABASE_URL;
-parseNeonIntegrationUrl(databaseUrl);
-requireSyntheticIntegrationConfirmation(process.env.NEON_INTEGRATION_CONFIRMATION);
+const supabaseIntegrationUrl = process.env.SUPABASE_INTEGRATION_DATABASE_URL;
+const neonIntegrationUrl = process.env.NEON_INTEGRATION_DATABASE_URL;
+if (supabaseIntegrationUrl !== undefined && neonIntegrationUrl !== undefined)
+  throw new Error("Defina somente um destino de integração sintética por execução.");
+const databaseUrl = supabaseIntegrationUrl ?? neonIntegrationUrl;
+const assertIntegrationTarget =
+  supabaseIntegrationUrl === undefined
+    ? assertNeonIntegrationTarget
+    : assertSupabaseIntegrationTarget;
+if (supabaseIntegrationUrl !== undefined) {
+  parseSupabaseIntegrationUrl(supabaseIntegrationUrl);
+  requireSyntheticIntegrationConfirmation(process.env.SUPABASE_INTEGRATION_CONFIRMATION);
+} else {
+  parseNeonIntegrationUrl(neonIntegrationUrl);
+  requireNeonIntegrationConfirmation(process.env.NEON_INTEGRATION_CONFIRMATION);
+}
 
 const pool = new Pool({ connectionString: databaseUrl });
 const alamedaId = randomUUID();
@@ -94,7 +112,7 @@ describe("RLS de isolamento por condomínio", () => {
     const client = await pool.connect();
 
     try {
-      await assertSyntheticIntegrationTarget(client);
+      await assertIntegrationTarget(client);
     } finally {
       client.release();
     }
