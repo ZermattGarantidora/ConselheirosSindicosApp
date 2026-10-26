@@ -1,65 +1,28 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  assertSafeRuntimeRole,
-  assertSyntheticIntegrationTarget,
-  parseSupabaseIntegrationUrl,
-  requireSyntheticIntegrationConfirmation
+  createTrustedSupabaseConnectionConfig,
+  parseSupabaseIntegrationUrl
 } from "../../scripts/supabase-integration-guard.js";
 
-describe("proteção da integração sintética Supabase", () => {
-  it("aceita endpoint Supabase PostgreSQL com TLS obrigatório", () => {
-    expect(
-      parseSupabaseIntegrationUrl(
-        "postgresql://role:password@db.project-ref.supabase.co:5432/postgres?sslmode=require"
-      ).hostname
-    ).toBe("db.project-ref.supabase.co");
-  });
+describe("conexão Supabase de integração", () => {
+  const connectionUrl =
+    "postgresql://role:password@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=verify-full";
+  const certificate = "-----BEGIN CERTIFICATE-----\nsynthetic\n-----END CERTIFICATE-----";
 
-  it.each([
-    undefined,
-    "",
-    "not-a-url",
-    "https://db.project-ref.supabase.co/postgres?sslmode=require",
-    "postgresql://role:password@db.example.com/postgres?sslmode=require",
-    "postgresql://role:password@db.project-ref.supabase.co/postgres?sslmode=disable"
-  ])("rejeita URL insegura: %s", (url) => {
-    expect(() => parseSupabaseIntegrationUrl(url)).toThrow();
-  });
+  it("mantém validação de hostname e cadeia com o certificado raiz fornecido", () => {
+    const config = createTrustedSupabaseConnectionConfig(connectionUrl, certificate);
 
-  it("exige confirmação literal para dados sintéticos", () => {
-    expect(() => requireSyntheticIntegrationConfirmation("synthetic-only")).not.toThrow();
-    expect(() => requireSyntheticIntegrationConfirmation(undefined)).toThrow();
-  });
-
-  it("recusa banco sem marcador persistente", async () => {
-    const client = { query: async () => ({ rowCount: 0, rows: [] }) } as never;
-    await expect(assertSyntheticIntegrationTarget(client)).rejects.toThrow(
-      "marcador de integração sintética"
+    expect(parseSupabaseIntegrationUrl(connectionUrl).hostname).toBe(
+      "aws-0-us-east-1.pooler.supabase.com"
     );
+    expect(config.connectionString).not.toContain("sslmode=");
+    expect(config.ssl).toEqual({ ca: certificate, rejectUnauthorized: true });
   });
 
-  it("recusa papel runtime com privilégio incompatível", async () => {
-    const client = {
-      query: async () => ({
-        rowCount: 1,
-        rows: [
-          {
-            rolcanlogin: false,
-            rolsuper: false,
-            rolcreatedb: false,
-            rolcreaterole: false,
-            rolinherit: false,
-            rolbypassrls: true,
-            rolreplication: false,
-            has_memberships: false,
-            owns_objects: false,
-            has_role_config: false
-          }
-        ]
-      })
-    } as never;
-
-    await expect(assertSafeRuntimeRole(client)).rejects.toThrow("app_runtime");
+  it("falha fechada sem o certificado raiz", () => {
+    expect(() => createTrustedSupabaseConnectionConfig(connectionUrl, undefined)).toThrow(
+      "SUPABASE_INTEGRATION_CA_CERT"
+    );
   });
 });

@@ -258,8 +258,9 @@ vazio, dedicado e marcado com `infrastructure/supabase/001-integration-guard.sql
 somente no terminal atual:
 
 ```powershell
-$env:SUPABASE_INTEGRATION_DATABASE_URL = "postgresql://<role>:<password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require"
+$env:SUPABASE_INTEGRATION_DATABASE_URL = "postgresql://<role>:<password>@<pooler-host>:5432/postgres?sslmode=verify-full"
 $env:SUPABASE_INTEGRATION_CONFIRMATION = "synthetic-only"
+$env:SUPABASE_INTEGRATION_CA_CERT = "-----BEGIN CERTIFICATE-----..."
 pnpm run db:migrate:supabase
 pnpm run test:integration
 ```
@@ -289,11 +290,13 @@ reiniciadas entre cenários, sem preservar fontes de uma execução anterior.
 
 Quando a rede local não puder estabelecer TLS confiável com o PostgreSQL, o workflow manual
 `Supabase synthetic integration` executa o mesmo comando em um runner do GitHub. Antes de acioná-lo,
-cadastre no repositório o segredo de Actions `SUPABASE_INTEGRATION_DATABASE_URL` com a URL do
-projeto Supabase dedicado e sintético, usando TLS. Não use a URL de desenvolvimento, staging,
-produção ou de outro produto. Em **Actions**, escolha o workflow, clique em **Run workflow** e
-selecione `synthetic-only`; ele aplica migrations somente após validar URL, confirmação e marcador.
-O artefato da rodada contém o JSON e o log de integração, inclusive em caso de falha.
+cadastre no repositório os segredos de Actions `SUPABASE_INTEGRATION_DATABASE_URL` e
+`SUPABASE_INTEGRATION_CA_CERT`. A URL deve usar o Session pooler com `sslmode=verify-full`; o
+certificado é o PEM raiz baixado em **Database Settings > SSL Configuration**. Não use a URL de
+desenvolvimento, staging, produção ou de outro produto. Em **Actions**, escolha o workflow, clique
+em **Run workflow** e selecione `synthetic-only`; ele aplica migrations somente após validar URL,
+certificado, confirmação e marcador. O artefato da rodada contém o JSON e o log de integração,
+inclusive em caso de falha.
 
 ## Base legal federal conferida
 
