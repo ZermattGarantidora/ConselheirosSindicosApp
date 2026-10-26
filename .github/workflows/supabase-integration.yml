@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 20
     env:
       SUPABASE_INTEGRATION_DATABASE_URL: ${{ secrets.SUPABASE_INTEGRATION_DATABASE_URL }}
+      SUPABASE_INTEGRATION_CA_CERT: ${{ secrets.SUPABASE_INTEGRATION_CA_CERT }}
       SUPABASE_INTEGRATION_CONFIRMATION: ${{ inputs.confirmation }}
 
     steps:
