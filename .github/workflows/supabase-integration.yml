@@ -1,0 +1,59 @@
+name: Supabase synthetic integration
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Confirme que o alvo é exclusivamente o projeto Supabase sintético da Alvitra.
+        required: true
+        type: choice
+        options:
+          - synthetic-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-synthetic-integration
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    name: Protected PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_INTEGRATION_DATABASE_URL: ${{ secrets.SUPABASE_INTEGRATION_DATABASE_URL }}
+      SUPABASE_INTEGRATION_CONFIRMATION: ${{ inputs.confirmation }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Migrate and test the protected synthetic target
+        shell: pwsh
+        run: ./scripts/verify-supabase-local.ps1
+
+      - name: Upload integration reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-integration-${{ github.run_id }}
+          path: reports/supabase-integration/
+          if-no-files-found: ignore
