@@ -1,7 +1,7 @@
 # Briefing de produto — Alvitra
 
 **Status:** visão canônica aprovada
-**Atualizado em:** 2026-10-15
+**Atualizado em:** 2026-10-20
 
 ## 1. Visão do produto
 
@@ -133,11 +133,14 @@ não se tornam fluxos de onboarding nem substituem a conversa como interface pri
 
 ### Bloco 4 — menu sanduíche
 
-- abrir no canto superior direito um menu sanduíche com “Condomínios” e “Dados”;
+- abrir no canto superior direito um menu sanduíche com "Condomínios" e "Perfil";
 - listar os condomínios do síndico e oferecer criação opcional;
 - permitir que a criação também aconteça pela conversa.
-- em “Dados”, listar os documentos autorizados enviados, organizados por tipo e identificados pelo
-  condomínio correspondente.
+- em "Perfil", mostrar o nome confirmado na conversa, a escolha entre modo claro e escuro, com
+  claro como padrão, e a saída da conta,
+  mantendo acesso aos documentos autorizados enviados, organizados por tipo e identificados pelo
+  condomínio correspondente; esse controle compacto sobre o chat substitui "Dados" e não cria um
+  módulo de configurações ou formulário de cadastro.
 
 ### Bloco 5 — perfil construído pela conversa
 

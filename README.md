@@ -31,7 +31,7 @@ apps/
   web/             chat React/Vite
 infrastructure/
   database/        migrations PostgreSQL/RLS/pgvector
-  neon/            proteção do banco sintético de integração
+  supabase/        proteção do banco sintético de integração
 docs/              visão, specs, ADRs, segurança e qualidade
 tests/             testes unitários, e2e e integração
 evals/             corpus e avaliações sintéticas
@@ -123,6 +123,17 @@ Para processar a fila em um processo separado:
 $env:DATABASE_URL = "postgresql://postgres:local-development-only@127.0.0.1:5432/conselheiro"
 pnpm run worker
 ```
+
+Em Supabase, use a URL PostgreSQL direta do projeto no ambiente correspondente. A aplicação não
+usa a chave pública nem o cliente JavaScript do Supabase: somente `DATABASE_URL` permanece no
+servidor. Aplique migrations no banco persistente autorizado com:
+
+```powershell
+$env:DATABASE_URL = "postgresql://<role>:<password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require"
+pnpm run db:migrate:remote
+```
+
+Não use o projeto Supabase de integração sintética para esta finalidade.
 
 O modo real é o padrão seguro: sem `DATABASE_URL` e sem `DEMO_MODE=true`, a API recusa iniciar.
 
@@ -224,11 +235,10 @@ e sem anexos até existir provedor autorizado. Esse modo não substitui a avalia
 
 Não grave chaves no repositório nem as informe em conversas.
 
-## Integração sintética com Neon
+## Integração sintética: Neon ativo e Supabase preparado
 
-O Neon é permitido exclusivamente para integração sintética conforme ADR 0007. Use um banco vazio,
-dedicado e marcado uma única vez com `infrastructure/neon/001-integration-guard.sql`. Depois defina,
-somente no terminal atual:
+Até um projeto Supabase vazio passar migrations e a suíte RLS, Neon continua sendo o destino ativo
+de integração sintética conforme ADR 0007:
 
 ```powershell
 $env:NEON_INTEGRATION_DATABASE_URL = "postgresql://<role>:<password>@<host>.neon.tech/<database>?sslmode=require"
@@ -237,17 +247,15 @@ pnpm run db:migrate:neon
 pnpm run test:integration
 ```
 
-Os comandos recusam hosts não Neon, conexão sem TLS, confirmação ausente e banco sem o marcador.
-O teste de integração executa `TRUNCATE` das fixtures e nunca deve apontar para uma base com dados a
-preservar.
+O banco Neon também exige TLS, confirmação e o marcador em
+`infrastructure/neon/001-integration-guard.sql`; os testes executam `TRUNCATE` somente nesse banco
+dedicado e sintético.
 
-## Integração sintética com Supabase
+### Preparação do Supabase
 
-O Supabase exige um projeto vazio e dedicado, marcado uma única vez com
-`infrastructure/supabase/001-integration-guard.sql`. Use a URL do Session pooler com
-`sslmode=verify-full` e baixe o certificado raiz em **Database Settings > SSL Configuration**. O
-certificado não é versionado: no GitHub Actions, salve o conteúdo PEM completo no segredo
-`SUPABASE_INTEGRATION_CA_CERT`, junto da URL em `SUPABASE_INTEGRATION_DATABASE_URL`.
+O Supabase está preparado conforme ADR 0030, mas ainda não retira Neon. Quando houver um projeto
+vazio, dedicado e marcado com `infrastructure/supabase/001-integration-guard.sql`, execute:
+somente no terminal atual:
 
 ```powershell
 $env:SUPABASE_INTEGRATION_DATABASE_URL = "postgresql://<role>:<password>@<pooler-host>:5432/postgres?sslmode=verify-full"
@@ -257,15 +265,79 @@ pnpm run db:migrate:supabase
 pnpm run test:integration
 ```
 
-O cliente valida a cadeia e o hostname com esse certificado; ele falha fechado se o certificado,
-o TLS, a confirmação ou o marcador não estiverem presentes. Os testes continuam limitados às
-fixtures sintéticas e executam `TRUNCATE` somente nesse banco marcado.
+Os comandos recusam hosts não Supabase, conexão sem TLS, confirmação ausente e banco sem o marcador.
+O teste de integração executa `TRUNCATE` das fixtures e nunca deve apontar para uma base com dados a
+preservar.
+
+Se os comandos desta sessão estiverem bloqueados por permissão de rede, execute no PowerShell
+normal do Windows, na pasta do projeto:
+
+```powershell
+pwsh -NoProfile -File scripts/verify-supabase-local.ps1
+```
+
+Esse comando carrega `.env.local` e `.env.admin.local`, aplica a migração protegida existente
+e executa a suíte de integração somente se a migração terminar com sucesso. Usa os binários
+locais, sem depender do download do pnpm, e mantém todas as guardas do ADR 0030. O diagnóstico
+`-CheckOnly` confere Node 24 e arquivos necessários, sem conectar ao banco. A execução não amplia
+as permissões do ChatGPT; dentro de uma sessão restrita, a conexão continua sujeita à mesma política.
+Cada execução da suíte também grava seu resultado completo em um JSON com nome único em
+`reports/supabase-integration/`, inclusive quando há falhas. Esse arquivo permite conferir os erros
+sem copiar toda a saída do terminal. Uma cópia completa de stdout e stderr também fica no `.log` da mesma rodada, preservando mensagens que o JSON não apresentar. As fixtures incluem a biblioteca legal sintética e são
+reiniciadas entre cenários, sem preservar fontes de uma execução anterior.
+
+### Execução manual no GitHub Actions
+
+Quando a rede local não puder estabelecer TLS confiável com o PostgreSQL, o workflow manual
+`Supabase synthetic integration` executa o mesmo comando em um runner do GitHub. Antes de acioná-lo,
+cadastre no repositório os segredos de Actions `SUPABASE_INTEGRATION_DATABASE_URL` e
+`SUPABASE_INTEGRATION_CA_CERT`. A URL deve usar o Session pooler com `sslmode=verify-full`; o
+certificado é o PEM raiz baixado em **Database Settings > SSL Configuration**. Não use a URL de
+desenvolvimento, staging, produção ou de outro produto. Em **Actions**, escolha o workflow, clique
+em **Run workflow** e selecione `synthetic-only`; ele aplica migrations somente após validar URL,
+certificado, confirmação e marcador. O artefato da rodada contém o JSON e o log de integração,
+inclusive em caso de falha.
+
+## Base legal federal conferida
+
+A edição de 22/10/2026 contém seis fontes e 25 páginas de consulta: recortes do Código Civil
+(incluindo alterações das Leis 14.309/2022, 14.405/2022 e 14.905/2024), da Lei do Inquilinato,
+da LGPD, do CPC, da Lei 15.040/2024 e da Lei 14.327/2022. Os textos foram conferidos no Planalto.
+O repositório ctresb/leis foi usado para pesquisa, sem importação automática do seu acervo.
+
+As cópias são PDFs derivados identificados como Alvitra, com paginação própria e origem oficial
+registrada; não substituem a publicação oficial. Os recortes e as omissões são explícitos.
+A demonstração carrega essa edição compartilhada, exige acesso ao condomínio e mantém a memória
+privada isolada. Uma lei sozinha não pode validar uma afirmação classificada como fato local.
+O botão **Abrir cópia de consulta** nas citações legais permite conferir a página do PDF.
+
+A conferência desta edição é elegível de 22/10/2026 até 21/11/2026, limite exclusivo. Fora desse
+intervalo os recortes não fundamentam novas respostas; isso não significa revogação das leis.
+Não há atualização automática. A Constituição integral e as regras locais exigem curadoria própria.
+
+```powershell
+pnpm run legal:build
+pnpm run evals:legal
+```
+
+`legal:build` reproduz os PDFs e verifica texto, páginas e hashes antes de gravar a edição.
+Para o runtime PostgreSQL, após aplicar as migrações em um ambiente autorizado (incluindo 033),
+execute administrativamente, com `DATABASE_URL` do destino autorizado:
+
+```powershell
+pnpm run legal:import:verified
+```
+
+O runtime não importa leis ao receber perguntas. A importação preserva versões e recusa regressão
+silenciosa da conferência. Dados e perguntas de teste continuam sintéticos; os textos públicos
+oficiais ficam identificados como corpus de produto. Detalhes na Spec 039 e no ADR 0029.
 
 ## Evals e segurança
 
 ```powershell
 pnpm run evals
 pnpm run evals:synthetic
+pnpm run evals:legal
 pnpm run evals:documentary
 pnpm run evals:documentary:semantic
 pnpm run pilot:synthetic

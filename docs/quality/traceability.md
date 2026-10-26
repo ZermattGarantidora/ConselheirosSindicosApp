@@ -1,5 +1,21 @@
 # Matriz de rastreabilidade — Specs 001–036
 
+## Organização do menu da conta — 2026-10-26
+
+| Requisito | Aceitação | Evidência |
+| --- | --- | --- |
+| RQ-2404/RQ-2405/RQ-2407 — menu compacto de documentos, condomínio e perfil | AC-2405, AC-2406 e AC-2408 | `App.tsx`, `styles.css` e `account-menu-ui.test.ts`; “Condomínios” expande no próprio menu, o selecionado contém “Documentos enviados” limitado aos seus arquivos e o perfil mantém a saída no rodapé em botão vermelho. |
+
+Validação: gate de visão das 40 specs, 5 testes do menu e build web aprovados; prévia local conferida com o acordeão de condomínios, seus documentos e o perfil.
+
+## Saudação contextual em nova conversa — 2026-10-26
+
+| Requisito | Aceitação | Evidência |
+| --- | --- | --- |
+| RQ-3801/RQ-3805 — nova conversa iniciada pela Alvitra | AC-3801 e AC-3806 | `setup-message.ts`, `App.tsx`, `setup-message.test.ts`, `chat-sidebar-ui.test.ts` e `offline-demo-ui.test.ts`; a mensagem é gerada no ambiente conectado e usa uma saudação segura no modo local, sem copiar turnos, anexos, rascunhos ou cadastro. |
+
+Validação: gate de visão das 40 specs aprovado; 11 testes unitários focados e build web aprovados. A prévia local confirmou que “Nova conversa” abre com a saudação da Alvitra.
+
 ## Fronteira determinística reforçada — 2026-10-19
 
 | Requisito | Aceitação | Evidência |
@@ -507,7 +523,7 @@ de lines. O build web, o gate de visão para 24 specs e a conferência visual lo
 | RQ-2401 — entrada mínima separada                | AC-2401                | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/chat-single-page.test.ts`                                                                                                 |
 | RQ-2402 e RQ-2403 — cadastro guiado pela Alvitra | AC-2402 e AC-2403      | `apps/web/App.tsx`; `apps/api/answers/setup-message.ts`; `apps/api/app/create-api.ts`; `tests/unit/conversational-setup-ui.test.ts`; testes de criação real e de desenvolvimento |
 | RQ-2403 — documentos necessários, enviados depois | AC-2404               | `apps/api/answers/setup-message.ts`; `apps/api/answers/prompt-catalog.ts`; `apps/web/App.tsx`; `tests/unit/setup-message.test.ts`; `tests/unit/conversational-setup-ui.test.ts`; testes existentes de upload e vetorização |
-| RQ-2404 — dados documentais organizados          | AC-2405                | `GET /v1/chat/condominiums`; `GET /v1/condominiums/:condominiumId/documents`; `apps/web/App.tsx`; `tests/unit/account-menu-ui.test.ts`; testes de autorização/RLS                |
+| RQ-2404 — documentos organizados em Perfil      | AC-2405                | `GET /v1/chat/condominiums`; `GET /v1/condominiums/:condominiumId/documents`; `apps/web/App.tsx`; `tests/unit/account-menu-ui.test.ts`; testes de autorização/RLS                |
 | RQ-2405 — tela documental do condomínio atual    | AC-2406                | `apps/web/App.tsx`; `apps/web/styles.css`; `tests/unit/account-menu-ui.test.ts`; contratos de autorização/RLS existentes                                                         |
 | RQ-2406 — continuidade conversacional            | AC-2407                | `apps/web/App.tsx`; `tests/unit/conversational-setup-ui.test.ts`; `tests/unit/chat-bootstrap.test.ts`                                                                            |
 
@@ -732,3 +748,185 @@ Gate final: 767 testes em 114 arquivos aprovados, cobertura de statements 89,85%
 aprovados. Builds da API/web e avaliações documentais (20 + 50 determinísticas) passaram. O
 ensaio compilado repetido após o ajuste final passou com pico de 127 MiB. Revisão e limites em
 `docs/reviews/2026-10-20-memoria-demonstracao.md`; publicação e medição no Render pendentes.
+
+## Perfil compacto e aparência — 2026-10-20
+
+| Requisito | Critérios de aceitação | Evidência de verificação |
+|---|---|---|
+| RQ-2407 — substituir Dados por Perfil | AC-2405 e AC-2408 | `apps/web/App.tsx`; `tests/unit/account-menu-ui.test.ts`; conferência visual desktop e celular pendente por ausência de navegador nesta sessão |
+| RQ-2408 — escolha de tema, claro por padrão | AC-2409 | `apps/web/appearance.ts`; `apps/web/main.tsx`; `apps/web/styles.css`; `tests/unit/appearance.test.ts`; `tests/unit/account-menu-ui.test.ts` |
+| RQ-2409 — saída e retomada explícita | AC-2410 e AC-2411 | `apps/web/profile-session.ts`; `tests/unit/profile-session.test.ts`; contrato de logout existente em `tests/unit/account-auth.test.ts` |
+
+A saída remove apenas a lembrança do último acesso e recria a página para descartar estado e
+operações pendentes. Preserva perfis sintéticos e tema; no modo real aguarda revogação na API.
+Não altera autorização, isolamento, documentos ou prompts. O Bloco 4 do briefing e o MVP refletem
+o ajuste de apresentação solicitado pelo usuário.
+
+Validação desta fatia: build web, typecheck, scanner de segredos e gate das 37 specs aprovados.
+Os 29 testes específicos de perfil/entrada/sessão passaram. A suíte completa passou 811 testes
+em 119 arquivos com `vitest run --coverage --coverage.reportOnFailure --maxWorkers 2`:
+statements 89,99%, branches 83,78%, functions 95,95% e lines 92,21%. A concorrência foi limitada
+após uma execução simultânea com compilação e lint exceder os timeouts; nenhuma asserção foi
+reduzida. As ferramentas foram executadas pelos binários locais: o shim de pnpm tentou baixar
+sua versão e a rede deste ambiente não conseguiu resolver o registro.
+
+Formatação e lint dos arquivos de perfil aprovados. O lint global ainda aponta duas ocorrências
+de `no-useless-escape` em `apps/api/documents/document-condominium-check.ts`, criado por outra
+alteração durante esta tarefa e preservado. A inspeção visual desktop/celular permanece pendente:
+o inventário de navegadores retornou vazio. Esses bloqueios não foram tratados como aprovação
+dos gates gerais nem como autorização para integrar ou publicar a árvore de trabalho.
+
+### Ajuste da escolha de aparência — 2026-10-20
+
+RQ-2408 e AC-2409: “Aparência” oferece “Claro” e “Escuro” em um seletor nativo com rótulo
+associado. Sem preferência válida salva, a entrada e o chat usam sempre o claro, inclusive se
+o sistema operacional estiver em modo escuro ou o armazenamento falhar. A escolha explícita
+continua salva para recarga e saída. `appearance.test.ts` cobre o padrão e a restauração dos dois
+temas; `account-menu-ui.test.ts` confere as opções e o rótulo acessível. A área documental existente
+permanece como está; este ajuste não adiciona opções ao perfil.
+
+Validação do ajuste: formatação, lint global, typecheck, build web, scanner de segredos e gate
+das 37 specs aprovados. A suíte completa passou 813 testes em 119 arquivos, com concorrência
+limitada a dois workers: statements 89,99%, branches 83,88%, functions 95,95% e lines 92,21%.
+O lint global desta execução passou, substituindo o bloqueio registrado na validação inicial
+do perfil. Diff incremental completo revisado; a limitação de inspeção visual registrada acima
+permanece.
+
+## Conferência de condomínio no envio — 2026-10-20
+
+| Requisito | Aceitação | Implementação e evidência |
+| --- | --- | --- |
+| RQ-3701 — nomes explícitos e equivalência | AC-3701, AC-3702 e AC-3705 | `document-condominium-check.ts`, `document-processing.ts`; `tests/unit/document-condominium-check.test.ts` e OCR no E2E |
+| RQ-3702 — pendência antes de consulta | AC-3701 e AC-3703 | estado `needs_review`, memória e persistência; `tests/e2e/document-condominium-confirmation.e2e.test.ts` valida abstenção antes e citação depois |
+| RQ-3703 — confirmar ou cancelar com ambos os nomes | AC-3703 | `document-condominium-confirmation.tsx`, `document-processing-request.ts`, `App.tsx`; renderização React, transporte e preservação da pergunta nos testes unitários/E2E |
+| RQ-3704 — versão, autorização, retomada e decisão persistente | AC-3704 e AC-3705 | catálogo, adaptadores, rota de confirmação, migração 031 e ADR 0027; testes de tenant, revogação, arquivo removido, versão antiga e decisão concorrente; caso RLS em `tests/integration/rls-tenant-isolation.test.ts` |
+
+Spec 037 mantém o envio 202 assíncrono e reutiliza a extração existente. Confirmação não altera
+condomínio, leitura ou vigência silenciosamente. Migração/integração Neon bloqueadas por DNS;
+nenhuma publicação ou aprovação de merge. Resultados e pendências em
+`docs/reviews/2026-10-20-confirmacao-condominio-documental.md`.
+
+Gate local final desta fatia: `pnpm run check` aprovado, 813 testes/119 arquivos, statements
+89,99%, branches 83,88%, functions 95,95% e lines 92,21%. Builds API/web, ensaio compilado e
+evals (20/20 + 50/50 determinísticos) aprovados. A migração 031 e os testes RLS no Neon continuam
+sem validação por falha de DNS; revisão independente e publicação pendentes.
+
+## Novo chat na reentrada — 2026-10-20
+
+| Requisito | Aceitação | Implementação e evidência |
+| --- | --- | --- |
+| RQ-3801 — novo chat em cada entrada | AC-3801 e AC-3802 | `chat-session.ts`, `App.tsx`; `chat-session.test.ts` e `chat-reentry.e2e.test.ts` validam lista anterior separada do novo chat, sem salvar entradas vazias |
+| RQ-3802 — último turno, títulos e referências | AC-3801, AC-3802 e AC-3805 | repositórios de chat, vínculo na persistência de perguntas, upload e UI; regressões de reentrada, renomeação, ocultação, último turno e anexo |
+| RQ-3803 — usuário, tenant e cursores | AC-3803 e AC-3804 | rotas, filtros de histórico, migração 032 e RLS; `chat-repository.test.ts`, `postgres-answer-persistence.test.ts`, E2E com outro membro/tenant/revogação e paginação de 105 turnos |
+| RQ-3804 — legado e abas | AC-3804 e AC-3805 | chat reservado de legado, IDs novos por entrada e idempotência inclui chat; testes E2E de abas, chave repetida e legado oculto |
+
+Spec 038 e ADR 0028 substituem a restrição de organização efêmera da Spec 018. Testes de inspeção
+da sidebar passaram a exigir carregamento de chats separados e operações assíncronas no servidor,
+em lugar de agregar todo o histórico em um título; controles, fontes e isolamento permanecem
+exigidos. O teste PostgreSQL manteve autor/limite e acrescentou o vínculo e o cursor opcionais;
+nenhuma asserção de segurança foi removida. Conteúdo não é copiado para armazenamento do navegador.
+
+Verificação final da Spec 038: `pnpm run check` aprovado com 830 testes/122 arquivos; cobertura
+statements 90,16%, branches 84,34%, functions 96,12%, lines 92,33%. Builds API/web, runtime
+compilado e evals 20/20 + 50/50 determinísticos aprovados. Migração 032 e integração RLS bloqueadas
+por DNS do Neon; revisão independente e publicação pendentes. A demonstração mantém a limitação
+de perda de estado no reinício do servidor (ADR 0021). Registro completo em
+`docs/reviews/2026-10-20-novo-chat-na-reentrada.md`.
+
+## Ajustes da prévia e nova conversa sem duplicação — 2026-10-20
+
+| Requisito | Aceitação | Implementação e evidência |
+| --- | --- | --- |
+| RQ-2405/RQ-2407 — menu até a base, itens no topo e perfil sem atalhos repetidos | AC-2406/AC-2408 | `App.tsx`, `styles.css`, `account-menu-ui.test.ts`; documentos permanecem em Perfil → Documentos enviados, com identificação e autorização por condomínio |
+| RQ-3703 — uma confirmação azul-escura sem alerta duplicado | AC-3701/AC-3703 | `App.tsx`, `styles.css`; a pendência preserva a pergunta e continua bloqueando consulta até confirmação; falhas operacionais reais continuam visíveis |
+| RQ-3805 — nova conversa sem cópia do cadastro, turnos, anexos ou rascunho | AC-3806 | `chat-session.ts`, `App.tsx`, `chat-session.test.ts`, `chat-sidebar-ui.test.ts`; mensagens iniciais vinculadas ao chat de origem e descarte somente de rascunhos vazios não salvos |
+
+O teste anterior do atalho documental foi atualizado porque sua retirada foi explicitamente
+solicitada; o catálogo autorizado e seus controles de leitura/confirmar permanecem exigidos.
+Sem mudança de API, banco, provedor, prompt ou autorização. Validação final registrada em
+`docs/reviews/2026-10-20-ajustes-previa-e-nova-conversa.md`.
+
+Validação final: `pnpm run check` aprovado com dois workers, 832 testes/122 arquivos; cobertura
+statements 90,16%, branches 84,34%, functions 96,12% e lines 92,33%. Build web e inspeção na prévia
+local aprovados, incluindo menu em 320 px e 1280 px, cartão azul sem alerta duplicado e criação
+de chat sem copiar saudação/rascunho, preservando o chat anterior. Sem publicação ou merge.
+
+## Base legal federal conferida — 2026-10-22
+
+| Requisito | Aceitação | Implementação e evidência |
+|---|---|---|
+| RQ-3901 — curadoria e integridade | AC-3901 | `curated-source-texts.ts`, `legal-edition-contract.ts`, `verified-legal-edition.ts`; seis fontes oficiais, nove leis relacionadas e 25 páginas; testes de corrupção e origem em `verified-legal-library.test.ts` |
+| RQ-3902 — paginação honesta | AC-3902 | `consultation-pdf.ts`, `build-verified-legal-corpus.ts`; reprodução dos PDFs, texto e offsets em `verified-legal-library.test.ts`; leitura autorizada e visualização em `legal-copy-viewer.test.ts` e eval HTTP |
+| RQ-3903 — compartilhamento autorizado | AC-3904 e AC-3905 | `verified-legal-library.ts`, `server.ts`, rota de cópia; índice privado preservado; `citation-validator.ts` recusa fato local sustentado só por lei; regressões unitárias e HTTP |
+| RQ-3904 — intervalo da conferência | AC-3903 | filtro de 22/10/2026 até 21/11/2026 exclusivo; fronteiras e ausência de fonte em unitários/evals; seleção PostgreSQL por `verified_at` e `review_due_at` |
+| RQ-3905 - persistência administrativa | AC-3906 | migração 033, importador genérico e `legal:import:verified`; idempotência, recusa de regressão, rollback e cópia histórica testados com adaptadores simulados; execução PostgreSQL externa informou migração concluída e 8/10 casos aprovados, duas falhas em investigação; suíte ampliada para onze casos após ajuste das fixtures |
+| RQ-3906 — avaliação | AC-3907 | `pnpm run evals:legal`, 21 casos determinísticos sem provedor; não mede qualidade semântica de IA nem substitui revisão jurídica |
+
+A autorização permite adicionar material confirmado; não houve importação integral do GitHub,
+publicação, mudança de prompt ou importação em banco de produção. A edição é parcial e as páginas
+são das cópias Alvitra, não da publicação oficial. O ADR 0029 registra curadoria, limites e revisão.
+O importador constitucional anterior continua sem certificação de atualização integral.
+Resultados finais e limitações em `docs/reviews/2026-10-22-base-legal-verificada.md`.
+
+Validação local final da Spec 039: 901 testes aprovados, incluindo 21 casos legais;
+cobertura statements 90,51%, branches 84,84%, functions 96,23% e lines 92,61%.
+Formatação, lint, tipagem, gate de 39 specs, scanner de segredos, builds API/web e runtime
+compilado aprovados. Evals adicionais: 20/20 e 50/50 determinísticos, sem chamadas pagas.
+Os gates equivalentes foram executados diretamente porque o Corepack não resolveu o registro
+do pnpm. Migração e dez testes de integração Neon bloqueados por DNS antes da conexão;
+sem ativação persistente, revisão independente, merge ou publicação.
+
+Rechecagem posterior em 22/10/2026: DNS Neon/GitHub/npm resolvido e HTTPS npm acessível;
+a conexão PostgreSQL de leitura com o Neon continua recusada com `EACCES`, inclusive após
+reinício informado pelo usuário. O teste fora da restrição foi rejeitado pela política da
+sessão, que não admite `sandbox_approval`. Nenhuma migração, importação ou teste RLS adicional
+foi executado. A alternativa de integração Neon para ChatGPT foi recusada pelo usuário.
+`scripts/verify-neon-local.ps1` prepara a retomada pelo PowerShell normal do Windows, preservando
+as guardas do ADR 0007; `-CheckOnly` valida somente pré-requisitos locais. A execução real dos
+comandos de banco continua pendente e não foi substituída pela conferência do script.
+Pré-verificação local e dez testes das guardas aprovados. A tentativa normal do script
+interrompeu na conexão da migração com `EACCES`, sem iniciar os testes de integração ou alterar
+o banco; nenhuma validação PostgreSQL foi declarada aprovada.
+
+Execução externa informada pelo usuário em 22/10/2026: a migração terminou sem erro e a suíte
+PostgreSQL executou dez casos, com oito aprovados e dois reprovados. O trecho recebido aponta
+resultado não vazio na busca antes da confirmação do documento (AC-3704); a outra falha ainda
+exige o relatório completo. Foi identificada limpeza incompleta das fixtures: as quatro tabelas
+legais não participavam do reinício do cenário. Foram incluídas no `TRUNCATE` exclusivo do banco
+sintético, mantendo a asserção de busca vazia e as regras de autorização sem mudanças.
+Uma regressão AC-3906 importa evidência pública sintética, comprova sua leitura e exige ausência
+após reiniciar as fixtures com a mesma identidade autorizada. A suíte passa a ter onze casos.
+O script externo grava JSON por rodada em `reports/neon-integration/`; a nova execução real é
+necessária para confirmar ambas as falhas. Não houve relaxamento de asserções ou timeouts.
+
+Retomada em 26/10/2026: corrigida também a fixture de revogação do cenário
+AC-3903/3904/3906 para preencher `revoked_at = now()`, conforme o CHECK da migração 001.
+A verificação de cópia inacessível após a revogação permanece exigida. O ajuste preserva
+schema e código de produção; o resultado PostgreSQL dos onze cenários ainda está pendente.
+A sessão continua recebendo `EACCES` no teste de conexão somente leitura. Não há relatório
+externo novo confirmado até esta retomada.
+
+## Migração operacional para Supabase — 2026-10-26
+
+| Requisito | Aceitação | Implementação e evidência |
+| --- | --- | --- |
+| RQ-4001 — destino protegido | AC-4001 e AC-4002 | `scripts/supabase-integration-guard.ts`, `scripts/migrate-supabase-integration.ts`, `infrastructure/supabase/001-integration-guard.sql`, `.github/workflows/supabase-integration.yml` e testes unitários do guard mantêm endpoint Supabase, TLS, confirmação e marcador persistente. O workflow é somente manual, consome URL por segredo e exige `synthetic-only`. |
+| RQ-4002 — isolamento e vetorização | AC-4003 | `tests/integration/rls-tenant-isolation.test.ts` aceita explicitamente o destino Neon ativo ou Supabase preparado, mantendo a mesma validação RLS e de perfis vetoriais. |
+| RQ-4003 — corte condicionado | AC-4004 | Os artefatos Supabase foram preparados, mas `package.json`, `.env.example`, `README.md`, `AGENTS.md` e `scripts/verify-neon-local.ps1` preservam Neon até a validação externa. |
+
+O projeto Supabase sintético dedicado `alvitra-integration-synthetic` foi criado fora do
+repositório e recebeu o marcador persistente. A tentativa protegida de migrations e integração
+não alcançou o banco porque o Node local rejeitou uma cadeia TLS autoassinada; nenhuma migration
+ou fixture foi aplicada. O workflow manual no GitHub Actions foi preparado para executar a mesma
+validação a partir de um runner externo, depois de receber o segredo do projeto sintético.
+
+Validação da retomada em 26/10/2026: 901/901 testes locais aprovados com um worker, cobertura
+statements 90,51%, branches 84,84%, functions 96,23% e lines 92,61%. A rodada inicial com dois
+workers teve três falhas; os 29 casos dos arquivos envolvidos passaram isoladamente, e a
+rodada completa serial passou sem relaxamento de asserções ou timeouts. Guardas Supabase,
+migrations e persistência legal tiveram ainda uma verificação focada com 35 casos aprovados.
+A Spec 040/ADR 0030 passou a definir o destino ativo. O comando atual de retomada é
+`scripts/verify-supabase-local.ps1`, com JSON e log completo em `reports/supabase-integration/`.
+A captura preservou stderr e o código de falha no ensaio local. URL e confirmação da integração
+Supabase não estão configuradas; os onze casos PostgreSQL continuam sem nova execução, e a
+validação persistente não é considerada concluída.

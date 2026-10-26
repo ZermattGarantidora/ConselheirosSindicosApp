@@ -2,13 +2,27 @@ import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
 
 import { isSimpleConversationMessage } from "../shared/conversation-intent.js";
 import {
+  type Appearance,
+  getBrowserStorage,
+  getInitialAppearance,
+  saveAppearance
+} from "./appearance.js";
+import { signOut } from "./profile-session.js";
+import {
   getAnswerStatusPresentation,
   isAutomaticDocumentaryLimitation
 } from "./answer-presentation.js";
+import { buildConversationTitle } from "./conversation-title.js";
 import {
-  buildConversationTitle,
-  buildConversationTitleFromQuestions
-} from "./conversation-title.js";
+  changeSavedChat,
+  createEmptyChat,
+  getChatSetupMessages,
+  loadSavedChat,
+  openChatSession,
+  saveChat,
+  startNewChat,
+  type SavedChat
+} from "./chat-session.js";
 import { requestDocumentUploadWithAuthorizationRecovery } from "./document-upload-request.js";
 import {
   documentProcessingLabel,
@@ -16,6 +30,12 @@ import {
   waitForDocumentProcessing
 } from "./document-processing-request.js";
 import { DocumentViewer, type DocumentToView } from "./DocumentViewer.js";
+import {
+  confirmDocumentCondominium,
+  DocumentCondominiumConfirmation,
+  DocumentCondominiumConfirmationRequiredError
+} from "./document-condominium-confirmation.js";
+import type { DocumentCondominiumCheck } from "../api/documents/document-condominium-check.js";
 import {
   createDevelopmentIdentity,
   loadDevelopmentIdentity,
@@ -74,11 +94,7 @@ type ConversationHistoryEntry = Readonly<{
   createdAt: string;
 }>;
 
-type Chat = Readonly<{
-  id: string;
-  title: string;
-  entries: readonly ConversationHistoryEntry[];
-}>;
+type Chat = SavedChat<ConversationHistoryEntry>;
 
 type CondominiumListItem = Readonly<{
   condominiumId: string;
@@ -96,10 +112,10 @@ type DocumentListItem = Readonly<{
   title: string;
   documentType: "convention" | "internal_rules" | "meeting_minutes" | "contract" | "other";
   processingStatus: string;
+  condominiumCheck?: DocumentCondominiumCheck;
 }>;
 
-type AccountMenuView = "home" | "condominiums" | "documents" | "current_documents";
-type DocumentScreen = "current";
+type AccountMenuView = "home" | "profile" | "documents";
 type AttachmentKind = "document" | "photo";
 type SetupStage =
   "manager_name" | "condominium_count" | "condominium_name" | "unit_count" | "complete";
@@ -127,22 +143,6 @@ const documentTypeLabels = Object.freeze({
   contract: "Contratos",
   other: "Outros documentos"
 });
-
-function calculateKnowledgeProgress(documents: readonly DocumentListItem[]): number {
-  const readyTypes = new Set(
-    documents
-      .filter((document) => document.processingStatus === "ready")
-      .map((document) => document.documentType)
-  );
-  const weights: Readonly<Record<DocumentListItem["documentType"], number>> = {
-    convention: 40,
-    internal_rules: 20,
-    meeting_minutes: 15,
-    contract: 10,
-    other: 15
-  };
-  return [...readyTypes].reduce((total, type) => total + weights[type], 0);
-}
 
 function requestHeaders(
   authMode: AuthMode | undefined,
@@ -367,6 +367,9 @@ export function AnswerMessage({
 }
 
 export function App() {
+  const [appearance, setAppearance] = useState(getInitialAppearance);
+  const [signOutPending, setSignOutPending] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
   const [authMode, setAuthMode] = useState<AuthMode>();
   const [aiProvider, setAiProvider] = useState<AiProvider>("unavailable");
   const [entered, setEntered] = useState(false);
@@ -383,7 +386,7 @@ export function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [accountMenuView, setAccountMenuView] = useState<AccountMenuView>("home");
-  const [documentScreen, setDocumentScreen] = useState<DocumentScreen>();
+  const [condominiumsExpanded, setCondominiumsExpanded] = useState(false);
   const [condominiums, setCondominiums] = useState<readonly CondominiumListItem[]>([]);
   const [condominiumsPending, setCondominiumsPending] = useState(false);
   const [condominiumsError, setCondominiumsError] = useState("");
@@ -392,6 +395,7 @@ export function App() {
   const [documentsError, setDocumentsError] = useState("");
   const [setupStage, setSetupStage] = useState<SetupStage>("manager_name");
   const [setupMessages, setSetupMessages] = useState<readonly SetupMessage[]>([]);
+  const [setupChatId, setSetupChatId] = useState<string>();
   const [setupCondominiumTotal, setSetupCondominiumTotal] = useState(0);
   const [setupCondominiumIndex, setSetupCondominiumIndex] = useState(1);
   const [setupCondominiumName, setSetupCondominiumName] = useState("");
@@ -402,6 +406,14 @@ export function App() {
   const [selectedCitation, setSelectedCitation] = useState<Citation>();
   const [viewedDocument, setViewedDocument] = useState<DocumentToView>();
   const [sentChatDocument, setSentChatDocument] = useState<DocumentToView>();
+  const [pendingCondominiumConfirmation, setPendingCondominiumConfirmation] = useState<
+    Readonly<{
+      document: DocumentToView;
+      check: DocumentCondominiumCheck;
+      message: string;
+    }>
+  >();
+  const condominiumConfirmationSending = useRef(false);
   const [feedback, setFeedback] = useState<FeedbackClassification>();
   const [busy, setBusy] = useState(false);
   const [runtimePending, setRuntimePending] = useState(true);
@@ -420,7 +432,19 @@ export function App() {
   const composerSending = useRef(false);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const activeChat = chats.find((chat) => chat.id === activeChatId);
-  const conversationHistory = activeChat?.entries ?? [];
+  const visibleSetupMessages = getChatSetupMessages(
+    setupMessages,
+    setupStage === "complete",
+    setupChatId,
+    activeChatId
+  );
+  const conversationHistory = (activeChat?.entries ?? []).filter(
+    (entry) => entry.answer.answerId !== answer?.answerId
+  );
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = appearance;
+  }, [appearance]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -470,12 +494,21 @@ export function App() {
 
   useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [answer, busy, chatDocumentMessage, conversationError, setupMessages, submittedQuestion]);
+  }, [
+    answer,
+    busy,
+    chatDocumentMessage,
+    conversationError,
+    pendingCondominiumConfirmation,
+    setupMessages,
+    submittedQuestion
+  ]);
 
   useEffect(() => {
     setViewedDocument(undefined);
     setSentChatDocument(undefined);
     setSentChatDocumentName("");
+    setPendingCondominiumConfirmation(undefined);
     setPendingChatDocument(undefined);
     setChatDocumentMessage("");
   }, [context?.condominiumId, activeChatId]);
@@ -494,7 +527,7 @@ export function App() {
 
   const canUpload = context?.permissions.includes("document:upload") === true;
   const conversationStarted =
-    setupMessages.some((message) => message.role === "user") ||
+    visibleSetupMessages.some((message) => message.role === "user") ||
     conversationHistory.length > 0 ||
     submittedQuestion !== "";
   const groupedDocuments = useMemo(
@@ -503,37 +536,13 @@ export function App() {
         .map(([type, label]) => ({
           type,
           label,
-          documents: documents.filter((document) => document.documentType === type)
-        }))
-        .filter((group) => group.documents.length > 0),
-    [documents]
-  );
-  const currentCondominium = condominiums.find(
-    (condominium) => condominium.condominiumId === context?.condominiumId
-  );
-  const currentCondominiumDocuments = useMemo(
-    () =>
-      context === undefined
-        ? []
-        : documents.filter((document) => document.condominiumId === context.condominiumId),
-    [context, documents]
-  );
-  const groupedCurrentCondominiumDocuments = useMemo(
-    () =>
-      Object.entries(documentTypeLabels)
-        .map(([type, label]) => ({
-          type,
-          label,
-          documents: currentCondominiumDocuments.filter(
-            (document) => document.documentType === type
+          documents: documents.filter(
+            (document) =>
+              document.condominiumId === context?.condominiumId && document.documentType === type
           )
         }))
         .filter((group) => group.documents.length > 0),
-    [currentCondominiumDocuments]
-  );
-  const currentKnowledgeProgress = useMemo(
-    () => calculateKnowledgeProgress(currentCondominiumDocuments),
-    [currentCondominiumDocuments]
+    [context?.condominiumId, documents]
   );
   const serviceLabel = useMemo(() => {
     if (runtimePending) return "Preparando a conversa";
@@ -611,13 +620,17 @@ export function App() {
               { stage: "returning", managerName: savedProfile.managerName },
               selectedIdentity
             );
-            const chatId = crypto.randomUUID();
+            const session = await openChatSession<ConversationHistoryEntry>(fetch, {
+              condominiumId: restoredContext.condominiumId,
+              headers: requestHeaders(authMode, selectedIdentity)
+            });
             setContext(restoredContext);
             setSetupManagerName(savedProfile.managerName);
             setSetupStage("complete");
             setSetupMessages([{ id: crypto.randomUUID(), role: "assistant", text: welcome }]);
-            setChats([{ id: chatId, title: "Nova conversa", entries: [] }]);
-            setActiveChatId(chatId);
+            setChats(session.chats);
+            setActiveChatId(session.activeChatId);
+            setSetupChatId(session.activeChatId);
             setEntered(true);
             return;
           }
@@ -655,6 +668,10 @@ export function App() {
         { stage: "returning", managerName },
         selectedIdentity
       );
+      const session = await openChatSession<ConversationHistoryEntry>(fetch, {
+        condominiumId: authorizedContext.condominiumId,
+        headers: requestHeaders(authMode, selectedIdentity)
+      });
       setContext(authorizedContext);
       setSetupManagerName(managerName);
       setSetupStage("complete");
@@ -666,30 +683,9 @@ export function App() {
         }
       ]);
       setEntered(true);
-
-      const historyResponse = await fetch(
-        `/v1/condominiums/${encodeURIComponent(authorizedContext.condominiumId)}/history?limit=50`,
-        {
-          cache: "no-store",
-          credentials: "same-origin",
-          headers: requestHeaders(authMode, selectedIdentity)
-        }
-      );
-      if (historyResponse.ok) {
-        const history = (await historyResponse.json()) as Readonly<{
-          entries: readonly ConversationHistoryEntry[];
-        }>;
-        setChats([
-          {
-            id: "history",
-            title: buildConversationTitleFromQuestions(
-              history.entries.map((entry) => entry.question)
-            ),
-            entries: history.entries
-          }
-        ]);
-        setActiveChatId("history");
-      }
+      setChats(session.chats);
+      setActiveChatId(session.activeChatId);
+      setSetupChatId(session.activeChatId);
     } catch (error: unknown) {
       setConversationError(
         error instanceof Error
@@ -705,6 +701,7 @@ export function App() {
     if (authMode === undefined) return;
     setAccountMenuOpen(true);
     setAccountMenuView("home");
+    setCondominiumsExpanded(false);
     setCondominiumsPending(true);
     setCondominiumsError("");
     setDocumentsPending(true);
@@ -759,8 +756,29 @@ export function App() {
     }
   }
 
+  function changeAppearance(next: Appearance): void {
+    setAppearance(next);
+    saveAppearance(getBrowserStorage(), next);
+  }
+
+  async function leaveAccount(): Promise<void> {
+    if (authMode === undefined || signOutPending) return;
+    setSignOutPending(true);
+    setSignOutError("");
+    try {
+      await signOut(authMode, getBrowserStorage());
+      // Recriar a página descarta todo o estado e impede respostas antigas na próxima entrada.
+      window.location.reload();
+    } catch {
+      setSignOutError("Não foi possível sair da conta. Tente novamente.");
+      setSignOutPending(false);
+    }
+  }
+
   async function switchCondominium(item: CondominiumListItem): Promise<void> {
     if (authMode === undefined || busy || chatDocumentUploading) return;
+    preserveActiveTurn();
+    setBusy(true);
     setCondominiumsPending(true);
     setCondominiumsError("");
     try {
@@ -776,34 +794,14 @@ export function App() {
         throw new Error(await readMessage(contextResponse, "Acesso não autorizado."));
       }
       const authorizedContext = (await contextResponse.json()) as ContextResponse;
-      const historyResponse = await fetch(
-        `/v1/condominiums/${encodeURIComponent(authorizedContext.condominiumId)}/history?limit=50`,
-        {
-          cache: "no-store",
-          credentials: "same-origin",
-          headers: requestHeaders(authMode, developmentIdentity)
-        }
-      );
-      if (!historyResponse.ok) {
-        throw new Error(
-          await readMessage(historyResponse, "Não foi possível carregar o histórico.")
-        );
-      }
-      const history = (await historyResponse.json()) as Readonly<{
-        entries: readonly ConversationHistoryEntry[];
-      }>;
-      setContext(authorizedContext);
-      setChats([
-        {
-          id: "history",
-          title: buildConversationTitleFromQuestions(
-            history.entries.map((entry) => entry.question)
-          ),
-          entries: history.entries
-        }
-      ]);
-      setActiveChatId("history");
+      const session = await openChatSession<ConversationHistoryEntry>(fetch, {
+        condominiumId: authorizedContext.condominiumId,
+        headers: requestHeaders(authMode, developmentIdentity)
+      });
       preserveActiveTurn();
+      setContext(authorizedContext);
+      setChats(session.chats);
+      setActiveChatId(session.activeChatId);
       setAccountMenuOpen(false);
     } catch (error: unknown) {
       setCondominiumsError(
@@ -811,12 +809,8 @@ export function App() {
       );
     } finally {
       setCondominiumsPending(false);
+      setBusy(false);
     }
-  }
-
-  function openCurrentDocuments(): void {
-    setAccountMenuOpen(false);
-    setDocumentScreen("current");
   }
 
   async function requestSetupMessage(
@@ -825,6 +819,10 @@ export function App() {
   ): Promise<string> {
     if (authMode === undefined) throw new Error("A conversa ainda não está disponível.");
     if (offlineDemo && (input.stage === "welcome" || input.stage === "returning")) return "";
+    if (offlineDemo && input.stage === "new_conversation") {
+      const managerName = typeof input.managerName === "string" ? input.managerName.trim() : "";
+      return `${managerName === "" ? "Olá" : `Olá, ${managerName}`}. Como posso ajudar você agora?`;
+    }
     const setupInput =
       setupManagerName.trim() === "" || input.managerName !== undefined
         ? input
@@ -937,9 +935,10 @@ export function App() {
       );
     }
     setContext(created);
-    const chatId = crypto.randomUUID();
-    setChats([{ id: chatId, title: "Nova conversa", entries: [] }]);
-    setActiveChatId(chatId);
+    const chat = createEmptyChat<ConversationHistoryEntry>();
+    setChats([chat]);
+    setActiveChatId(chat.id);
+    setSetupChatId(chat.id);
     setAnswer(undefined);
     setSubmittedQuestion("");
     setSelectedCitation(undefined);
@@ -1051,12 +1050,14 @@ export function App() {
     setSentChatDocument(undefined);
     setChatDocumentMessage("Enviando documento...");
     setChatDocumentMessageIsError(false);
+    let versionId = "";
     try {
-      let versionId = "";
       await sendDocumentMessage({
         message,
         receive: async () => {
+          const chatId = await ensureActiveChatSaved(buildConversationTitle(message || file.name));
           const response = await requestDocumentUploadWithAuthorizationRecovery(fetch, {
+            chatId,
             condominiumId: context.condominiumId,
             content: file,
             title: file.name,
@@ -1072,6 +1073,23 @@ export function App() {
             throw new Error(await readMessage(response, "Não foi possível receber o documento."));
           const result = (await response.json()) as Readonly<{ documentVersionId: string }>;
           versionId = result.documentVersionId;
+          setChats((current) =>
+            current.map((chat) =>
+              chat.id !== chatId
+                ? chat
+                : {
+                    ...chat,
+                    attachments: [
+                      ...(chat.attachments ?? []),
+                      {
+                        documentVersionId: versionId,
+                        title: file.name,
+                        createdAt: new Date().toISOString()
+                      }
+                    ]
+                  }
+            )
+          );
           setSentChatDocument({
             condominiumId: context.condominiumId,
             documentVersionId: versionId,
@@ -1100,16 +1118,120 @@ export function App() {
         ask: (text) => askQuestion(text)
       });
     } catch (error: unknown) {
+      if (error instanceof DocumentCondominiumConfirmationRequiredError) {
+        setPendingCondominiumConfirmation({
+          document: {
+            condominiumId: context.condominiumId,
+            documentVersionId: versionId,
+            title: file.name
+          },
+          check: error.check,
+          message
+        });
+        setChatDocumentMessage("");
+        setChatDocumentMessageIsError(false);
+        setQuestion((current) => (current === "" ? message : current));
+        return;
+      }
       setChatDocumentMessage(
         error instanceof Error && error.name !== "TimeoutError" && error.name !== "AbortError"
           ? error.message
-          : "A espera pelo documento excedeu o limite. Confira o estado em Dados antes de tentar novamente. Sua mensagem foi preservada."
+          : "A espera pelo documento excedeu o limite. Confira o estado em Perfil → Documentos enviados antes de tentar novamente. Sua mensagem foi preservada."
       );
       setChatDocumentMessageIsError(true);
       setQuestion((current) => (current === "" ? message : current));
     } finally {
       setChatDocumentUploading(false);
     }
+  }
+
+  async function confirmPendingDocument(
+    input: NonNullable<typeof pendingCondominiumConfirmation>
+  ): Promise<void> {
+    if (
+      authMode === undefined ||
+      context?.condominiumId !== input.document.condominiumId ||
+      busy ||
+      chatDocumentUploading ||
+      condominiumConfirmationSending.current
+    )
+      return;
+    condominiumConfirmationSending.current = true;
+    setChatDocumentUploading(true);
+    try {
+      await confirmDocumentCondominium(fetch, {
+        ...input.document,
+        headers: requestHeaders(authMode, developmentIdentity)
+      });
+      setPendingCondominiumConfirmation(undefined);
+      setDocuments((current) =>
+        current.map((document) =>
+          document.documentVersionId === input.document.documentVersionId &&
+          document.condominiumId === input.document.condominiumId
+            ? {
+                ...document,
+                processingStatus: input.check.resumeProcessingStatus,
+                condominiumCheck: { ...input.check, status: "confirmed" as const }
+              }
+            : document
+        )
+      );
+      setChatDocumentMessage(
+        input.check.resumeProcessingStatus === "ready"
+          ? `Condomínio confirmado: ${input.check.expectedName}. Leitura concluída.`
+          : "Condomínio confirmado. A leitura ainda precisa de revisão; confira o original ou envie uma versão legível."
+      );
+      setChatDocumentMessageIsError(input.check.resumeProcessingStatus !== "ready");
+      if (input.message !== "" && input.check.resumeProcessingStatus === "ready") {
+        setQuestion((current) => (current.trim() === input.message ? "" : current));
+        await askQuestion(input.message);
+      }
+    } catch (error) {
+      setChatDocumentMessage(
+        error instanceof Error ? error.message : "Não foi possível confirmar o documento."
+      );
+      setChatDocumentMessageIsError(true);
+    } finally {
+      condominiumConfirmationSending.current = false;
+      setChatDocumentUploading(false);
+    }
+  }
+
+  function cancelDocumentUse(): void {
+    setPendingCondominiumConfirmation(undefined);
+    setChatDocumentMessage(
+      "Uso cancelado. O arquivo continua bloqueado para consulta. Se ele for de outro condomínio, selecione o condomínio correto no menu e envie o arquivo lá."
+    );
+    setChatDocumentMessageIsError(false);
+  }
+
+  function documentConfirmationControl(document: DocumentListItem) {
+    if (document.condominiumCheck?.status !== "pending") return null;
+    return (
+      <button
+        className="document-review-button"
+        type="button"
+        disabled={
+          !canUpload ||
+          document.condominiumId !== context?.condominiumId ||
+          busy ||
+          chatDocumentUploading
+        }
+        onClick={() => {
+          if (document.condominiumCheck === undefined) return;
+          setPendingCondominiumConfirmation({
+            document,
+            check: document.condominiumCheck,
+            message: ""
+          });
+          setAccountMenuOpen(false);
+        }}
+      >
+        {document.condominiumId === context?.condominiumId
+          ? "Conferir condomínio"
+          : "Selecione este condomínio para conferir"}
+      </button>
+    );
   }
 
   async function askQuestion(message = question): Promise<void> {
@@ -1144,6 +1266,7 @@ export function App() {
     const controller = new AbortController();
     const requestTimeout = window.setTimeout(() => controller.abort(), 70_000);
     try {
+      const chatId = await ensureActiveChatSaved(buildConversationTitle(trimmedQuestion));
       const response = await fetch(
         `/v1/condominiums/${encodeURIComponent(context.condominiumId)}/questions`,
         {
@@ -1154,13 +1277,20 @@ export function App() {
             ...requestHeaders(authMode, developmentIdentity, setupManagerName)
           },
           signal: controller.signal,
-          body: JSON.stringify({ question: trimmedQuestion })
+          body: JSON.stringify({ question: trimmedQuestion, chatId })
         }
       );
       if (!response.ok) {
         throw new Error(await readMessage(response, "Não foi possível processar a pergunta."));
       }
-      setAnswer((await response.json()) as PublicAnswer);
+      const receivedAnswer = (await response.json()) as PublicAnswer;
+      setAnswer(receivedAnswer);
+      saveTurn({
+        questionId: receivedAnswer.questionId,
+        question: trimmedQuestion,
+        answer: receivedAnswer,
+        createdAt: receivedAnswer.createdAt
+      });
     } catch (error: unknown) {
       setAnswer(undefined);
       setQuestion((current) => (current === "" ? trimmedQuestion : current));
@@ -1173,6 +1303,32 @@ export function App() {
       window.clearTimeout(requestTimeout);
       setBusy(false);
     }
+  }
+
+  async function ensureActiveChatSaved(title: string): Promise<string> {
+    if (context === undefined || authMode === undefined || activeChatId === undefined)
+      throw new Error("Conversa indisponível. Sua mensagem foi preservada.");
+    if (activeChat?.persisted === true) return activeChatId;
+    const saved = await saveChat(
+      fetch,
+      {
+        condominiumId: context.condominiumId,
+        headers: requestHeaders(authMode, developmentIdentity)
+      },
+      {
+        id: activeChatId,
+        title:
+          activeChat?.title !== undefined && activeChat.title !== "Nova conversa"
+            ? activeChat.title
+            : title
+      }
+    );
+    setChats((current) =>
+      current.map((chat) =>
+        chat.id === saved.id ? { ...chat, title: saved.title, persisted: true } : chat
+      )
+    );
+    return saved.id;
   }
 
   function saveTurn(turn: ConversationHistoryEntry): void {
@@ -1209,46 +1365,121 @@ export function App() {
     setFeedback(undefined);
   }
 
-  function createChat(): void {
+  async function createChat(): Promise<void> {
     if (busy || chatDocumentUploading) return;
     preserveActiveTurn();
-    const id = crypto.randomUUID();
-    setChats((current) => [...current, { id, title: "Nova conversa", entries: [] }]);
-    setActiveChatId(id);
-    setSidebarOpen(false);
-    window.setTimeout(() => composerInput.current?.focus(), 0);
+    const chat = createEmptyChat<ConversationHistoryEntry>();
+    setBusy(true);
+    setConversationError("");
+    try {
+      const greeting = await requestSetupMessage({
+        stage: "new_conversation",
+        ...(setupManagerName.trim() === "" ? {} : { managerName: setupManagerName })
+      });
+      setChats((current) => startNewChat(current, () => chat.id).chats);
+      setActiveChatId(chat.id);
+      setSetupMessages([{ id: crypto.randomUUID(), role: "assistant", text: greeting }]);
+      setSetupChatId(chat.id);
+      setQuestion("");
+      setAttachmentMenuOpen(false);
+      setSidebarOpen(false);
+      window.setTimeout(() => composerInput.current?.focus(), 0);
+    } catch (error: unknown) {
+      setConversationError(
+        error instanceof Error ? error.message : "Não foi possível iniciar uma nova conversa."
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function selectChat(chatId: string): void {
+  async function selectChat(chatId: string): Promise<void> {
     if (busy || chatDocumentUploading || chatId === activeChatId) return;
+    const chat = chats.find((item) => item.id === chatId);
+    if (chat === undefined || context === undefined || authMode === undefined) return;
     preserveActiveTurn();
-    setActiveChatId(chatId);
-    setSidebarOpen(false);
+    setBusy(true);
+    setConversationError("");
+    try {
+      if (chat.persisted === true) {
+        const history = await loadSavedChat<ConversationHistoryEntry>(
+          fetch,
+          {
+            condominiumId: context.condominiumId,
+            headers: requestHeaders(authMode, developmentIdentity)
+          },
+          chatId
+        );
+        setChats((current) =>
+          current.map((item) => (item.id === chatId ? { ...item, ...history, loaded: true } : item))
+        );
+      }
+      setActiveChatId(chatId);
+      setSidebarOpen(false);
+    } catch (error) {
+      setConversationError(
+        error instanceof Error ? error.message : "Não foi possível abrir a conversa."
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function renameChat(chatId: string): void {
+  async function renameChat(chatId: string): Promise<void> {
     const chat = chats.find((item) => item.id === chatId);
     if (chat === undefined) return;
     const title = window.prompt("Nome da conversa", chat.title)?.trim();
     if (title === undefined || title.length === 0) return;
-    setChats((current) => current.map((item) => (item.id === chatId ? { ...item, title } : item)));
+    if (context === undefined || authMode === undefined || busy || chatDocumentUploading) return;
+    setBusy(true);
+    try {
+      const scope = {
+        condominiumId: context.condominiumId,
+        headers: requestHeaders(authMode, developmentIdentity)
+      };
+      if (chat.persisted !== true) await saveChat(fetch, scope, { id: chatId, title });
+      else await changeSavedChat(fetch, scope, chatId, title);
+      setChats((current) =>
+        current.map((item) => (item.id === chatId ? { ...item, title, persisted: true } : item))
+      );
+    } catch (error) {
+      setConversationError(
+        error instanceof Error ? error.message : "Não foi possível renomear a conversa."
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function deleteChat(chatId: string): void {
+  async function deleteChat(chatId: string): Promise<void> {
     const chat = chats.find((item) => item.id === chatId);
     if (chat === undefined || !window.confirm(`Excluir a conversa “${chat.title}”?`)) return;
-    if (activeChatId === chatId) preserveActiveTurn();
-    const remaining = chats.filter((item) => item.id !== chatId);
-    setChats(remaining);
-    if (activeChatId === chatId) {
-      const next = remaining.at(-1);
-      if (next === undefined) {
-        const id = crypto.randomUUID();
-        setChats([{ id, title: "Nova conversa", entries: [] }]);
-        setActiveChatId(id);
-      } else {
-        setActiveChatId(next.id);
+    if (context === undefined || authMode === undefined || busy || chatDocumentUploading) return;
+    setBusy(true);
+    try {
+      if (chat.persisted === true)
+        await changeSavedChat(
+          fetch,
+          {
+            condominiumId: context.condominiumId,
+            headers: requestHeaders(authMode, developmentIdentity)
+          },
+          chatId
+        );
+      if (activeChatId === chatId) preserveActiveTurn();
+      const remaining = chats.filter((item) => item.id !== chatId);
+      setChats(remaining);
+      if (activeChatId === chatId) {
+        const session = startNewChat(remaining);
+        setChats(session.chats);
+        setActiveChatId(session.activeChatId);
       }
+    } catch (error) {
+      setConversationError(
+        error instanceof Error ? error.message : "Não foi possível excluir a conversa."
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -1369,76 +1600,6 @@ export function App() {
       />
     );
 
-  if (documentScreen === "current") {
-    return (
-      <main className="document-page">
-        <header className="document-page-header">
-          <button type="button" onClick={() => setDocumentScreen(undefined)}>
-            ‹ Voltar ao chat
-          </button>
-          <div>
-            <strong>Documentos</strong>
-            <small>{currentCondominium?.name ?? "Condomínio atual"}</small>
-          </div>
-        </header>
-        <section className="document-page-content" aria-label="Documentos do condomínio">
-          <div className="knowledge-progress">
-            <div>
-              <span>Contexto da Alvitra</span>
-              <strong>{currentKnowledgeProgress}%</strong>
-            </div>
-            <div
-              className="knowledge-progress-track"
-              role="progressbar"
-              aria-label="Contexto documental disponível para a Alvitra"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={currentKnowledgeProgress}
-            >
-              <span style={{ width: `${currentKnowledgeProgress}%` }} />
-            </div>
-            <p>
-              Calculado pelos tipos de documentos já processados deste condomínio. A convenção
-              completa e vigente é a base mais importante.
-            </p>
-          </div>
-          <div className="document-page-list">
-            <h1>Documentos enviados</h1>
-            {documentsPending ? <p>Carregando documentos autorizados...</p> : null}
-            {documentsError === "" ? null : <p role="alert">{documentsError}</p>}
-            {!documentsPending &&
-            documentsError === "" &&
-            currentCondominiumDocuments.length === 0 ? (
-              <p>Nenhum documento enviado ainda para este condomínio.</p>
-            ) : null}
-            {groupedCurrentCondominiumDocuments.map((group) => (
-              <section key={group.type} aria-label={group.label}>
-                <h2>{group.label}</h2>
-                {group.documents.map((document) => (
-                  <article key={document.documentId}>
-                    <DocumentIcon />
-                    <span>
-                      <button
-                        type="button"
-                        className="document-open-button"
-                        onClick={() => setViewedDocument(document)}
-                        aria-label={`Visualizar ${document.title}`}
-                      >
-                        {document.title}
-                      </button>
-                      <small>{documentProcessingLabel(document.processingStatus)}</small>
-                    </span>
-                  </article>
-                ))}
-              </section>
-            ))}
-          </div>
-        </section>
-        {documentViewer}
-      </main>
-    );
-  }
-
   return (
     <main className={`chat-page${conversationStarted ? " has-conversation" : ""}`}>
       <header className="chat-header">
@@ -1482,22 +1643,63 @@ export function App() {
         <section id="account-menu" className="account-menu" aria-label="Menu da conta">
           {accountMenuView === "home" ? (
             <>
-              <div className="current-condominium-menu-item">
-                <span>Condomínio atual</span>
-                <strong>{currentCondominium?.name ?? "Carregando condomínio..."}</strong>
-                <button
-                  type="button"
-                  onClick={openCurrentDocuments}
-                  disabled={context === undefined || documentsPending}
-                >
-                  Ver documentos deste condomínio
-                </button>
-              </div>
-              <button type="button" onClick={() => setAccountMenuView("condominiums")}>
-                Condomínios
+              <button
+                className="condominiums-disclosure"
+                type="button"
+                aria-expanded={condominiumsExpanded}
+                aria-controls="condominium-menu-list"
+                onClick={() => setCondominiumsExpanded((current) => !current)}
+              >
+                <span>Condomínios</span>
+                <span aria-hidden="true">{condominiumsExpanded ? "⌃" : "⌄"}</span>
               </button>
-              <button type="button" onClick={() => setAccountMenuView("documents")}>
-                Dados
+              {condominiumsExpanded ? (
+                <div id="condominium-menu-list" className="condominium-menu-list">
+                  {condominiumsPending ? <p>Carregando condomínios autorizados...</p> : null}
+                  {condominiumsError === "" ? null : <p role="alert">{condominiumsError}</p>}
+                  {!condominiumsPending && condominiumsError === "" && condominiums.length === 0 ? (
+                    <p>Você ainda não configurou nenhum condomínio.</p>
+                  ) : null}
+                  {condominiums.map((item) => {
+                    const isSelected = item.condominiumId === context?.condominiumId;
+                    return (
+                      <div className="condominium-menu-item" key={item.condominiumId}>
+                        <button
+                          type="button"
+                          className={isSelected ? "is-selected" : undefined}
+                          aria-current={isSelected ? "true" : undefined}
+                          disabled={
+                            condominiumsPending || busy || chatDocumentUploading || isSelected
+                          }
+                          onClick={() => void switchCondominium(item)}
+                        >
+                          <strong>{item.name}</strong>
+                          <small>{item.detail}</small>
+                        </button>
+                        {isSelected ? (
+                          <button
+                            className="condominium-documents-button"
+                            type="button"
+                            onClick={() => setAccountMenuView("documents")}
+                          >
+                            Documentos enviados
+                            <span aria-hidden="true">›</span>
+                          </button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                  <button
+                    className="start-condominium-chat"
+                    type="button"
+                    onClick={() => void startCondominiumConversation()}
+                  >
+                    + Adicionar condomínio pela conversa
+                  </button>
+                </div>
+              ) : null}
+              <button type="button" onClick={() => setAccountMenuView("profile")}>
+                Perfil
               </button>
             </>
           ) : (
@@ -1509,37 +1711,48 @@ export function App() {
               >
                 ‹ Voltar
               </button>
-              {accountMenuView === "condominiums" ? (
-                <div className="condominium-menu-list">
-                  <strong>Condomínios</strong>
-                  {condominiumsPending ? <p>Carregando condomínios autorizados...</p> : null}
-                  {condominiumsError === "" ? null : <p role="alert">{condominiumsError}</p>}
-                  {!condominiumsPending && condominiumsError === "" && condominiums.length === 0 ? (
-                    <p>Você ainda não configurou nenhum condomínio.</p>
-                  ) : null}
-                  {condominiums.map((item) => (
-                    <button
-                      type="button"
-                      key={item.condominiumId}
-                      disabled={condominiumsPending || busy || chatDocumentUploading}
-                      onClick={() => void switchCondominium(item)}
+              {accountMenuView === "profile" ? (
+                <div className="profile-menu" aria-label="Perfil">
+                  <h2>Perfil</h2>
+                  <div className="profile-summary">
+                    <span className="profile-avatar" aria-hidden="true">
+                      {setupManagerName.trim().charAt(0).toLocaleUpperCase("pt-BR") || "P"}
+                    </span>
+                    <div>
+                      <strong>{setupManagerName.trim() || "Seu perfil"}</strong>
+                      <small>Síndico</small>
+                    </div>
+                  </div>
+                  <div className="profile-appearance">
+                    <label htmlFor="profile-appearance">Aparência</label>
+                    <select
+                      id="profile-appearance"
+                      value={appearance}
+                      onChange={(event) =>
+                        changeAppearance(event.target.value === "dark" ? "dark" : "light")
+                      }
                     >
-                      <strong>{item.name}</strong>
-                      <small>{item.detail}</small>
-                    </button>
-                  ))}
+                      <option value="light">Claro</option>
+                      <option value="dark">Escuro</option>
+                    </select>
+                  </div>
+                  {signOutError === "" ? null : <p role="alert">{signOutError}</p>}
+                  {authMode === "development" ? (
+                    <p className="profile-demo-notice">Acesso provisório para testes.</p>
+                  ) : null}
                   <button
-                    className="start-condominium-chat"
+                    className="profile-option profile-sign-out"
                     type="button"
-                    onClick={() => void startCondominiumConversation()}
+                    disabled={signOutPending}
+                    onClick={() => void leaveAccount()}
                   >
-                    + Adicionar condomínio pela conversa
+                    {signOutPending ? "Saindo..." : "Sair da conta"}
                   </button>
                 </div>
-              ) : accountMenuView === "documents" ? (
+              ) : (
                 <div className="document-menu-list">
-                  <strong>Dados</strong>
-                  <p>Documentos enviados, organizados por tipo e condomínio.</p>
+                  <strong>Documentos enviados</strong>
+                  <p>Arquivos enviados para o condomínio selecionado.</p>
                   {documentsPending ? <p>Carregando documentos autorizados...</p> : null}
                   {documentsError === "" ? null : <p role="alert">{documentsError}</p>}
                   {!documentsPending && documentsError === "" && documents.length === 0 ? (
@@ -1564,39 +1777,7 @@ export function App() {
                               {document.condominiumName} ·{" "}
                               {documentProcessingLabel(document.processingStatus)}
                             </small>
-                          </span>
-                        </article>
-                      ))}
-                    </section>
-                  ))}
-                </div>
-              ) : (
-                <div className="document-menu-list">
-                  <strong>Documentos deste condomínio</strong>
-                  <p>{currentCondominium?.name ?? "Condomínio atual"}</p>
-                  {documentsPending ? <p>Carregando documentos autorizados...</p> : null}
-                  {documentsError === "" ? null : <p role="alert">{documentsError}</p>}
-                  {!documentsPending &&
-                  documentsError === "" &&
-                  currentCondominiumDocuments.length === 0 ? (
-                    <p>Nenhum documento enviado ainda para este condomínio.</p>
-                  ) : null}
-                  {groupedCurrentCondominiumDocuments.map((group) => (
-                    <section key={group.type} aria-label={group.label}>
-                      <h3>{group.label}</h3>
-                      {group.documents.map((document) => (
-                        <article key={document.documentId}>
-                          <DocumentIcon />
-                          <span>
-                            <button
-                              type="button"
-                              className="document-open-button"
-                              onClick={() => setViewedDocument(document)}
-                              aria-label={`Visualizar ${document.title}`}
-                            >
-                              {document.title}
-                            </button>
-                            <small>{documentProcessingLabel(document.processingStatus)}</small>
+                            {documentConfirmationControl(document)}
                           </span>
                         </article>
                       ))}
@@ -1623,7 +1804,7 @@ export function App() {
         <button
           className="new-chat-button"
           type="button"
-          onClick={createChat}
+          onClick={() => void createChat()}
           disabled={
             setupStage !== "complete" || context === undefined || busy || chatDocumentUploading
           }
@@ -1682,7 +1863,7 @@ export function App() {
               as respostas locais são simulações, não validação de IA.
             </p>
           ) : null}
-          {setupMessages
+          {visibleSetupMessages
             .filter((message) => message.text.trim() !== "")
             .map((message) =>
               message.role === "assistant" ? (
@@ -1697,6 +1878,26 @@ export function App() {
                 </div>
               )
             )}
+
+          {(activeChat?.attachments ?? [])
+            .filter(
+              (attachment) => attachment.documentVersionId !== sentChatDocument?.documentVersionId
+            )
+            .map((attachment) => (
+              <div className="user-message document-message" key={attachment.documentVersionId}>
+                <DocumentIcon />
+                <button
+                  type="button"
+                  className="document-open-button"
+                  onClick={() => {
+                    if (context !== undefined)
+                      setViewedDocument({ ...attachment, condominiumId: context.condominiumId });
+                  }}
+                >
+                  {attachment.title}
+                </button>
+              </div>
+            ))}
 
           {setupStage === "complete"
             ? conversationHistory.map((entry) => (
@@ -1755,6 +1956,16 @@ export function App() {
             </div>
           )}
 
+          {pendingCondominiumConfirmation === undefined ? null : (
+            <DocumentCondominiumConfirmation
+              title={pendingCondominiumConfirmation.document.title}
+              check={pendingCondominiumConfirmation.check}
+              busy={busy || chatDocumentUploading}
+              onConfirm={() => void confirmPendingDocument(pendingCondominiumConfirmation)}
+              onCancel={cancelDocumentUse}
+            />
+          )}
+
           {submittedQuestion === "" ? null : (
             <div className="user-message">
               <p>{submittedQuestion}</p>
@@ -1762,9 +1973,9 @@ export function App() {
           )}
 
           {busy && submittedQuestion !== "" ? (
-            <div className="assistant-message loading-message" role="status">
+            <div className="assistant-message loading-message thinking-message" role="status">
               <div>
-                <strong>Consultando o contexto disponível</strong>
+                <strong>Pensando...</strong>
                 <span className="typing-dots" aria-hidden="true">
                   <i />
                   <i />
@@ -1833,6 +2044,24 @@ export function App() {
                 Fechar
               </button>
               <blockquote>{selectedCitation.excerpt}</blockquote>
+              {selectedCitation.sourceScope === "legislation" &&
+              context !== undefined &&
+              !selectedCitation.sourceRemoved ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setViewedDocument({
+                      condominiumId: context.condominiumId,
+                      documentVersionId: selectedCitation.documentVersionId,
+                      legalSourceId: selectedCitation.documentId,
+                      title: selectedCitation.title,
+                      page: selectedCitation.page
+                    })
+                  }
+                >
+                  Abrir cópia de consulta
+                </button>
+              ) : null}
             </aside>
           )}
           <div ref={messagesEnd} />

@@ -27,6 +27,24 @@ const chunkingScope = createCondominiumId("00000000-0000-4000-8000-000000000000"
 
 type QueryClient = Pick<Client, "query">;
 
+export type OfficialLegalPdfSource = Readonly<{
+  id: string;
+  title: string;
+  issuingAuthority: string;
+  officialUrl: string;
+  versionLabel: string;
+  effectiveThrough: string;
+  versionId?: string;
+  verifiedAt?: string;
+  reviewDueAt?: string;
+  pageRanges?: readonly Readonly<{
+    pageNumber: number;
+    startOffset: number;
+    endOffset: number;
+    textSha256: string;
+  }>[];
+}>;
+
 export type ConstitutionImportResult = Readonly<{
   status: "imported" | "unchanged";
   sourceId: string;
@@ -79,6 +97,36 @@ export async function importBrazilianConstitution(
   client: QueryClient,
   content: Buffer
 ): Promise<ConstitutionImportResult> {
+  return importOfficialLegalPdf(client, constitutionSource, content);
+}
+
+export async function importOfficialLegalPdf(
+  client: QueryClient,
+  source: OfficialLegalPdfSource,
+  content: Buffer
+): Promise<ConstitutionImportResult> {
+  const origin = new URL(source.officialUrl);
+  if (
+    origin.protocol !== "https:" ||
+    !["www.planalto.gov.br", "www2.camara.leg.br"].includes(origin.hostname) ||
+    origin.username !== "" ||
+    origin.password !== "" ||
+    origin.port !== "" ||
+    content.length === 0 ||
+    content.length > maximumDownloadBytes ||
+    !content.subarray(0, 5).equals(Buffer.from("%PDF-"))
+  ) {
+    throw new Error("Origem ou cópia legal não autorizada.");
+  }
+  if (
+    (source.verifiedAt === undefined) !== (source.reviewDueAt === undefined) ||
+    (source.verifiedAt !== undefined &&
+      (!Number.isFinite(Date.parse(source.verifiedAt)) ||
+        !Number.isFinite(Date.parse(source.reviewDueAt!)) ||
+        source.verifiedAt >= source.reviewDueAt!))
+  ) {
+    throw new Error("Intervalo de conferência legal inválido.");
+  }
   const contentSha256 = createHash("sha256").update(content).digest("hex");
   const pages = await extractPdfTextByPage(content);
   if (pages.length === 0 || pages.some((page) => page.extractedText.trim().length === 0)) {
@@ -88,14 +136,37 @@ export async function importBrazilianConstitution(
   const embeddingAdapter = createLocalSyntheticEmbeddingAdapter();
   const preparedPages = await Promise.all(
     pages.map(async (page) => {
+      const range = source.pageRanges?.find((item) => item.pageNumber === page.pageNumber);
+      if (
+        source.pageRanges !== undefined &&
+        (range === undefined ||
+          range.textSha256 !== page.contentSha256 ||
+          range.startOffset < 0 ||
+          range.endOffset <= range.startOffset ||
+          range.endOffset > Array.from(page.extractedText).length)
+      ) {
+        throw new Error("Página divergente do recorte conferido.");
+      }
       const pageId = randomUUID();
-      const chunks = chunkPage({
-        condominiumId: chunkingScope,
-        documentVersionId: "legal-version",
-        documentPageId: pageId,
-        pageNumber: page.pageNumber,
-        extractedText: page.extractedText
-      });
+      const startOffset = range?.startOffset ?? 0;
+      const pageChunks = chunkPage(
+        {
+          condominiumId: chunkingScope,
+          documentVersionId: "legal-version",
+          documentPageId: pageId,
+          pageNumber: page.pageNumber,
+          extractedText:
+            range === undefined
+              ? page.extractedText
+              : Array.from(page.extractedText).slice(startOffset, range.endOffset).join("")
+        },
+        range === undefined ? {} : { maximumCharacters: 8_000, overlapCharacters: 0 }
+      );
+      const chunks = pageChunks.map((chunk) => ({
+        ...chunk,
+        startOffset: chunk.startOffset + startOffset,
+        endOffset: chunk.endOffset + startOffset
+      }));
       const embeddedChunks = await Promise.all(
         chunks.map(async (chunk) => ({
           ...chunk,
@@ -126,25 +197,19 @@ export async function importBrazilianConstitution(
           status = 'active',
           updated_at = now()
       `,
-      [
-        constitutionSource.id,
-        constitutionSource.title,
-        constitutionSource.issuingAuthority,
-        constitutionSource.officialUrl
-      ]
+      [source.id, source.title, source.issuingAuthority, source.officialUrl]
     );
-    await client.query("SELECT id FROM app.legal_sources WHERE id = $1 FOR UPDATE", [
-      constitutionSource.id
-    ]);
+    await client.query("SELECT id FROM app.legal_sources WHERE id = $1 FOR UPDATE", [source.id]);
 
     const existing = await client.query<{
       id: string;
       version_number: number | string;
       page_count: number | string;
       chunk_count: number | string;
+      is_current: boolean;
     }>(
       `
-        SELECT version.id, version.version_number,
+        SELECT version.id, version.version_number, version.is_current,
           (SELECT count(*) FROM app.legal_source_pages AS page
             WHERE page.legal_source_version_id = version.id) AS page_count,
           (SELECT count(*) FROM app.legal_source_chunks AS chunk
@@ -153,22 +218,16 @@ export async function importBrazilianConstitution(
         WHERE version.legal_source_id = $1 AND version.content_sha256 = $2
         LIMIT 1
       `,
-      [constitutionSource.id, contentSha256]
+      [source.id, contentSha256]
     );
     const existingVersion = existing.rows[0];
     if (existingVersion !== undefined) {
-      await client.query(
-        `
-          UPDATE app.legal_source_versions
-          SET is_current = (id = $2)
-          WHERE legal_source_id = $1
-        `,
-        [constitutionSource.id, existingVersion.id]
-      );
+      if (!existingVersion.is_current)
+        throw new Error("Uma versão legal histórica não pode ser reativada silenciosamente.");
       await client.query("COMMIT");
       return Object.freeze({
         status: "unchanged" as const,
-        sourceId: constitutionSource.id,
+        sourceId: source.id,
         versionId: existingVersion.id,
         versionNumber: Number(existingVersion.version_number),
         pageCount: Number(existingVersion.page_count),
@@ -177,37 +236,53 @@ export async function importBrazilianConstitution(
       });
     }
 
+    const newerVerification = await client.query<{ exists: boolean }>(
+      "SELECT EXISTS (SELECT 1 FROM app.legal_source_versions WHERE legal_source_id = $1 AND is_current AND verified_at > $2::timestamptz) AS exists",
+      [
+        source.id,
+        source.verifiedAt === undefined ? null : new Date(source.verifiedAt).toISOString()
+      ]
+    );
+    if (newerVerification.rows[0]?.exists === true)
+      throw new Error(
+        "A fonte possui conferência mais recente; a importação anterior foi recusada."
+      );
+
     const versionNumberResult = await client.query<{ next_version: number | string }>(
       `
         SELECT COALESCE(max(version_number), 0) + 1 AS next_version
         FROM app.legal_source_versions
         WHERE legal_source_id = $1
       `,
-      [constitutionSource.id]
+      [source.id]
     );
     const versionNumber = Number(versionNumberResult.rows[0]?.next_version ?? 1);
-    const versionId = randomUUID();
+    const versionId = source.versionId ?? randomUUID();
 
     await client.query(
       "UPDATE app.legal_source_versions SET is_current = false WHERE legal_source_id = $1",
-      [constitutionSource.id]
+      [source.id]
     );
     await client.query(
       `
         INSERT INTO app.legal_source_versions (
           id, legal_source_id, version_number, version_label, content_sha256,
-          media_type, size_bytes, effective_through, is_current
+          media_type, size_bytes, effective_through, is_current,
+          verified_at, review_due_at, consultation_pdf
         )
-        VALUES ($1, $2, $3, $4, $5, 'application/pdf', $6, $7, true)
+        VALUES ($1, $2, $3, $4, $5, 'application/pdf', $6, $7, true, $8, $9, $10)
       `,
       [
         versionId,
-        constitutionSource.id,
+        source.id,
         versionNumber,
-        constitutionSource.versionLabel,
+        source.versionLabel,
         contentSha256,
         content.length,
-        constitutionSource.effectiveThrough
+        source.effectiveThrough,
+        source.verifiedAt === undefined ? null : new Date(source.verifiedAt).toISOString(),
+        source.reviewDueAt === undefined ? null : new Date(source.reviewDueAt).toISOString(),
+        content
       ]
     );
 
@@ -266,7 +341,7 @@ export async function importBrazilianConstitution(
     await client.query("COMMIT");
     return Object.freeze({
       status: "imported" as const,
-      sourceId: constitutionSource.id,
+      sourceId: source.id,
       versionId,
       versionNumber,
       pageCount: pages.length,

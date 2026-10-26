@@ -158,6 +158,19 @@ function validateClaims(
     if (claim.evidenceRequired && claim.citationEvidenceIds.length === 0) {
       throw new InvalidAnswerValidationError("Afirmação factual sem citação é proibida.");
     }
+    if (
+      claim.claimType === "condominium_fact" &&
+      claim.citationEvidenceIds.length > 0 &&
+      claim.citationEvidenceIds.every((evidenceId) =>
+        citations.some(
+          (citation) => citation.evidenceId === evidenceId && citation.sourceScope === "legislation"
+        )
+      )
+    ) {
+      throw new InvalidAnswerValidationError(
+        "Um fato do condomínio não pode ser sustentado apenas por legislação."
+      );
+    }
     for (const evidenceId of claim.citationEvidenceIds) {
       assertString(evidenceId, `claims[${index}].citationEvidenceIds`, 200);
       if (!citedEvidenceIds.has(evidenceId)) {

@@ -97,6 +97,9 @@ describe("índice PostgreSQL de retrieval", () => {
     const retrievalQuery = fake.queries.find((query) => query.includes("WITH condominium_chunks"));
     expect(retrievalQuery).toContain("dc.condominium_id = app.current_condominium_id()");
     expect(retrievalQuery).toContain("FROM app.legal_source_chunks");
+    expect(retrievalQuery).toContain("version.verified_at <= $3::timestamptz");
+    expect(retrievalQuery).toContain("version.review_due_at > $3::timestamptz");
+    expect(retrievalQuery).toContain("version.verified_at AS valid_from");
     expect(retrievalQuery).toContain("SELECT * FROM legislation_chunks");
     expect(retrievalQuery).toContain("dvs.processing_status = 'ready'");
     expect(retrievalQuery).toContain("dvs.validity_status IN ('confirmed', 'not_applicable')");

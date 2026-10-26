@@ -1,4 +1,5 @@
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
+import type { DocumentCondominiumCheck } from "./document-condominium-check.js";
 import type {
   DocumentExtractionMethod,
   DocumentMediaType,
@@ -28,6 +29,7 @@ export type RegisteredDocument = Readonly<{
   ocrQualityScore: number | null;
   storageObjectId?: string;
   uploadedByCurrentUser?: boolean;
+  condominiumCheck?: DocumentCondominiumCheck;
 }>;
 
 export type ArchivedDocument = Readonly<{
@@ -47,8 +49,13 @@ export interface DocumentCatalogRepository {
     input: Readonly<{
       documentVersionId: string;
       processingStatus: DocumentProcessingStatus;
+      condominiumCheck?: DocumentCondominiumCheck;
     }>
   ): Promise<void>;
+  confirmCondominium?(
+    context: AuthorizedCondominiumContext,
+    documentVersionId: string
+  ): Promise<boolean>;
   archiveAuthorized?(context: AuthorizedCondominiumContext, documentId: string): Promise<boolean>;
   restoreAuthorized?(context: AuthorizedCondominiumContext, documentId: string): Promise<boolean>;
 }

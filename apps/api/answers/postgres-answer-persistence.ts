@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { legacyChatId, type HistoryFilter } from "../chats/chat-repository.js";
 
 import type { Pool, PoolClient } from "pg";
 
@@ -220,9 +221,9 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
           `
             INSERT INTO app.questions (
               condominium_id, id, asked_by_user_id, content, language,
-              idempotency_key, request_id, created_at
+              idempotency_key, request_id, created_at, chat_id
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           `,
           [
             input.question.condominiumId,
@@ -232,7 +233,8 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
             input.question.language,
             input.question.idempotencyKey,
             input.question.requestId,
-            input.question.createdAt
+            input.question.createdAt,
+            input.question.chatId ?? null
           ]
         );
 
@@ -534,7 +536,8 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
 
     async listConversationHistory(
       context: AuthorizedCondominiumContext,
-      limit = 50
+      limit = 50,
+      filter?: HistoryFilter
     ): Promise<readonly ConversationHistoryEntry[]> {
       const client = await pool.connect();
       const safeLimit = Math.max(1, Math.min(Math.floor(limit), 100));
@@ -572,10 +575,18 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
               AND mi.answer_id = a.id
             WHERE a.condominium_id = app.current_condominium_id()
               AND q.asked_by_user_id = $1
-            ORDER BY q.created_at DESC, a.id DESC
+              AND ($3::uuid IS NULL OR q.chat_id = $3 OR ($3::uuid = '${legacyChatId}'::uuid AND q.chat_id IS NULL))
+              AND ($4::timestamptz IS NULL OR (q.created_at, q.id) < ($4::timestamptz, $5::uuid))
+            ORDER BY q.created_at DESC, q.id DESC
             LIMIT $2
           `,
-          [databaseUserId, safeLimit]
+          [
+            databaseUserId,
+            safeLimit,
+            filter?.chatId ?? null,
+            filter?.before?.createdAt ?? null,
+            filter?.before?.id ?? null
+          ]
         );
         const history: ConversationHistoryEntry[] = [];
         for (const row of [...historyResult.rows].reverse()) {

@@ -39,6 +39,27 @@ function generated(overrides: Partial<GeneratedAnswer> = {}): GeneratedAnswer {
 }
 
 describe("validador de citações e respostas", () => {
+  it("AC-3905: lei isolada não confirma fato local, mas sustenta interpretação identificada", () => {
+    const legal = { ...source, sourceScope: "legislation" as const };
+    const claim = {
+      statement: "A regra consta no texto consultado.",
+      claimType: "condominium_fact" as const,
+      evidenceRequired: true,
+      citationEvidenceIds: [legal.id]
+    };
+    expect(() => validateGeneratedAnswer(generated({ claims: [claim] }), [legal])).toThrow(
+      "apenas por legislação"
+    );
+    expect(
+      validateGeneratedAnswer(generated({ claims: [{ ...claim, claimType: "interpretation" }] }), [
+        legal
+      ]).claims[0]!.claimType
+    ).toBe("interpretation");
+    expect(
+      validateGeneratedAnswer(generated({ claims: [claim] }), [source]).claims[0]!.claimType
+    ).toBe("condominium_fact");
+  });
+
   it("calcula offsets verificáveis em code points e congela o payload", () => {
     const result = validateGeneratedAnswer(generated(), [source]);
 

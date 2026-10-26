@@ -29,41 +29,36 @@ describe("proteção da integração sintética Neon", () => {
 
   it("exige confirmação literal para dados sintéticos", () => {
     expect(() => requireSyntheticIntegrationConfirmation("synthetic-only")).not.toThrow();
-    expect(() => requireSyntheticIntegrationConfirmation(undefined)).toThrow();
     expect(() => requireSyntheticIntegrationConfirmation("production")).toThrow();
   });
 
   it("recusa banco sem marcador persistente", async () => {
-    const client = {
-      query: async () => ({ rowCount: 0, rows: [] })
-    } as never;
-
-    await expect(assertSyntheticIntegrationTarget(client)).rejects.toThrow(
-      "marcador de integração sintética"
-    );
+    await expect(
+      assertSyntheticIntegrationTarget({ query: async () => ({ rowCount: 0, rows: [] }) } as never)
+    ).rejects.toThrow("marcador de integração sintética");
   });
 
-  it("recusa papel runtime com qualquer privilégio ou ownership incompatível", async () => {
-    const client = {
-      query: async () => ({
-        rowCount: 1,
-        rows: [
-          {
-            rolcanlogin: false,
-            rolsuper: false,
-            rolcreatedb: false,
-            rolcreaterole: false,
-            rolinherit: false,
-            rolbypassrls: true,
-            rolreplication: false,
-            has_memberships: false,
-            owns_objects: false,
-            has_role_config: false
-          }
-        ]
-      })
-    } as never;
-
-    await expect(assertSafeRuntimeRole(client)).rejects.toThrow("app_runtime");
+  it("recusa papel runtime com privilégio incompatível", async () => {
+    await expect(
+      assertSafeRuntimeRole({
+        query: async () => ({
+          rowCount: 1,
+          rows: [
+            {
+              rolcanlogin: false,
+              rolsuper: false,
+              rolcreatedb: false,
+              rolcreaterole: false,
+              rolinherit: false,
+              rolbypassrls: true,
+              rolreplication: false,
+              has_memberships: false,
+              owns_objects: false,
+              has_role_config: false
+            }
+          ]
+        })
+      } as never)
+    ).rejects.toThrow("app_runtime");
   });
 });

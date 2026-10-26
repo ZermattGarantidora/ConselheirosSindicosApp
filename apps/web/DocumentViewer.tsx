@@ -5,6 +5,7 @@ export type DocumentToView = Readonly<{
   documentVersionId: string;
   title: string;
   page?: number;
+  legalSourceId?: string;
 }>;
 
 export async function loadDocumentOriginal(
@@ -14,13 +15,23 @@ export async function loadDocumentOriginal(
   signal: AbortSignal
 ): Promise<Blob> {
   const response = await fetchRequest(
-    `/v1/condominiums/${encodeURIComponent(document.condominiumId)}/documents/${encodeURIComponent(document.documentVersionId)}/file`,
+    document.legalSourceId === undefined
+      ? `/v1/condominiums/${encodeURIComponent(document.condominiumId)}/documents/${encodeURIComponent(document.documentVersionId)}/file`
+      : `/v1/condominiums/${encodeURIComponent(document.condominiumId)}/legal-sources/${encodeURIComponent(document.legalSourceId)}/versions/${encodeURIComponent(document.documentVersionId)}/copy`,
     { credentials: "same-origin", cache: "no-store", headers, signal }
   );
   if (!response.ok)
-    throw new Error("Não foi possível abrir o original. Confira seu acesso e tente novamente.");
+    throw new Error(
+      document.legalSourceId === undefined
+        ? "Não foi possível abrir o original. Confira seu acesso e tente novamente."
+        : "Não foi possível abrir a cópia de consulta. Confira seu acesso e tente novamente."
+    );
   const blob = await response.blob();
-  if (!["application/pdf", "image/jpeg", "image/png"].includes(blob.type)) {
+  const allowedTypes =
+    document.legalSourceId === undefined
+      ? ["application/pdf", "image/jpeg", "image/png"]
+      : ["application/pdf"];
+  if (!allowedTypes.includes(blob.type)) {
     throw new Error("O formato do arquivo não permite visualização segura.");
   }
   return blob;
@@ -82,14 +93,14 @@ export function DocumentViewer({
     <dialog
       ref={dialog}
       className="document-viewer"
-      aria-label={`Documento completo: ${document.title}`}
+      aria-label={`${document.legalSourceId === undefined ? "Documento completo" : "Cópia de consulta"}: ${document.title}`}
       onCancel={onClose}
     >
       <header>
         <strong>{document.title}</strong>
         {original === undefined ? null : (
           <a href={original.url} download={document.title}>
-            Baixar original
+            {document.legalSourceId === undefined ? "Baixar original" : "Baixar cópia de consulta"}
           </a>
         )}
         <button type="button" onClick={onClose}>
@@ -104,10 +115,14 @@ export function DocumentViewer({
           </button>
         </div>
       ) : original === undefined ? (
-        <p role="status">Abrindo documento completo...</p>
+        <p role="status">
+          {document.legalSourceId === undefined
+            ? "Abrindo documento completo..."
+            : "Abrindo cópia de consulta..."}
+        </p>
       ) : original.mediaType === "application/pdf" ? (
         <iframe
-          title={`PDF completo: ${document.title}`}
+          title={`${document.legalSourceId === undefined ? "PDF completo" : "Cópia de consulta"}: ${document.title}`}
           src={`${original.url}#page=${document.page ?? 1}`}
         />
       ) : (

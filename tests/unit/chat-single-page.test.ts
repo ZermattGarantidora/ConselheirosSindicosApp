@@ -14,7 +14,7 @@ describe("experiência de chat único", () => {
     expect(app).toContain(
       'className={`chat-page${conversationStarted ? " has-conversation" : ""}`}'
     );
-    expect(app).toContain('setupMessages.some((message) => message.role === "user")');
+    expect(app).toContain('visibleSetupMessages.some((message) => message.role === "user")');
     expect(app).toContain('aria-label="Conversa com a Alvitra"');
     expect(app).toContain('className="login-entry-button"');
     expect(app).toContain('{entryPending ? "Entrando..." : "Entrar"}');

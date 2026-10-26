@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { createPostgresChatRepository } from "../../apps/api/chats/postgres-chat-repository.js";
 import { Pool, type PoolClient } from "pg";
 import { createPostgresDocumentAnalysisReader } from "../../apps/api/analysis/document-analysis-reader.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -19,28 +20,35 @@ import { createPostgresProcessingJobQueue } from "../../apps/api/worker/postgres
 import { processOne } from "../../apps/api/worker/processing-worker.js";
 import type { AuthorizedCondominiumContext } from "../../apps/api/identity/authorized-condominium-context.js";
 import { createPostgresMembershipRepository } from "../../apps/api/identity/postgres-identity-repository.js";
-import { createSyntheticTextPdf } from "../fixtures/synthetic-pdfs.js";
-import {
-  assertSyntheticIntegrationTarget as assertNeonIntegrationTarget,
-  parseNeonIntegrationUrl,
-  requireSyntheticIntegrationConfirmation as requireNeonIntegrationConfirmation
-} from "../../scripts/neon-integration-guard.js";
+import { createSyntheticPdf, createSyntheticTextPdf } from "../fixtures/synthetic-pdfs.js";
+import { importOfficialLegalPdf } from "../../scripts/import-brazilian-constitution.js";
+import { createPostgresLegalCopyReader } from "../../apps/api/legislation/postgres-legal-copy-reader.js";
+import { createPostgresDocumentSourceReader } from "../../apps/api/documents/document-source.js";
 import {
   assertSyntheticIntegrationTarget as assertSupabaseIntegrationTarget,
   createTrustedSupabaseConnectionConfig,
   parseSupabaseIntegrationUrl,
   requireSyntheticIntegrationConfirmation
 } from "../../scripts/supabase-integration-guard.js";
+import {
+  assertSyntheticIntegrationTarget as assertNeonIntegrationTarget,
+  parseNeonIntegrationUrl,
+  requireSyntheticIntegrationConfirmation as requireNeonIntegrationConfirmation
+} from "../../scripts/neon-integration-guard.js";
 
 const supabaseIntegrationUrl = process.env.SUPABASE_INTEGRATION_DATABASE_URL;
 const neonIntegrationUrl = process.env.NEON_INTEGRATION_DATABASE_URL;
-if (supabaseIntegrationUrl !== undefined && neonIntegrationUrl !== undefined)
+
+if (supabaseIntegrationUrl !== undefined && neonIntegrationUrl !== undefined) {
   throw new Error("Defina somente um destino de integração sintética por execução.");
+}
+
 const databaseUrl = supabaseIntegrationUrl ?? neonIntegrationUrl;
 const assertIntegrationTarget =
   supabaseIntegrationUrl === undefined
     ? assertNeonIntegrationTarget
     : assertSupabaseIntegrationTarget;
+
 if (supabaseIntegrationUrl !== undefined) {
   parseSupabaseIntegrationUrl(supabaseIntegrationUrl);
   requireSyntheticIntegrationConfirmation(process.env.SUPABASE_INTEGRATION_CONFIRMATION);
@@ -62,8 +70,10 @@ const bosqueId = randomUUID();
 const userId = randomUUID();
 
 async function resetFixtures(client: PoolClient): Promise<void> {
+  // A biblioteca pública também pertence às fixtures deste banco sintético dedicado.
+  // Fontes de uma execução anterior não podem contaminar os cenários seguintes.
   await client.query(
-    "TRUNCATE app.audit_events, app.model_invocation_evidence, app.model_invocations, app.feedback, app.citations, app.answer_claims, app.answers, app.retrieval_evidence, app.retrieval_runs, app.questions, app.document_chunk_embeddings, app.document_chunks, app.document_pages, app.processing_jobs, app.document_version_states, app.document_versions, app.documents, app.document_original_contents, app.storage_objects, app.memberships, app.condominiums, app.users CASCADE"
+    "TRUNCATE app.audit_events, app.model_invocation_evidence, app.model_invocations, app.feedback, app.citations, app.answer_claims, app.answers, app.retrieval_evidence, app.retrieval_runs, app.questions, app.document_chunk_embeddings, app.document_chunks, app.document_pages, app.processing_jobs, app.document_version_states, app.document_versions, app.documents, app.document_original_contents, app.storage_objects, app.memberships, app.condominiums, app.users, app.legal_source_chunks, app.legal_source_pages, app.legal_source_versions, app.legal_sources CASCADE"
   );
   await client.query("INSERT INTO app.users (id, auth_subject, status) VALUES ($1, $2, 'active')", [
     userId,
@@ -140,6 +150,143 @@ describe("RLS de isolamento por condomínio", () => {
     await pool.end();
   });
 
+  it("AC-3903/3904/3906: legislação sintética respeita conferência, cópia histórica e revogação sob RLS", async () => {
+    const sourceId = randomUUID();
+    const versionId = randomUUID();
+    const pdf = createSyntheticPdf(["Regra LEGALVERIFICADASINTETICA com conferencia temporal."], {
+      pageWidth: 900
+    });
+    const client = await pool.connect();
+    try {
+      await importOfficialLegalPdf(
+        client,
+        {
+          id: sourceId,
+          versionId,
+          title: "Norma exclusivamente sintética",
+          issuingAuthority: "Emissor sintético",
+          officialUrl: "https://www.planalto.gov.br/controle-sintetico",
+          versionLabel: "Fixture sintética",
+          effectiveThrough: "Conferência de teste",
+          verifiedAt: "2026-10-22",
+          reviewDueAt: "2026-11-21"
+        },
+        pdf
+      );
+    } finally {
+      client.release();
+    }
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId(alamedaId),
+      userId: userId as AuthorizedCondominiumContext["userId"],
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read"]
+    };
+    const search = {
+      query: "LEGALVERIFICADASINTETICA",
+      limit: 8,
+      minimumQualityScore: 0.7,
+      asOf: new Date("2026-10-22T12:00:00Z")
+    };
+    const index = createPostgresScopedRetrievalIndex(pool);
+    const copyReader = createPostgresLegalCopyReader(pool);
+    const input = { documentId: sourceId, documentVersionId: versionId };
+    try {
+      expect(
+        (await index.findAuthorizedCandidates(context, search)).some(
+          (item) => item.documentId === sourceId
+        )
+      ).toBe(true);
+      for (const date of ["2026-10-21", "2026-11-21"]) {
+        expect(
+          (await index.findAuthorizedCandidates(context, { ...search, asOf: new Date(date) })).some(
+            (item) => item.documentId === sourceId
+          )
+        ).toBe(false);
+      }
+      expect(await copyReader.getAuthorizedCopy(context, input)).toEqual(pdf);
+      await pool.query("UPDATE app.legal_source_versions SET is_current = false WHERE id = $1", [
+        versionId
+      ]);
+      expect(
+        await createPostgresDocumentSourceReader(pool).getAuthorizedPage(context, {
+          ...input,
+          page: 1
+        })
+      ).toMatchObject({ content: expect.stringContaining("LEGALVERIFICADASINTETICA") });
+      expect(
+        await copyReader.getAuthorizedCopy(
+          { ...context, condominiumId: createCondominiumId(bosqueId) },
+          input
+        )
+      ).toBeUndefined();
+      await pool.query(
+        "UPDATE app.memberships SET status = 'revoked', revoked_at = now() WHERE user_id = $1",
+        [userId]
+      );
+      expect(await copyReader.getAuthorizedCopy(context, input)).toBeUndefined();
+    } finally {
+      await pool.query("DELETE FROM app.legal_source_chunks WHERE legal_source_version_id = $1", [
+        versionId
+      ]);
+      await pool.query("DELETE FROM app.legal_source_pages WHERE legal_source_version_id = $1", [
+        versionId
+      ]);
+      await pool.query("DELETE FROM app.legal_source_versions WHERE id = $1", [versionId]);
+      await pool.query("DELETE FROM app.legal_sources WHERE id = $1", [sourceId]);
+    }
+  });
+
+  it("AC-3906: reiniciar as fixtures remove também evidência legal do cenário anterior", async () => {
+    const sourceId = randomUUID();
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId(alamedaId),
+      userId: userId as AuthorizedCondominiumContext["userId"],
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read"]
+    };
+    const search = {
+      query: "LIMPEZALEGALINTEGRACAOSINTETICA",
+      limit: 8,
+      minimumQualityScore: 0.7,
+      asOf: new Date("2026-10-22T12:00:00Z")
+    };
+    const index = createPostgresScopedRetrievalIndex(pool);
+    const client = await pool.connect();
+    try {
+      await importOfficialLegalPdf(
+        client,
+        {
+          id: sourceId,
+          title: "Norma sintética para isolamento das fixtures",
+          issuingAuthority: "Emissor sintético",
+          officialUrl: "https://www.planalto.gov.br/controle-sintetico-limpeza",
+          versionLabel: "Fixture sintética de limpeza",
+          effectiveThrough: "Conferência de teste",
+          verifiedAt: "2026-10-22",
+          reviewDueAt: "2026-11-21"
+        },
+        createSyntheticPdf(["Regra LIMPEZALEGALINTEGRACAOSINTETICA da biblioteca de teste."], {
+          pageWidth: 900
+        })
+      );
+      expect(
+        (await index.findAuthorizedCandidates(context, search)).some(
+          (candidate) => candidate.documentId === sourceId
+        )
+      ).toBe(true);
+
+      await resetFixtures(client);
+
+      // A mesma identidade volta a estar autorizada, mas a fonte do cenário anterior não existe.
+      expect(await index.findAuthorizedCandidates(context, search)).toEqual([]);
+    } finally {
+      client.release();
+    }
+  });
+
   it("permite somente o condomínio selecionado", async () => {
     await pool.query(
       "INSERT INTO app.memberships (condominium_id, id, user_id, role_key, status, valid_from, revision) VALUES ($1, $2, $3, 'manager', 'active', now() - interval '1 day', 'v1')",
@@ -180,6 +327,118 @@ describe("RLS de isolamento por condomínio", () => {
     );
 
     expect(result.rows).toEqual([]);
+  });
+
+  it("AC-3803: chats persistem e a RLS isola também membros do mesmo condomínio", async () => {
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId(alamedaId),
+      userId: userId as AuthorizedCondominiumContext["userId"],
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read"]
+    };
+    const otherUserId = randomUUID();
+    await pool.query("INSERT INTO app.users(id, auth_subject, status) VALUES ($1, $2, 'active')", [
+      otherUserId,
+      `synthetic-${otherUserId}`
+    ]);
+    await pool.query(
+      "INSERT INTO app.memberships(condominium_id, id, user_id, role_key, status, valid_from, revision) VALUES ($1, $2, $3, 'manager', 'active', now() - interval '1 day', 'v1')",
+      [alamedaId, randomUUID(), otherUserId]
+    );
+    const chatId = randomUUID();
+    const repository = createPostgresChatRepository(pool);
+    await repository.create(context, { id: chatId, title: "Histórico sintético" });
+    const restored = createPostgresChatRepository(pool);
+    expect((await restored.list(context))[0]).toMatchObject({
+      id: chatId,
+      title: "Histórico sintético"
+    });
+    const other = { ...context, userId: otherUserId as AuthorizedCondominiumContext["userId"] };
+    expect(await restored.list(other)).toEqual([]);
+    expect(await restored.find(other, chatId)).toBeUndefined();
+    expect(await restored.rename(other, chatId, "Invadir")).toBe(false);
+    expect(await restored.hide(other, chatId)).toBe(false);
+    const raw = await asRuntime(alamedaId, async (client) => {
+      await client.query("SELECT set_config('app.user_id', $1, true)", [otherUserId]);
+      return client.query("SELECT title FROM app.chats WHERE id = $1", [chatId]);
+    });
+    expect(raw.rows).toEqual([]);
+    expect(await restored.rename(context, chatId, "Renomeado")).toBe(true);
+    expect(await restored.hide(context, chatId)).toBe(true);
+    expect(await restored.list(context)).toEqual([]);
+  });
+
+  it("AC-3704: persiste a pendência, bloqueia busca/análise e confirma com autor sob RLS", async () => {
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId(alamedaId),
+      userId: userId as AuthorizedCondominiumContext["userId"],
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+    const repository = createPostgresDocumentUploadRepository(pool);
+    const storage = createPostgresPrivateDocumentStorage(pool);
+    const uploaded = await uploadDocument(storage, repository, context, {
+      title: "Ata.pdf",
+      documentType: "other",
+      selectedCondominiumName: "Alameda",
+      validityConfirmed: true,
+      content: createSyntheticPdf(["Condominio Bosque", "Piscina fecha as 21 horas."], {
+        pageWidth: 900
+      })
+    });
+    expect(
+      await processQueuedJob(
+        createPostgresProcessingJobQueue(pool),
+        createScopedDocumentProcessor(createPostgresDocumentProcessingRepository(pool, storage))
+      )
+    ).toBe("processed");
+    const reloaded = createPostgresDocumentUploadRepository(pool);
+    expect((await reloaded.listAuthorized(context))[0]).toMatchObject({
+      processingStatus: "needs_review",
+      condominiumCheck: {
+        status: "pending",
+        expectedName: "Alameda",
+        detectedNames: ["Condominio Bosque"]
+      }
+    });
+    const index = createPostgresScopedRetrievalIndex(pool);
+    const search = { query: "piscina", limit: 8, minimumQualityScore: 0.7, asOf: new Date() };
+    const analysis = createPostgresDocumentAnalysisReader(pool);
+    expect(await index.findAuthorizedCandidates(context, search)).toEqual([]);
+    expect(await analysis.readAuthorized(context, [uploaded.documentVersionId])).toEqual([]);
+    expect(
+      await reloaded.confirmCondominium?.(
+        { ...context, permissions: ["document:read"] },
+        uploaded.documentVersionId
+      )
+    ).toBe(false);
+    expect(
+      await reloaded.confirmCondominium?.(
+        { ...context, condominiumId: createCondominiumId(bosqueId) },
+        uploaded.documentVersionId
+      )
+    ).toBe(false);
+    expect(await reloaded.confirmCondominium?.(context, uploaded.documentVersionId)).toBe(true);
+    expect(
+      (await index.findAuthorizedCandidates(context, search)).some(
+        (candidate) => candidate.documentVersionId === uploaded.documentVersionId
+      )
+    ).toBe(true);
+    expect(await analysis.readAuthorized(context, [uploaded.documentVersionId])).toHaveLength(1);
+    const decision = await pool.query<{
+      condominium_check: { status: string; confirmedByUserId: string; confirmedAt: string };
+    }>(
+      "SELECT condominium_check FROM app.document_version_states WHERE condominium_id = $1 AND document_version_id = $2",
+      [alamedaId, uploaded.documentVersionId]
+    );
+    expect(decision.rows[0]?.condominium_check).toMatchObject({
+      status: "confirmed",
+      confirmedByUserId: userId,
+      confirmedAt: expect.any(String)
+    });
+    expect(await reloaded.confirmCondominium?.(context, uploaded.documentVersionId)).toBe(false);
   });
 
   it("persiste o upload, reivindica o job e publica páginas e chunks no tenant correto", async () => {

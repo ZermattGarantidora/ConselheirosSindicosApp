@@ -1,4 +1,5 @@
 import type { CondominiumId } from "../core/condominium-scope.js";
+import type { HistoryFilter } from "../chats/chat-repository.js";
 import type { RetrievalEvidence, ScopedRetrievalResult } from "../retrieval/retrieval-contract.js";
 import type { EvidenceSourceScope } from "../retrieval/retrieval-contract.js";
 import type {
@@ -8,6 +9,7 @@ import type {
 import type { AnswerClaim, AnswerRecord, RiskClass } from "./answer-contract.js";
 
 export type QuestionRecord = Readonly<{
+  chatId?: string;
   id: string;
   condominiumId: CondominiumId;
   userId: UserId;
@@ -139,7 +141,8 @@ export interface AnswerPersistence {
   ): Promise<AnswerRecord | undefined>;
   listConversationHistory(
     context: AuthorizedCondominiumContext,
-    limit?: number
+    limit?: number,
+    filter?: HistoryFilter
   ): Promise<readonly ConversationHistoryEntry[]>;
   createFeedback(
     context: AuthorizedCondominiumContext,

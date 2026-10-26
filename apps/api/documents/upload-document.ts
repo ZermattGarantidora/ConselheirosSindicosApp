@@ -15,6 +15,7 @@ export type UploadedDocumentRecord = Readonly<{
   storageObjectId: string;
   storageKey: string;
   title: string;
+  selectedCondominiumName?: string;
   documentType: DocumentType;
   contentSha256: string;
   sizeBytes: number;
@@ -169,6 +170,7 @@ export async function uploadDocument(
     mediaType?: DocumentMediaType;
     documentId?: string;
     validityConfirmed?: boolean;
+    selectedCondominiumName?: string;
   }>
 ): Promise<UploadedDocumentRecord> {
   if (!context.permissions.includes("document:upload")) {
@@ -197,6 +199,9 @@ export async function uploadDocument(
     storageObjectId,
     storageKey: stored.storageKey,
     title: input.title.trim(),
+    ...(input.selectedCondominiumName === undefined
+      ? {}
+      : { selectedCondominiumName: input.selectedCondominiumName }),
     documentType,
     contentSha256: createHash("sha256").update(input.content).digest("hex"),
     sizeBytes: input.content.length,

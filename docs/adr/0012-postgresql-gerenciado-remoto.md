@@ -8,7 +8,7 @@
 A autenticação real da Spec 006 precisa de PostgreSQL persistente. O Docker local
 introduz uma dependência operacional no computador do usuário, enquanto a primeira
 validação pode usar um banco gerenciado remoto. O ADR 0007 continua restrito ao banco
-Neon de integração sintética e não autoriza dados reais.
+Neon de integração sintética e não autoriza dados reais até a validação do Supabase prevista no ADR 0030.
 
 ## Decisão
 
@@ -46,7 +46,7 @@ Neon de integração sintética e não autoriza dados reais.
 
 - Escolher ou contratar um provedor sem aprovação explícita.
 - Enviar dados reais de clientes, documentos confidenciais ou credenciais ao repositório.
-- Usar o banco Neon e o comando de integração sintética para produção ou contas reais.
+- Usar o banco Neon ou o projeto Supabase de integração sintética para produção ou contas reais.
 - Trocar a autenticação própria por um SaaS de identidade.
 
 ## Gate para produção

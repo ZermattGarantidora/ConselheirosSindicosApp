@@ -1,3 +1,6 @@
+import type { DocumentCondominiumCheck } from "../api/documents/document-condominium-check.js";
+import { DocumentCondominiumConfirmationRequiredError } from "./document-condominium-confirmation.js";
+
 type FetchRequest = (url: string, init?: RequestInit) => Promise<Response>;
 
 export type DocumentProcessingStatus = "ready" | "needs_review" | "failed";
@@ -31,13 +34,19 @@ export async function waitForDocumentProcessing(
     );
     if (!response.ok) throw new Error("Não foi possível acompanhar a leitura do documento.");
     const body = (await response.json()) as Readonly<{
-      documents: readonly Readonly<{ documentVersionId: string; processingStatus: string }>[];
+      documents: readonly Readonly<{
+        documentVersionId: string;
+        processingStatus: string;
+        condominiumCheck?: DocumentCondominiumCheck;
+      }>[];
     }>;
     const document = body.documents.find(
       (item) => item.documentVersionId === input.documentVersionId
     );
     if (document === undefined)
       throw new Error("O documento não está mais disponível neste condomínio.");
+    if (document.condominiumCheck?.status === "pending")
+      throw new DocumentCondominiumConfirmationRequiredError(document.condominiumCheck);
     if (["ready", "needs_review", "failed"].includes(document.processingStatus)) {
       return document.processingStatus as DocumentProcessingStatus;
     }

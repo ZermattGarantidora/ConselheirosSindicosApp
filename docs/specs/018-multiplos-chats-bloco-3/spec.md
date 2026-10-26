@@ -2,7 +2,12 @@
 
 **Status:** implementada e aguardando aprovação do usuário  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-13
+**Atualizado em:** 2026-10-20
+
+> A reentrada e a persistência da organização solicitadas em 2026-10-20 são detalhadas pela
+> Spec 038 e pelo ADR 0028. Seus requisitos substituem as regras de reabrir o histórico como
+> primeira conversa e os limites de estado efêmero abaixo;
+> o contrato documental e os controles visuais desta spec continuam preservados.
 
 ## 0. Alinhamento com a visão do projeto
 

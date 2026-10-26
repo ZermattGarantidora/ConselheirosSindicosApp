@@ -258,7 +258,13 @@ describe("persistência PostgreSQL de respostas", () => {
       answer: { answerId: "answer-history-1", condominiumId: "alameda" }
     });
     const historyQuery = fake.queries.find(({ sql }) => sql.includes("q.asked_by_user_id = $1"));
-    expect(historyQuery?.values).toEqual(["11111111-1111-4111-8111-111111111111", 25]);
+    expect(historyQuery?.values).toEqual([
+      "11111111-1111-4111-8111-111111111111",
+      25,
+      null,
+      null,
+      null
+    ]);
     expect(fake.queries.at(-1)?.sql).toBe("COMMIT");
   });
 
@@ -275,6 +281,33 @@ describe("persistência PostgreSQL de respostas", () => {
       "read unavailable"
     );
     expect(fake.queries.at(-1)?.sql).toBe("ROLLBACK");
+  });
+
+  it("RQ-3802/3803: persiste chat na pergunta e pagina sem perder o escopo do autor", async () => {
+    const interaction = await createPersistedInteraction();
+    const fake = createFakePool(defaultHandler);
+    const persistence = createPostgresAnswerPersistence(fake.pool);
+    const chatId = "22222222-2222-4222-8222-222222222222";
+    await persistence.saveInteraction({
+      ...interaction,
+      question: { ...interaction.question, chatId }
+    });
+    const question = fake.queries.find(({ sql }) => sql.includes("INSERT INTO app.questions"));
+    expect(question?.sql).toContain("chat_id");
+    expect(question?.values?.at(-1)).toBe(chatId);
+    await persistence.listConversationHistory(managerContext, 100, {
+      chatId,
+      before: { createdAt: "2026-10-20T12:00:00.000Z", id: chatId }
+    });
+    const history = fake.queries.find(({ sql }) => sql.includes("q.asked_by_user_id = $1"));
+    expect(history?.values).toEqual([
+      "11111111-1111-4111-8111-111111111111",
+      100,
+      chatId,
+      "2026-10-20T12:00:00.000Z",
+      chatId
+    ]);
+    expect(history?.sql).toContain("(q.created_at, q.id) <");
   });
 
   it("cria feedback e registra somente classificação no audit log", async () => {

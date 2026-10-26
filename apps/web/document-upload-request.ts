@@ -5,6 +5,7 @@ type UploadRequestInput = Readonly<{
   content: BodyInit;
   title: string;
   documentType: string;
+  chatId?: string;
   mediaType?: "application/pdf" | "image/jpeg" | "image/png";
   authMode: "real" | "development";
   developmentUserId?: string;
@@ -32,6 +33,7 @@ export async function requestDocumentUploadWithAuthorizationRecovery(
         ...developmentHeaders(input),
         "x-document-title": encodeURIComponent(input.title),
         "x-document-type": input.documentType,
+        ...(input.chatId === undefined ? {} : { "x-chat-id": input.chatId }),
         "x-document-validity-confirmed": "true"
       },
       body: input.content

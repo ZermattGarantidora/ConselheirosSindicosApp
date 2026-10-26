@@ -13,20 +13,27 @@ describe("barra lateral de conversas", () => {
     expect(app).toContain("<SidebarIcon />");
     expect(app).toContain('id="chat-sidebar"');
     expect(app).toContain('className={`chat-sidebar${sidebarOpen ? " is-open" : ""}`}');
-    expect(app).toContain("function createChat(): void");
+    expect(app).toContain("async function createChat(): Promise<void>");
     expect(app).toContain("+ Nova conversa");
     expect(app).toContain("buildConversationTitle(trimmedQuestion)");
-    expect(app).toContain("buildConversationTitleFromQuestions(");
-    expect(app).toContain("function selectChat(chatId: string): void");
+    expect(app).toContain("openChatSession<ConversationHistoryEntry>");
+    expect(app).toContain("async function selectChat(chatId: string): Promise<void>");
+    expect(app).toContain("loadSavedChat<ConversationHistoryEntry>");
     expect(app).toContain("preserveActiveTurn();");
+    expect(app).toContain("startNewChat(current, () => chat.id)");
+    expect(app).toContain('stage: "new_conversation"');
+    expect(app).toContain('role: "assistant", text: greeting');
+    expect(app).toContain("const visibleSetupMessages = getChatSetupMessages(");
+    expect(app).toContain("{visibleSetupMessages");
   });
 
   it("AC-1704: permite renomear e excluir somente a organização visual", async () => {
     const app = await readFile("apps/web/App.tsx", "utf8");
 
-    expect(app).toContain("function renameChat(chatId: string): void");
+    expect(app).toContain("async function renameChat(chatId: string): Promise<void>");
     expect(app).toContain('window.prompt("Nome da conversa", chat.title)');
-    expect(app).toContain("function deleteChat(chatId: string): void");
+    expect(app).toContain("async function deleteChat(chatId: string): Promise<void>");
+    expect(app).toContain("await changeSavedChat(");
     expect(app).toContain("window.confirm(`Excluir a conversa");
     expect(app).toContain("Excluir");
     expect(app).not.toContain('localStorage.setItem("chats"');

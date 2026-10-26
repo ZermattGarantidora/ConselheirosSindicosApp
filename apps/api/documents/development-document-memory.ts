@@ -1,5 +1,6 @@
 import { documentVersionFromUpload, processDocumentVersion } from "./document-processing.js";
 import type { UploadedDocumentRecord } from "./upload-document.js";
+import type { DocumentCondominiumCheck } from "./document-condominium-check.js";
 import {
   createMemoryDocumentAnalysisReader,
   type DocumentAnalysisReader
@@ -17,6 +18,11 @@ export type DevelopmentDocumentMemoryStatus =
 export type DevelopmentDocumentMemory = Readonly<{
   index: ScopedRetrievalIndex;
   analysisReader: DocumentAnalysisReader;
+  getCondominiumCheck(
+    condominiumId: string,
+    documentVersionId: string
+  ): DocumentCondominiumCheck | undefined;
+  confirmCondominium(condominiumId: string, documentVersionId: string): void;
   indexUploaded(
     input: Readonly<{
       record: UploadedDocumentRecord;
@@ -31,10 +37,29 @@ export function createDevelopmentDocumentMemory(
 ): DevelopmentDocumentMemory {
   const chunks: RetrievableChunk[] = [...initialChunks];
   const index = createInMemoryScopedRetrievalIndex(chunks);
+  const condominiumChecks = new Map<string, DocumentCondominiumCheck>();
 
   return Object.freeze({
     index,
     analysisReader: createMemoryDocumentAnalysisReader(chunks),
+    getCondominiumCheck: (condominiumId: string, documentVersionId: string) =>
+      condominiumChecks.get(`${condominiumId}:${documentVersionId}`),
+    confirmCondominium(condominiumId: string, documentVersionId: string) {
+      const check = condominiumChecks.get(`${condominiumId}:${documentVersionId}`);
+      if (check?.status !== "pending") return;
+      for (let index = 0; index < chunks.length; index += 1) {
+        const chunk = chunks[index]!;
+        if (chunk.condominiumId === condominiumId && chunk.documentVersionId === documentVersionId)
+          chunks[index] = Object.freeze({
+            ...chunk,
+            processingStatus: check.resumeProcessingStatus
+          });
+      }
+      condominiumChecks.set(
+        `${condominiumId}:${documentVersionId}`,
+        Object.freeze({ ...check, status: "confirmed" })
+      );
+    },
     async indexUploaded({ record, content, validityConfirmed }) {
       const document = documentVersionFromUpload(record);
       const outcome = await processDocumentVersion({
@@ -43,8 +68,18 @@ export function createDevelopmentDocumentMemory(
         documentVersionId: record.documentVersionId,
         content,
         mediaType: record.mediaType,
-        currentState: document.state
+        currentState: document.state,
+        title: record.title,
+        ...(record.selectedCondominiumName === undefined
+          ? {}
+          : { selectedCondominiumName: record.selectedCondominiumName })
       });
+
+      if (outcome.condominiumCheck !== undefined)
+        condominiumChecks.set(
+          `${record.condominiumId}:${record.documentVersionId}`,
+          outcome.condominiumCheck
+        );
 
       if (outcome.status === "failed") return "failed";
       if (outcome.status === "needs_review") return "needs_review";
@@ -76,7 +111,10 @@ export function createDevelopmentDocumentMemory(
               semanticScore: null,
               extractionMethod: page.extractionMethod,
               qualityScore: page.qualityScore,
-              processingStatus: "ready" as const,
+              processingStatus:
+                outcome.condominiumCheck?.status === "pending"
+                  ? ("needs_review" as const)
+                  : ("ready" as const),
               validityStatus: validityConfirmed ? ("confirmed" as const) : ("pending" as const),
               validFrom: null,
               validUntil: null
@@ -85,7 +123,11 @@ export function createDevelopmentDocumentMemory(
         }
       }
 
-      return validityConfirmed ? "ready" : "pending_confirmation";
+      return outcome.condominiumCheck?.status === "pending"
+        ? "needs_review"
+        : validityConfirmed
+          ? "ready"
+          : "pending_confirmation";
     }
   });
 }
