@@ -1778,3 +1778,80 @@ input:focus-visible {
 .document-analysis p {
   margin: 0.6rem 0;
 }
+
+.document-open-button {
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.document-viewer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  color: #26334c;
+  background: #f3f5f9;
+}
+
+.document-viewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.document-viewer::backdrop {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.document-viewer > header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #d4d8e5;
+  background: #fff;
+}
+
+.document-viewer strong {
+  flex: 1;
+  min-width: 120px;
+  overflow-wrap: anywhere;
+}
+
+.document-viewer button,
+.document-viewer a {
+  padding: 10px 14px;
+}
+
+.document-viewer iframe {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  border: 0;
+}
+
+.document-viewer-image {
+  overflow: auto;
+  flex: 1;
+}
+
+.document-viewer img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: auto;
+}

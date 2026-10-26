@@ -6,6 +6,7 @@ import { createLocalExtractiveGateway } from "../../apps/api/answers/local-extra
 import { startServer } from "../../apps/api/app/server.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 import { createSyntheticElectionMinutesPdf } from "../fixtures/synthetic-pdfs.js";
+import { expectDocumentReady } from "../fixtures/wait-for-document.js";
 
 describe("consulta documental", () => {
   it("AC-010 e AC-018: responde no condomínio autorizado com contrato e citação verificável", async () => {
@@ -90,6 +91,9 @@ describe("consulta documental", () => {
       },
       payload: createSyntheticElectionMinutesPdf()
     });
+    expect(uploaded.statusCode).toBe(202);
+    expect(uploaded.json().processingStatus).toBe("uploaded");
+    await expectDocumentReady(app, uploaded.json().documentVersionId, condominiumId);
     const answer = await app.inject({
       method: "POST",
       url: `/v1/condominiums/${condominiumId}/questions`,
@@ -99,7 +103,6 @@ describe("consulta documental", () => {
 
     expect(created.statusCode).toBe(201);
     expect(uploaded.statusCode).toBe(202);
-    expect(uploaded.json()).toMatchObject({ memoryStatus: "ready" });
     expect(answer.statusCode).toBe(200);
     expect(answer.json()).toMatchObject({
       answerMode: "grounded",

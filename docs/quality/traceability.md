@@ -677,3 +677,58 @@ Os seis testes novos incluem cinco falhas reproduzidas antes da correção e um 
 rejeição local mantido. Nenhuma asserção foi relaxada. O prompt e o modelo não foram alterados.
 Somente mensagens e identidades fictícias foram utilizadas. Não se aprovou avaliação semântica,
 dados reais, piloto ou teto monetário global; consumo real e testes simulados são distintos.
+
+## Correção de envio e visualização documental — 2026-10-20
+
+| Requisito | Aceitação | Implementação e regressão |
+| --- | --- | --- |
+| RQ-2004 — mensagem acompanha o anexo | AC-2004 e AC-2006 | `apps/web/App.tsx`, `document-processing-request.ts`; `tests/unit/document-processing-request.test.ts`, `tests/unit/chat-document-upload-ui.test.ts`, `tests/e2e/chat-document-send.e2e.test.ts` |
+| RQ-2005 — recepção sem aguardar leitura | AC-2005 e AC-2006 | `apps/api/app/create-api.ts`; extração demonstrativa em segundo plano, catálogo com estado terminal; `tests/e2e/chat-document-send.e2e.test.ts`; regressões documentais aguardam a versão exata no catálogo |
+| RQ-2006 — original completo e autorizado | AC-2007 | `apps/web/DocumentViewer.tsx`, `App.tsx`, `styles.css`; `tests/unit/document-processing-request.test.ts`, `tests/e2e/chat-document-send.e2e.test.ts`; bytes integrais, MIME seguro, original disponível antes da leitura, revogação, acesso cruzado e remoção |
+
+O parser, o prompt, os provedores e o contrato de evidência não foram alterados. Os testes antigos
+que exigiam `memoryStatus: ready` na recepção agora exigem 202 com `processingStatus: uploaded`
+e, separadamente, `ready` para a mesma versão antes das consultas; as asserções de conteúdo,
+citações, cálculos e segurança foram preservadas. Validação final registrada no review desta data.
+
+Verificação local: 745 testes em 112 arquivos, 70 E2E, 20 evals locais, 50 documentais
+determinísticos e build web aprovados. Cobertura: statements 89,72%, branches 83,52%,
+functions 96,01%, lines 91,98%. Conferência visual bloqueada pelo acesso ao servidor local;
+revisão independente e publicação pendentes. Detalhes em
+`docs/reviews/2026-10-20-envio-visualizacao-documental.md`.
+
+## Apelido com números na configuração — 2026-10-20
+
+RQ-2703/RQ-2704 e AC-2707: `setup-turn.ts` e `development-identity.ts` aceitam `teste4` como
+apelido confirmado e o restauram sem mudar identidade/permissões. `create-api.ts` distingue
+interpretação inválida (502) de indisponibilidade do provedor (503); `App.tsx` preserva o texto
+em erro. Regressões em `tests/unit/setup-turn.test.ts`, `tests/unit/development-identity.test.ts`
+e `tests/unit/api-setup-message.test.ts`: sete falhas reproduzidas antes da correção e 28 testes
+focados aprovados depois, com os controles anteriores preservados.
+
+Gate completo desta correção: 755 testes em 112 arquivos aprovados; cobertura de statements
+89,77%, branches 83,55%, functions 96,01% e lines 92,04%. Formatação, lint, tipagem, 36 specs,
+segredos e build web aprovados. Pelo painel do Render foi confirmada também uma queda da
+instância por exceder 512 MB às 14h33; essa falha operacional não foi corrigida pela mudança de
+apelido e não é atribuída à mesma requisição sem evidência. Detalhes em
+`docs/reviews/2026-10-20-apelido-e-indisponibilidade.md`. Correções ainda locais, sem publicação.
+
+## Consumo e admissão de trabalho da demonstração — 2026-10-20
+
+| Requisito | Aceitação | Implementação e evidência |
+| --- | --- | --- |
+| RQ-2505 — runtime compilado e PDF sob demanda | AC-2505 | `tsconfig.api.json`, `main.ts`, `package.json`, `render.yaml`, `extract-pdf-text.ts`; `build:api`, `test:production`, regressões existentes de extração/consulta e CI |
+| RQ-2506 — reserva documental e pressão de RSS | AC-2506 e AC-2507 | `demo-work-admission.ts`, `create-api.ts`, `server.ts`; `tests/unit/demo-work-admission.test.ts`, `tests/e2e/demo-memory-admission.e2e.test.ts` |
+| RQ-2507 — medição agregada | AC-2508 | `memory-diagnostics.ts`, `server.ts`, `scripts/verify-production-runtime.mjs`; teste de timer/fechamento e ensaio compilado sintético |
+
+No mesmo ensaio local sem documentos, RSS após 40 health checks caiu de aproximadamente 305 MiB
+em tsx/PDF antecipado para 70 MiB no Node compilado/PDF sob demanda. O ensaio compilado com dois
+PDFs e vinte perguntas terminou com pico de 126 MiB e nenhuma chamada externa. Não se atribui a
+operação exata do OOM no Render a partir desses números, nem se declara estabilidade publicada.
+ADR 0026 registra orçamento, limites e necessidade de verificar o serviço Linux após publicação.
+
+Gate final: 767 testes em 114 arquivos aprovados, cobertura de statements 89,85%, branches
+83,69%, functions 95,89% e lines 92,11%; formatação, lint, tipagem, 36 specs e scanner de segredos
+aprovados. Builds da API/web e avaliações documentais (20 + 50 determinísticas) passaram. O
+ensaio compilado repetido após o ajuste final passou com pico de 127 MiB. Revisão e limites em
+`docs/reviews/2026-10-20-memoria-demonstracao.md`; publicação e medição no Render pendentes.

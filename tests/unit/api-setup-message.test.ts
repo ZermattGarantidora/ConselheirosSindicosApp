@@ -3,8 +3,66 @@ import { describe, expect, it, vi } from "vitest";
 import { createApi } from "../../apps/api/app/create-api.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 import type { AnswerGateway, AnswerGatewayInput } from "../../apps/api/answers/answer-gateway.js";
+import { AnswerGatewayUnavailableError } from "../../apps/api/answers/answer-gateway.js";
 
 describe("API de mensagens de configuração", () => {
+  it.each(["nickname", "invalid_output", "provider_unavailable"])(
+    "distingue apelido válido, interpretação inválida e provedor indisponível: %s",
+    async (scenario) => {
+      const generate = vi.fn(async () => {
+        if (scenario === "provider_unavailable")
+          throw new AnswerGatewayUnavailableError("Falha sintética de transporte");
+        return {
+          output: {
+            answer: JSON.stringify({
+              intent: "answer",
+              field: "manager_name",
+              value: scenario === "nickname" ? "teste4" : "<script>nome</script>",
+              reply: "Certo, teste4. Quantos condomínios você administra?"
+            })
+          }
+        };
+      });
+      const app = createApi({
+        membershipRepository: createDevelopmentIdentityRepository(),
+        setupMessageGateway: { generate } as unknown as AnswerGateway
+      });
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: "/v1/chat/setup-turn",
+          headers: { "x-development-user-id": "sindico-demo" },
+          payload: { stage: "manager_name", message: "Quero que me chame de teste4", history: [] }
+        });
+        if (scenario === "nickname") {
+          expect(response.statusCode).toBe(200);
+          expect(response.json()).toMatchObject({
+            update: { field: "manager_name", value: "teste4" },
+            message: expect.stringContaining("teste4")
+          });
+        } else if (scenario === "invalid_output") {
+          expect(response.statusCode).toBe(502);
+          expect(response.json()).toEqual({
+            code: "setup_interpretation_invalid",
+            message: "Não consegui confirmar essa informação. Tente reformular sua mensagem."
+          });
+          expect(response.body).not.toContain("script");
+          expect(response.body).not.toContain("indisponível");
+        } else {
+          expect(response.statusCode).toBe(503);
+          expect(response.json()).toEqual({
+            code: "ai_provider_unavailable",
+            message: "A Alvitra está indisponível no momento."
+          });
+          expect(response.body).not.toContain("transporte");
+        }
+        expect(generate).toHaveBeenCalledOnce();
+      } finally {
+        await app.close();
+      }
+    }
+  );
+
   it("exige identidade e valida a etapa antes de gerar uma fala", async () => {
     const generate = vi.fn(async (input: AnswerGatewayInput) => {
       expect(input.evidence).toEqual([]);

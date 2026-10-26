@@ -2,7 +2,7 @@
 
 **Status:** demonstração publicada; conversa externa autorizada para teste sintético
 **Responsável:** engenharia
-**Atualizado em:** 2026-10-19
+**Atualizado em:** 2026-10-20
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -33,6 +33,11 @@ Specs 026–027; não libera piloto, dados reais, OCR externo ou fotos. O gate c
 a conversa como interface e valida a jornada já autorizada com a menor mudança operacional,
 sem novo provedor ou módulo. Conferência manual com identidade fictícia mede a jornada inicial;
 não substitui avaliação semântica ou aprovação profissional. Ver ADR 0025.
+
+A correção de memória solicitada em 2026-10-20 aplica §§6, 10, 12 e 13: reduz custo de
+inicialização, preserva o pipeline documental e recusa excesso de trabalho sem perder documentos.
+Continua no serviço/plano existente e mede disponibilidade da mesma conversa, sem ampliar blocos,
+provedores ou público. A decisão técnica está no ADR 0026.
 
 ### Checklist de alinhamento
 
@@ -93,7 +98,32 @@ com usuário fictício. Sem chave ou com indisponibilidade, a interface informa 
 fingir fala gerada. Não contratar plano ou ativar faturamento; chamadas podem consumir a
 cota/saldo já existente. Limites de requisição e retry não são teto financeiro global.
 
-## 6. Critérios de sucesso
+## 6. Disponibilidade e capacidade
+
+### RQ-2505 — Runtime de produção econômico
+
+O build compila a API e o código compartilhado. O Render inicia JavaScript compilado diretamente
+com Node, sem pnpm/tsx em runtime. PDF.js só é carregado quando houver extração, e caches de
+página são liberados após leitura. O build deve manter as rotas, fontes padrão e contratos do
+servidor de desenvolvimento, verificando originais completos e citações em ensaio sintético.
+
+### RQ-2506 — Capacidade protegida
+
+Na demonstração publicada, somente um documento é recebido/processado por vez. A reserva começa
+antes do corpo e persiste após 202 até o fim da leitura; falha, rejeição ou aborto antes de
+transferência libera a reserva. Ao atingir 320 MiB de RSS, novas operações POST recebem 503 com
+`server_busy` e `Retry-After: 5`, antes de armazenamento/IA. Leitura de originais, catálogo,
+histórico e saúde continuam disponíveis sob as autorizações existentes. Não excluir documentos
+nem expulsar histórico silenciosamente. A recusa preserva texto/anexo para repetição.
+
+### RQ-2507 — Verificação operacional de memória
+
+Logs de produção contêm somente RSS, heap, memória externa e buffers agregados ao iniciar e a
+cada minuto. O timer deve terminar no fechamento. Medição local usa dados sintéticos e não é
+prova de uso no Render; a queda só pode ser considerada resolvida após publicação e conferência
+no serviço existente. Limite de RSS na admissão não garante o pico de uma operação em andamento.
+
+## 7. Critérios de sucesso
 
 - a URL abre a página de entrada e a interface de chat; sem chave, a Alvitra comunica
   indisponibilidade em vez de gerar fala simulada;
@@ -103,3 +133,7 @@ cota/saldo já existente. Limites de requisição e retry não são teto finance
 - a publicação não afirma prontidão para piloto real.
 - com Gemini autorizada, uma identidade nova percorre nome de tratamento, quantidade de condomínios, nome e unidades; a retomada não repete o cadastro;
 - modelo e chamada real de teste são informados separadamente dos testes simulados e dos casos semânticos pendentes.
+- build e ensaio compilado aprovados, sem provedor externo;
+- excesso de concorrência/memória recusado antes de armazenar ou chamar IA;
+- leitura, original, citações e isolamento preservados nos testes;
+- consumo comparado antes/depois e limitação de validação em produção explicitada.

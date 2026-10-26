@@ -1,5 +1,29 @@
 # Critérios de aceitação — Spec 025
 
+## AC-2505 — API compilada e PDF sob demanda
+
+Depois de `build:api`, o servidor inicia com Node sem tsx. O ensaio `test:production` envia dois
+PDFs sintéticos, aguarda cada versão ficar pronta, confere os bytes dos originais e executa vinte
+consultas com citações. A entrada sem anexo não deve inicializar o leitor de PDFs.
+
+## AC-2506 — Reserva até o fim do processamento
+
+Quando um documento está sendo recebido ou ainda está em processamento após 202, um segundo
+envio recebe 503 `server_busy` sem gravar outro original. Ao terminar com sucesso ou falha, a
+reserva é liberada. Upload inválido ou sem autorização também libera sua reserva.
+
+## AC-2507 — Pressão de memória sem descarte de dados
+
+Com RSS de 320 MiB ou mais, uma nova operação POST recebe 503 e `Retry-After: 5` antes de
+armazenar ou chamar IA. Originais, histórico, catálogo e saúde podem ser lidos sob autorização.
+Dados existentes não são removidos. Abaixo do limite, trabalho novo pode ser admitido.
+
+## AC-2508 — Telemetria agregada e fechamento
+
+Produção registra uso agregado de memória no início e a cada minuto, sem texto/identidade de
+usuário. Ao fechar o servidor, o timer é cancelado. Ensaio local e resultado observado no Render
+são identificados separadamente; sem publicação não há alegação de estabilidade em produção.
+
 ## AC-2501 — Demonstração sem dados reais
 
 **Dado** o serviço configurado no Render  

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "apps",
+    "outDir": "dist",
+    "noEmitOnError": true,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["apps/api/**/*.ts", "apps/shared/**/*.ts"],
+  "exclude": ["apps/web", "tests", "evals"]
+}

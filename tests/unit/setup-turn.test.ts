@@ -23,6 +23,40 @@ function gatewayWith(output: unknown): AnswerGateway {
 }
 
 describe("interpretação contextual da configuração", () => {
+  it.each(["teste4", "Teste4", "gestora2"])(
+    "aceita o apelido confirmado %s sem alterar sua grafia",
+    async (nickname) => {
+      const result = await interpretSetupTurn(
+        gatewayWith({
+          intent: "answer",
+          field: "manager_name",
+          value: nickname,
+          reply: `Certo, ${nickname}. Quantos condomínios você administra?`
+        }),
+        request({ message: `Quero que me chame de ${nickname}` })
+      );
+      expect(result.update).toEqual({ field: "manager_name", value: nickname });
+      expect(result.message).toContain(nickname);
+    }
+  );
+
+  it.each(["1234", "<script>teste4</script>", "teste\n4"])(
+    "continua rejeitando um nome interpretado inválido: %s",
+    async (nickname) => {
+      await expect(
+        interpretSetupTurn(
+          gatewayWith({
+            intent: "answer",
+            field: "manager_name",
+            value: nickname,
+            reply: "Certo."
+          }),
+          request()
+        )
+      ).rejects.toThrow("nome interpretado");
+    }
+  );
+
   it("AC-2601 e AC-2703: responde a uma pergunta sem transformá-la em nome", async () => {
     const generate = vi.fn(async (input: AnswerGatewayInput) => {
       expect(input.task).toBe("setup_turn");

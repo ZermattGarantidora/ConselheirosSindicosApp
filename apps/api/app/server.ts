@@ -51,6 +51,22 @@ import { createScopedTextRetriever } from "../retrieval/text-retrieval.js";
 import { drainProcessingQueue } from "../worker/processing-worker.js";
 import { createPostgresProcessingJobQueue } from "../worker/postgres-processing-job-queue.js";
 import { registerWebAssets } from "./web-assets.js";
+import { createDemoWorkAdmission } from "../operations/demo-work-admission.js";
+import { startMemoryDiagnostics } from "../operations/memory-diagnostics.js";
+
+function attachMemoryDiagnostics(
+  app: ReturnType<typeof createApi>,
+  environment: NodeJS.ProcessEnv
+): void {
+  if (environment.APP_ENV?.trim().toLowerCase() !== "production") return;
+  let stop: (() => void) | undefined;
+  app.addHook("onListen", async () => {
+    stop = startMemoryDiagnostics();
+  });
+  app.addHook("onClose", async () => {
+    stop?.();
+  });
+}
 
 function publishedWebDirectory(environment: NodeJS.ProcessEnv): string | undefined {
   const value = environment.WEB_DIST_DIR?.trim();
@@ -195,6 +211,9 @@ export async function startServer(
       developmentMembershipRegistry,
       condominiumProfileRepository,
       developmentDocumentMemory,
+      ...(environment.APP_ENV?.trim().toLowerCase() === "production"
+        ? { demoWorkAdmission: createDemoWorkAdmission() }
+        : {}),
       documentUploadRepository: developmentDocumentRepository,
       documentCatalogRepository: developmentDocumentRepository,
       aiProvider,
@@ -210,6 +229,7 @@ export async function startServer(
       answerService: createAnswerService(createLocalExtractiveGateway()),
       documentSourceReader: createDevelopmentDocumentSourceReader(seededDevelopmentChunks)
     });
+    attachMemoryDiagnostics(app, environment);
     if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
     await app.listen(listeningOptions);
     return app;
@@ -294,6 +314,7 @@ export async function startServer(
     answerTraceStore: createPostgresAnswerTraceStore(pool),
     documentSourceReader: createPostgresDocumentSourceReader(pool)
   });
+  attachMemoryDiagnostics(app, environment);
   if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
   let documentWorkerTimer: ReturnType<typeof setInterval> | undefined;
   await purgeExpiredDocuments();
