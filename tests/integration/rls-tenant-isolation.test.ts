@@ -27,6 +27,7 @@ import {
 } from "../../scripts/neon-integration-guard.js";
 import {
   assertSyntheticIntegrationTarget as assertSupabaseIntegrationTarget,
+  createTrustedSupabaseConnectionConfig,
   parseSupabaseIntegrationUrl,
   requireSyntheticIntegrationConfirmation
 } from "../../scripts/supabase-integration-guard.js";
@@ -48,7 +49,14 @@ if (supabaseIntegrationUrl !== undefined) {
   requireNeonIntegrationConfirmation(process.env.NEON_INTEGRATION_CONFIRMATION);
 }
 
-const pool = new Pool({ connectionString: databaseUrl });
+const pool = new Pool(
+  supabaseIntegrationUrl === undefined
+    ? { connectionString: databaseUrl }
+    : createTrustedSupabaseConnectionConfig(
+        supabaseIntegrationUrl,
+        process.env.SUPABASE_INTEGRATION_CA_CERT
+      )
+);
 const alamedaId = randomUUID();
 const bosqueId = randomUUID();
 const userId = randomUUID();

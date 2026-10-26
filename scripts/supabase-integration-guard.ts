@@ -30,6 +30,23 @@ export function requireSyntheticIntegrationConfirmation(value: string | undefine
     throw new Error("Defina SUPABASE_INTEGRATION_CONFIRMATION=synthetic-only para continuar.");
 }
 
+export function createTrustedSupabaseConnectionConfig(
+  databaseUrl: string,
+  certificate: string | undefined
+): { connectionString: string; ssl: { ca: string; rejectUnauthorized: true } } {
+  parseSupabaseIntegrationUrl(databaseUrl);
+  if (certificate === undefined || !certificate.includes("-----BEGIN CERTIFICATE-----"))
+    throw new Error(
+      "Defina SUPABASE_INTEGRATION_CA_CERT com o certificado raiz baixado nas configurações do projeto Supabase."
+    );
+  const connectionUrl = new URL(databaseUrl);
+  connectionUrl.searchParams.delete("sslmode");
+  return {
+    connectionString: connectionUrl.toString(),
+    ssl: { ca: certificate, rejectUnauthorized: true }
+  };
+}
+
 export async function assertSyntheticIntegrationTarget(
   client: Pick<Client, "query">
 ): Promise<void> {

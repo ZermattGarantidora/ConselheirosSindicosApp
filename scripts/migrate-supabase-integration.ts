@@ -3,13 +3,16 @@ import { migrateDatabase } from "./database-migrations.js";
 import {
   assertSafeRuntimeRole,
   assertSyntheticIntegrationTarget,
+  createTrustedSupabaseConnectionConfig,
   parseSupabaseIntegrationUrl,
   requireSyntheticIntegrationConfirmation
 } from "./supabase-integration-guard.js";
 const databaseUrl = process.env.SUPABASE_INTEGRATION_DATABASE_URL;
 parseSupabaseIntegrationUrl(databaseUrl);
 requireSyntheticIntegrationConfirmation(process.env.SUPABASE_INTEGRATION_CONFIRMATION);
-const client = new Client({ connectionString: databaseUrl });
+const client = new Client(
+  createTrustedSupabaseConnectionConfig(databaseUrl, process.env.SUPABASE_INTEGRATION_CA_CERT)
+);
 await client.connect();
 try {
   await assertSyntheticIntegrationTarget(client);

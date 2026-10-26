@@ -241,6 +241,26 @@ Os comandos recusam hosts não Neon, conexão sem TLS, confirmação ausente e b
 O teste de integração executa `TRUNCATE` das fixtures e nunca deve apontar para uma base com dados a
 preservar.
 
+## Integração sintética com Supabase
+
+O Supabase exige um projeto vazio e dedicado, marcado uma única vez com
+`infrastructure/supabase/001-integration-guard.sql`. Use a URL do Session pooler com
+`sslmode=verify-full` e baixe o certificado raiz em **Database Settings > SSL Configuration**. O
+certificado não é versionado: no GitHub Actions, salve o conteúdo PEM completo no segredo
+`SUPABASE_INTEGRATION_CA_CERT`, junto da URL em `SUPABASE_INTEGRATION_DATABASE_URL`.
+
+```powershell
+$env:SUPABASE_INTEGRATION_DATABASE_URL = "postgresql://<role>:<password>@<pooler-host>:5432/postgres?sslmode=verify-full"
+$env:SUPABASE_INTEGRATION_CONFIRMATION = "synthetic-only"
+$env:SUPABASE_INTEGRATION_CA_CERT = "-----BEGIN CERTIFICATE-----..."
+pnpm run db:migrate:supabase
+pnpm run test:integration
+```
+
+O cliente valida a cadeia e o hostname com esse certificado; ele falha fechado se o certificado,
+o TLS, a confirmação ou o marcador não estiverem presentes. Os testes continuam limitados às
+fixtures sintéticas e executam `TRUNCATE` somente nesse banco marcado.
+
 ## Evals e segurança
 
 ```powershell
