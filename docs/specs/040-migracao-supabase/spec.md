@@ -8,7 +8,7 @@
 
 ### Partes do briefing atendidas
 
-| Dimensão da visão          | Seções do briefing | Como esta spec contribui                                                                    |
+| Dimensão da visão | Seções do briefing | Como esta spec contribui |
 | -------------------------- | ------------------ | ------------------------------------------------------------------------------------------- |
 | Problema e hipótese        | §§2 e 4            | Preserva o núcleo documental necessário para respostas úteis e fundamentadas.               |
 | Proposta de valor          | §5                 | Mantém documentos, versões e evidências consultáveis sem mudar a experiência.               |

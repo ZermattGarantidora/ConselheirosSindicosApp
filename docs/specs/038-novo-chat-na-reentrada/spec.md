@@ -8,7 +8,7 @@
 
 ### Partes do briefing atendidas
 
-| Dimensão da visão     | Seções do briefing | Como esta spec contribui                                                                 |
+| Dimensão da visão | Seções do briefing | Como esta spec contribui |
 | --------------------- | ------------------ | ---------------------------------------------------------------------------------------- |
 | Problema e hipótese   | §§2 e 4            | Separa novos assuntos sem perder conversas já realizadas.                                |
 | Público               | §3                 | Atende síndicos moradores e profissionais que retornam à Alvitra.                        |

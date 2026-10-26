@@ -8,7 +8,7 @@
 
 ### Partes do briefing atendidas
 
-| Dimensão da visão     | Seções do briefing | Como esta spec contribui                                                             |
+| Dimensão da visão | Seções do briefing | Como esta spec contribui |
 | --------------------- | ------------------ | ------------------------------------------------------------------------------------ |
 | Problema e hipótese   | §§2 e 4            | Evita fundamentar uma resposta local em documento anexado ao contexto errado.        |
 | Público               | §3                 | Ajuda síndicos que administram um ou vários condomínios.                             |
