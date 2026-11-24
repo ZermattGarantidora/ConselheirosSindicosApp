@@ -2,12 +2,13 @@ import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { promisify } from "node:util";
+import { promisify, stripVTControlCharacters } from "node:util";
 import { randomUUID } from "node:crypto";
 import { resolveConfig } from "vite";
 import { expect, it } from "vitest";
 
 const run = promisify(execFile);
+const noResourcesCreatedDiagnostic = /nenhum recurso\s+(?:\|\s*)?criado/u;
 const minimalEnvironment = () =>
   Object.fromEntries(
     Object.entries(process.env).filter(([name]) => /^(PATH|SYSTEMROOT|TEMP|TMP)$/iu.test(name))
@@ -104,6 +105,35 @@ it.each([
   20_000
 );
 
+it.each([
+  {
+    format: "texto simples",
+    stderr: "Configuração documental local ainda não disponível; nenhum recurso criado."
+  },
+  {
+    format: "ConciseView colorido e quebrado como no CI Linux",
+    stderr:
+      "\u001b[31;1m     | \u001b[31;1mConfiguração documental local ainda não disponível; nenhum recurso\u001b[0m\n" +
+      "\u001b[31;1m     | \u001b[31;1mcriado.\u001b[0m\n"
+  },
+  {
+    format: "quebra CRLF sem coluna de diagnóstico",
+    stderr: "Configuração documental local ainda não disponível; nenhum recurso\r\ncriado."
+  }
+])("AC-7012: diagnóstico preserva a recusa com $format", ({ stderr }) => {
+  expect(stripVTControlCharacters(stderr)).toMatch(noResourcesCreatedDiagnostic);
+});
+
+it("AC-7012: formatação não permite aceitar diagnóstico com recusa ausente ou diferente", () => {
+  for (const stderr of [
+    "recurso criado.",
+    "nenhum recurso anterior foi criado.",
+    "nenhum recurso\n     | diferente criado."
+  ]) {
+    expect(stripVTControlCharacters(stderr)).not.toMatch(noResourcesCreatedDiagnostic);
+  }
+});
+
 it("AC-7012: wrapper recusa config ausente antes de descobrir/iniciar Docker", async () => {
   const directory = await mkdtemp(join(tmpdir(), "alvitra-wrapper-contract-"));
   try {
@@ -132,7 +162,7 @@ it("AC-7012: wrapper recusa config ausente antes de descobrir/iniciar Docker", a
       resourcesCreated: false,
       activationAuthorized: false
     });
-    expect(result.stderr).toContain("nenhum recurso criado");
+    expect(stripVTControlCharacters(result.stderr)).toMatch(noResourcesCreatedDiagnostic);
     expect(result.stdout).not.toContain("pilot_container_exercise");
     await expect(readFile(join(directory, ".local", "pilot-operations"))).rejects.toMatchObject({
       code: "ENOENT"
