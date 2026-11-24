@@ -2,7 +2,7 @@
 
 **Status:** preparada; validação externa e corte do Neon pendentes  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-26
+**Atualizado em:** 2026-11-09
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -105,3 +105,21 @@ Após a validação Supabase, nenhum comando, variável, script, exemplo de conf
 ## 11. Questões em aberto
 
 - Definir projeto, região, proprietário e política de custo do Supabase antes de conectar a credencial externa; isso não autoriza dados reais.
+
+## Preparação do piloto de 16/11/2026 — sem ativação
+
+O Supabase sintético desta spec e o Supabase de piloto são projetos distintos. O marcador e os
+comandos de integração nunca são aplicados ao banco de piloto. Nenhum dado ou conta real entra
+no Neon sintético nem no Supabase de integração. A restrição atual impede provisionar ambos,
+contratar ou aplicar migrations remotas; esta rodada prepara somente artefatos locais.
+
+A Spec 070/ADR 0042 detalham ensaio integral local e inventário de segurança. Não substituem
+a execução guardada de integração desta spec nem provam restauração no Supabase efetivo.
+Enquanto o projeto sintético Supabase não for validado, Neon permanece contingência; não
+declarar a migração concluída. Custos e dependências estão em
+`docs/release/pilot-2026-11-16-infrastructure.md`.
+
+Integração adicional local autorizada em 09/11 usa banco descartável exclusivo
+`alvitra_ops_rls_<hex>` em loopback literal com confirmação e marcador persistente. Permite
+executar a matriz RLS sem conectar Neon/Supabase, com as mesmas assertivas. A prova local não
+aprova migração, TLS de fornecedor ou funcionamento no projeto Supabase efetivo.

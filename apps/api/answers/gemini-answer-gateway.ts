@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import {
   answerPipelineVersion,
+  specialistTypes,
   type GeneratedAnswer,
   type GeneratedCitation
 } from "./answer-contract.js";
@@ -89,7 +90,7 @@ function answerSchema() {
         required: ["required", "type", "reason"],
         properties: {
           required: { type: "boolean" },
-          type: { type: ["string", "null"] },
+          type: { type: ["string", "null"], enum: [...specialistTypes, null] },
           reason: { type: ["string", "null"] }
         }
       },

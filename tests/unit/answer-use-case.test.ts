@@ -9,6 +9,7 @@ import {
 import type { GeneratedAnswer } from "../../apps/api/answers/answer-contract.js";
 import { createInMemoryAnswerPersistence } from "../../apps/api/answers/in-memory-answer-persistence.js";
 import { createHash } from "node:crypto";
+import { InvalidAnswerValidationError } from "../../apps/api/answers/citation-validator.js";
 import { createAnswerTelemetry } from "./answer-use-case.test-support.js";
 import {
   createEvidence,
@@ -81,6 +82,89 @@ function generalGuidanceGateway(answer = generalGuidanceAnswer()) {
 }
 
 describe("caso de uso de consulta documental", () => {
+  it.each(["known", "unknown", "observer_throws"])(
+    "AC-5717: diagnóstico fechado de recusa definitiva (%s)",
+    async (kind) => {
+      const retriever = retrieverFor(
+        createRetrievalResult([
+          createEvidence({ content: "A regra sintética permite o uso da área comum." })
+        ])
+      );
+      const generate = vi.fn(async () => {
+        if (kind === "unknown")
+          throw new InvalidAnswerValidationError("TEXTO_PRIVADO", "CODIGO_PRIVADO" as never);
+        return gatewayResult(baseGeneratedAnswer({ answerMode: "abstained" }));
+      });
+      const observer = vi.fn(() => {
+        if (kind === "observer_throws") throw new Error("DETALHE_PRIVADO");
+      });
+      const useCase = createAnswerUseCase({
+        retriever,
+        gateway: { generate },
+        persistence: createInMemoryAnswerPersistence(),
+        onValidationFailure: observer
+      });
+      const result = await useCase.ask(managerContext, {
+        question: "Qual é a regra da área comum?",
+        requestId: `diagnostic-${kind}`
+      });
+      expect(result.answerMode).toBe("abstained");
+      expect(generate).toHaveBeenCalledTimes(2);
+      expect(observer).toHaveBeenCalledExactlyOnceWith({
+        code: kind === "unknown" ? "unknown" : "mode_citation_mismatch",
+        attemptCount: 2
+      });
+      expect(JSON.stringify(observer.mock.calls)).not.toContain("PRIVADO");
+    }
+  );
+  it("AC-5717: reparo bem sucedido não gera diagnóstico de recusa definitiva", async () => {
+    const generate = vi
+      .fn()
+      .mockResolvedValueOnce(gatewayResult(baseGeneratedAnswer({ answerMode: "abstained" })))
+      .mockResolvedValueOnce(gatewayResult(baseGeneratedAnswer()));
+    const observer = vi.fn();
+    const useCase = createAnswerUseCase({
+      retriever: retrieverFor(
+        createRetrievalResult([
+          createEvidence({ content: "A regra sintética permite o uso da área comum." })
+        ])
+      ),
+      gateway: { generate },
+      persistence: createInMemoryAnswerPersistence(),
+      onValidationFailure: observer
+    });
+    expect(
+      (
+        await useCase.ask(managerContext, {
+          question: "Qual é a regra da área comum?",
+          requestId: "diagnostic-repaired"
+        })
+      ).answerMode
+    ).toBe("grounded");
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(observer).not.toHaveBeenCalled();
+  });
+  it("AC-5716: aviso de reenvio sozinho não recupera oito fontes nem pede JSON documental", async () => {
+    const retriever = retrieverFor(createRetrievalResult([createEvidence()]));
+    const gateway = generalGuidanceGateway(
+      generalGuidanceAnswer("Pode enviar a versão completa para eu conferir.")
+    );
+    const useCase = createAnswerUseCase({
+      retriever,
+      gateway,
+      persistence: createInMemoryAnswerPersistence()
+    });
+    const result = await useCase.ask(managerContext, {
+      question: "vou enviar ela por completo novamente",
+      requestId: "upload-notice"
+    });
+    expect(retriever.search).not.toHaveBeenCalled();
+    expect(gateway.generate).toHaveBeenCalledOnce();
+    expect(gateway.generate).toHaveBeenCalledWith(expect.objectContaining({ evidence: [] }));
+    expect(result.answer).toBe("Pode enviar a versão completa para eu conferir.");
+    expect(result.attentionPoints).toEqual([]);
+    expect(result.citations).toEqual([]);
+  });
   it("recupera, valida, persiste resposta, citações, invocação e auditoria", async () => {
     const evidence = createEvidence({ content: "A regra sintética permite o uso da área comum." });
     const retrieval = retrieverFor(createRetrievalResult([evidence]));
@@ -311,12 +395,12 @@ describe("caso de uso de consulta documental", () => {
     const convention = createEvidence({
       id: "convention-chunk",
       documentType: "convention",
-      content: "A convenção vigente informa prazo mínimo de noventa dias."
+      content: "A convenção vigente informa prazo mínimo de locação de noventa dias."
     });
     const rules = createEvidence({
       id: "rules-chunk",
       documentType: "internal_rules",
-      content: "O regimento informa prazo mínimo de trinta dias.",
+      content: "O regimento informa prazo mínimo de locação de trinta dias.",
       pageNumber: 9
     });
     const persistence = createInMemoryAnswerPersistence(fixedIdFactory("conflict"), fixedNow);
@@ -440,7 +524,18 @@ describe("caso de uso de consulta documental", () => {
       )
     );
     const useCase = createAnswerUseCase({
-      retriever: retrieverFor(createRetrievalResult([], { candidateCount: 1, selectedCount: 0 })),
+      retriever: retrieverFor(
+        createRetrievalResult([], {
+          candidateCount: 1,
+          selectedCount: 0,
+          diagnostics: {
+            relevantCount: 1,
+            lowQualityCount: 1,
+            pendingValidityCount: 0,
+            temporallyExcludedCount: 0
+          }
+        })
+      ),
       gateway,
       persistence,
       now: fixedNow,
@@ -614,7 +709,7 @@ describe("caso de uso de consulta documental", () => {
     expect(persistence.listAuditEvents().at(-1)?.eventType).toBe("answer_created");
   });
 
-  it("tenta orientação geral quando a resposta documental falha na validação", async () => {
+  it("corrige uma vez com as mesmas fontes e distingue resposta inválida de arquivo ausente", async () => {
     const generate = vi.fn(async (input: Parameters<AnswerGateway["generate"]>[0]) =>
       gatewayResult(
         input.evidence.length > 0
@@ -642,9 +737,21 @@ describe("caso de uso de consulta documental", () => {
 
     expect(answer.answerMode).toBe("abstained");
     expect(answer.citations).toEqual([]);
-    expect(answer.answer).toContain("organize o caso");
+    expect(answer.answer).toContain("Tenho os documentos disponíveis");
+    expect(answer.answer).toContain("não consegui concluir esta resposta");
+    expect(answer.attentionPoints).toEqual([]);
+    expect(answer.suggestedNextStep).toBeNull();
     expect(generate).toHaveBeenCalledTimes(2);
-    expect(generate).toHaveBeenLastCalledWith(expect.objectContaining({ evidence: [] }));
+    expect(generate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        evidence: [evidence],
+        validationFeedback: "mode_citation_mismatch",
+        documentaryState: "answer_not_validated"
+      })
+    );
+    const saved = persistence.getInteraction(answer.answerId)!;
+    expect(saved.invocations.filter((call) => call.status === "failed")).toHaveLength(2);
+    expect(saved.auditEvents.at(-1)?.metadata.validationFailureCode).toBe("mode_citation_mismatch");
   });
 
   it("rejeita entrada inválida antes de iniciar a busca", async () => {

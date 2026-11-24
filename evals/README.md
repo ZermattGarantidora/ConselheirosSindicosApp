@@ -1,6 +1,29 @@
 # Evals do conselheiro documental
 
+## PDFs de 300 páginas — Spec 067
+
+`pnpm run evals:pdf-300` mede a API compilada em processo isolado com PDF textual sintético
+de 300 páginas preenchidas e gabarito independente. Confere leitura integral e recuperação
+até a última página, latência e pico de RSS, sem chamadas de IA. Não é aprovação de OCR,
+modelo ou hospedagem. Consulte [o protocolo e seus limites](long-pdf/README.md).
+
+## Conversas típicas de síndicos — Spec 041
+
+`pnpm run evals:conversations` prepara 280 cenários distintos com documentos fictícios físicos,
+gabaritos separados e revisão por turno. `--synthetic` executa contratos pelo endpoint real local.
+Preserva 15 casos em cada um de 14 temas e 30 transversais, e adiciona 40 conversas de 10 a 30
+turnos: 1.010 turnos ao todo. `--baseline` e `--long` selecionam os segmentos com relatórios
+separados, sem alterar a rodada histórica. A aprovação mecânica não mede qualidade
+semântica de modelo. Consulte [a rubrica e os comandos](conversations/README.md).
+
 Esta pasta contém as avaliações sintéticas de comportamento da aplicação. Os 20 casos executam o endpoint real de perguntas e feedback usando o gateway determinístico local e o corpus versionado. O adapter do piloto também executa casos determinísticos pelo endpoint real local; avaliações probabilísticas e uso externo continuam bloqueados.
+
+## Indicação contextual da Zermatt — Spec 048
+
+`pnpm run evals:zermatt` prepara dez cenários e doze turnos; `--synthetic` verifica contratos
+locais e `--codex` usa apenas o gateway pessoal já habilitado. A avaliação inclui pertinência,
+transparência, recusa, condições não verificadas e ausência de ação externa. Consulte
+[os comandos e limites](zermatt/README.md); contrato válido não equivale a aprovação semântica.
 
 ## Objetivo inicial
 

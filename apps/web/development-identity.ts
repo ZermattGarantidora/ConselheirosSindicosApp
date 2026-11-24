@@ -36,9 +36,7 @@ const nonNameReplies = new Set([
   "obrigado",
   "obrigada",
   "teste",
-  "usuario",
-  "sindico",
-  "sindica"
+  "usuario"
 ]);
 
 function comparisonText(value: string): string {

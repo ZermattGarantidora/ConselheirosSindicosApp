@@ -70,6 +70,60 @@ const content = Buffer.from("%PDF-1.7 conteúdo sintético");
 const contentSha256 = createHash("sha256").update(content).digest("hex");
 
 describe("adaptadores PostgreSQL do processamento documental", () => {
+  it("AC-4408: classifica documentos existentes por cabeçalhos privados da versão atual", async () => {
+    const baseRow = {
+      condominium_id: "alameda",
+      document_id: "doc",
+      document_version_id: "v1",
+      title: "Arquivo genérico",
+      document_type: "other",
+      version_number: 1,
+      size_bytes: 1024,
+      processing_status: "ready",
+      validity_status: "confirmed",
+      created_at: "2026-11-12T12:00:00Z"
+    };
+    const fake = createFakeClient([
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      { rows: [] },
+      {
+        rows: [
+          { ...baseRow, page_headings: ["BALANCETE MENSAL\nCompetência: 2026-10"] },
+          { ...baseRow, document_id: "prose", page_headings: ["A reunião aprovou o balancete."] },
+          {
+            ...baseRow,
+            document_id: "convention",
+            document_type: "convention",
+            page_headings: ["CONVENÇÃO CONDOMINIAL\nBALANCETE"]
+          },
+          { ...baseRow, document_id: "conflict", page_headings: ["BALANCETE", "ATA DA ASSEMBLEIA"] }
+        ]
+      },
+      { rows: [] }
+    ]);
+    const documents = await createPostgresDocumentUploadRepository(
+      createPool(fake.client)
+    ).listAuthorized({
+      condominiumId: createCondominiumId("alameda"),
+      userId: createUserId("11111111-1111-4111-8111-111111111111"),
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read"]
+    });
+    expect(documents.map((item) => item.isFinancialStatement === true)).toEqual([
+      true,
+      false,
+      false,
+      false
+    ]);
+    expect(JSON.stringify(documents)).not.toContain("page_headings");
+    const catalogQuery = fake.queries.find(({ sql }) => sql.includes("AS page_headings"))!;
+    expect(catalogQuery.sql).toContain("page.condominium_id = documents.condominium_id");
+    expect(catalogQuery.sql).toContain("page.document_version_id = latest_version.id");
+    expect(catalogQuery.values).toEqual(["alameda"]);
+  });
   it("registra upload em uma transação escopada e enfileira a extração", async () => {
     const fake = createFakeClient();
     const repository = createPostgresDocumentUploadRepository(createPool(fake.client));
@@ -710,7 +764,10 @@ describe("adaptadores PostgreSQL do processamento documental", () => {
     const chunkQueries = fake.queries.filter((query) =>
       query.sql.includes("INSERT INTO app.document_chunks")
     );
-    expect(chunkQueries.map((query) => query.values?.[4])).toEqual([0, 1]);
+    const chunkIndexes = chunkQueries.flatMap((query) =>
+      (query.values ?? []).filter((_, index) => index % 10 === 4)
+    );
+    expect(chunkIndexes).toEqual([0, 1]);
   });
 
   it("faz rollback quando o job não está mais em processamento", async () => {

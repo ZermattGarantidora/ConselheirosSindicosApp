@@ -233,10 +233,7 @@ export function createPostgresScopedRetrievalIndex(
                 AND dce.content_sha256 = dc.content_sha256
               WHERE dc.condominium_id = app.current_condominium_id()
                 AND dvs.processing_status = 'ready'
-                AND dvs.validity_status IN ('confirmed', 'not_applicable')
-                AND dp.quality_score >= $4
-                AND (dvs.valid_from IS NULL OR dvs.valid_from <= $3::timestamptz)
-                AND (dvs.valid_until IS NULL OR dvs.valid_until > $3::timestamptz)
+                AND dvs.validity_status IN ('confirmed', 'not_applicable', 'pending', 'disputed')
                 AND d.status = 'active'
             ), legislation_chunks AS (
               SELECT

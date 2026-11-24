@@ -25,13 +25,19 @@ function explicitName(line: string, filename = false): string | undefined {
     : /^(?:(?:conven[cç][aã]o|regimento\s+interno|ata\s+(?:da|de)\s+assembleia(?:\s+geral)?|balancete|contratante)\s*(?::|d[oa]|de)?\s+)?((?:condom[ií]nio|residencial|edif[ií]cio)\s*[:-]?\s+.+)$/iu;
   const match = prefix.exec(text.trim());
   if (match?.[1] === undefined) return undefined;
-  const name = match[1]
+  const period =
+    /\s+(?:(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)(?:\s+(?:de\s*)?|\s*\/\s*)20\d{2}|(?:0?[1-9]|1[0-2])\s*\/\s*20\d{2})\b/iu.exec(
+      match[1]
+    );
+  const withoutPeriod = period?.index === undefined ? match[1] : match[1].slice(0, period.index);
+  const extractedName = withoutPeriod
     .split(
       /[.;,|]|\s+[–—-]\s+|\s+(?=(?:cnpj|cpf|endere[cç]o|rua|avenida|balancete|compet[eê]ncia|per[ií]odo|p[aá]gina|conven[cç][aã]o|regimento|ata|relat[oó]rio)\b)|\s+(?=20\d{2}(?:\D|$))/iu,
       1
     )[0]!
-    .replaceAll(/[“”"']/gu, "")
-    .trim();
+    .replaceAll(/[“”"']/gu, "");
+  // In filenames, “preenchida” describes the document, not the condominium name.
+  const name = (filename ? extractedName.replace(/\s+preenchida$/iu, "") : extractedName).trim();
   const normalized = normalizeName(name);
   if (normalized.length < 2 || name.length > 120 || /[<>{}=]/u.test(name)) return undefined;
   // Generic prose is not a reliable identification of the document's owner.

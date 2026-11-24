@@ -33,7 +33,7 @@ export type NormativeSource = Readonly<{
   startOffset: number;
   endOffset: number;
   documentDate: string | null;
-  extractionMethod: "pdf_text" | "ocr" | "image_vision";
+  extractionMethod: "pdf_text" | "ocr" | "image_vision" | "docx_text";
   qualityScore: number;
   uncertainty: "none" | "review_required";
 }>;

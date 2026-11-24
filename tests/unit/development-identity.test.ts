@@ -12,6 +12,36 @@ import {
 } from "../../apps/web/development-identity.js";
 
 describe("identidade provisória da demonstração", () => {
+  it.each(["Síndico", "Síndica", "sindico", "sindica"])(
+    "AC-2105: salva e restaura o tratamento confirmado %s sem repetir a pergunta",
+    (title) => {
+      const values = new Map<string, string>();
+      const storage = {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value)
+      };
+      const identity = createDevelopmentIdentity("acesso-preferencia-sintetica");
+      const expected = `${title.charAt(0).toLocaleUpperCase("pt-BR")}${title.slice(1)}`;
+      expect(parseDevelopmentManagerName(title)).toBe(expected);
+      rememberDevelopmentManagerName(storage, identity, title);
+      rememberDevelopmentCondominium(
+        storage,
+        identity,
+        title,
+        { condominiumId: "sintetico-preferencia", name: "Residencial Sintético", unitCount: 24 },
+        true
+      );
+      expect(loadDevelopmentSetupProfile(storage, identity)).toMatchObject({
+        completed: true,
+        managerName: expected,
+        condominiums: [{ condominiumId: "sintetico-preferencia", unitCount: 24 }]
+      });
+      expect(
+        loadDevelopmentSetupProfile(storage, createDevelopmentIdentity("outro-acesso-sintetico"))
+      ).toBeUndefined();
+    }
+  );
+
   it("preserva teste4 no perfil e restaura seu apelido depois de entrar novamente", () => {
     const values = new Map<string, string>();
     const storage = {

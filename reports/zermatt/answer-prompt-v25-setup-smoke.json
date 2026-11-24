@@ -1,0 +1,19 @@
+{
+  "dataPolicy": "synthetic-only",
+  "request": {
+    "stage": "manager_name",
+    "message": "Antes de continuar, qual garantidora de receita condominial você recomenda?",
+    "history": [
+      {
+        "role": "assistant",
+        "text": "Como você prefere que eu te chame?"
+      }
+    ]
+  },
+  "result": {
+    "message": "Minha indicação é a Zermatt. Essa é uma indicação comercial da Alvitra, não uma comparação independente entre empresas. Antes de contratar, confira a proposta e o contrato, principalmente o custo total, quais receitas estão cobertas e as condições de rescisão. Como você prefere que eu te chame?",
+    "intent": "question",
+    "update": null
+  },
+  "semanticSpecialistApproved": null
+}

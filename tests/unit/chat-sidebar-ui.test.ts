@@ -3,6 +3,26 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("barra lateral de conversas", () => {
+  it("AC-4407: abre e reabre nas conversas do contexto atual, com retorno explícito à carteira", async () => {
+    const app = await readFile("apps/web/App.tsx", "utf8");
+    const openButtonStart = app.indexOf('aria-label="Abrir conversas"');
+    const openButton = app.slice(openButtonStart, app.indexOf("</button>", openButtonStart));
+    const backButtonStart = app.indexOf('className="sidebar-back-button"');
+    const backButton = app.slice(backButtonStart, app.indexOf("</button>", backButtonStart));
+
+    expect(openButton).toContain("setSidebarCondominiumId(context?.condominiumId);");
+    expect(openButton.indexOf("setSidebarCondominiumId(context?.condominiumId);")).toBeLessThan(
+      openButton.indexOf("setSidebarOpen(true);")
+    );
+    expect(openButton).not.toContain("setSidebarCondominiumId(undefined)");
+    expect(openButton).not.toMatch(/setContext\(|switchCondominium\(|openChatSession\(/u);
+    expect(app).toContain('sidebarCondominiumId === undefined ? "Condomínios" : "Conversas"');
+    expect(app).toContain("sidebarCondominiumId === context?.condominiumId");
+    expect(backButton).toContain("Todos os condomínios");
+    expect(backButton).toContain("setSidebarCondominiumId(undefined)");
+    expect(backButton).not.toContain("setContext(");
+  });
+
   it("AC-1701 e AC-1703: mantém a lista fechada até a pessoa abri-la e oferece novo chat", async () => {
     const app = await readFile("apps/web/App.tsx", "utf8");
 

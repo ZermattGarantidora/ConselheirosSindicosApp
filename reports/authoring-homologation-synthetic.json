@@ -1,0 +1,79 @@
+{
+  "corpusVersion": "authoring-homologation-v1",
+  "corpusHash": "7de9cd257078c98407093ca120dfc64b6496d1242f4b1b79f35b1bed1c17fc52",
+  "syntheticOnly": true,
+  "realProviderCalls": 0,
+  "realModelQualityMeasured": false,
+  "semanticApproved": 0,
+  "productionAuthorized": false,
+  "totalCases": 24,
+  "documentCases": 12,
+  "audioScriptCases": 12,
+  "audioEligibleCases": 10,
+  "humanReviewStatus": "pending",
+  "protocolChecks": {
+    "blankStaysPending": true,
+    "simulationNeverApproves": true,
+    "criticalFailureBlocksAggregate": true
+  },
+  "proposalHash": "1f2f67dfebc8296a6825fd4d16d30513fccf21fe15654a398d867cd6be78ac4d",
+  "proposalValidation": {
+    "valid": true,
+    "activationAuthorized": false,
+    "proposedRetentionSeconds": 604800,
+    "pendingDecisions": [
+      "dataPolicy",
+      "retentionAndConsumption",
+      "historyRetentionCompatibility",
+      "providerAndSpending",
+      "targetAndCustody",
+      "namedOperationsOwner",
+      "realModelQuality",
+      "independentReview",
+      "ciCommit",
+      "release"
+    ]
+  },
+  "rehearsal": {
+    "syntheticOnly": true,
+    "backend": "memory-artifacts-and-local-file-fences",
+    "realProviderCalls": 0,
+    "activationAuthorized": false,
+    "policyApplied": false,
+    "simulatedCallbacks": 7,
+    "steps": [
+      {
+        "id": "six-purposes-zero-real-spending",
+        "passed": true
+      },
+      {
+        "id": "unknown-not-retried-after-service-recreation",
+        "passed": true
+      },
+      {
+        "id": "restore-remains-quarantined-before-deletion-replay",
+        "passed": true
+      },
+      {
+        "id": "purge-reapplied-to-restored-payload",
+        "passed": true
+      },
+      {
+        "id": "foreign-scope-denied-original-family-preserved",
+        "passed": true
+      },
+      {
+        "id": "revoked-actor-denied",
+        "passed": true
+      },
+      {
+        "id": "missing-cofre-no-empty-fallback",
+        "passed": true
+      },
+      {
+        "id": "fixed-ttl-and-explicit-expiry-maintenance",
+        "passed": true
+      }
+    ]
+  }
+}

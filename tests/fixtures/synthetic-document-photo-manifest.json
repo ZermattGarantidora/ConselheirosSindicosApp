@@ -1,0 +1,10 @@
+{
+  "classification": "inteiramente-sintetico",
+  "width": 800,
+  "height": 1100,
+  "paragraphs": 26,
+  "renderedRows": 50,
+  "transcriptSha256": "538268db67c76add746168ac48b769bfc4cc1463da7736e42c0dae123b182fac",
+  "jpegSha256": "db5402eb13037a79e4e6c6baa2183f67cf962f6107f7fb00631a24d35369811e",
+  "pngSha256": "b25ee32628f7185dd2ec11a17d2c26c8a89eaca2cfdd0f2da0222b717cb0b96e"
+}

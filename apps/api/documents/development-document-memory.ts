@@ -1,6 +1,12 @@
 import { documentVersionFromUpload, processDocumentVersion } from "./document-processing.js";
+import type {
+  DocumentExtractionSummary,
+  DocumentProcessingAdapters
+} from "./document-processing.js";
 import type { UploadedDocumentRecord } from "./upload-document.js";
 import type { DocumentCondominiumCheck } from "./document-condominium-check.js";
+import type { DocumentSourcePage, DocumentSourceReader } from "./document-source.js";
+import { listRegisteredDocuments, type DocumentCatalogRepository } from "./document-catalog.js";
 import {
   createMemoryDocumentAnalysisReader,
   type DocumentAnalysisReader
@@ -18,6 +24,7 @@ export type DevelopmentDocumentMemoryStatus =
 export type DevelopmentDocumentMemory = Readonly<{
   index: ScopedRetrievalIndex;
   analysisReader: DocumentAnalysisReader;
+  createSourceReader(catalog: DocumentCatalogRepository): DocumentSourceReader;
   getCondominiumCheck(
     condominiumId: string,
     documentVersionId: string
@@ -28,20 +35,49 @@ export type DevelopmentDocumentMemory = Readonly<{
       record: UploadedDocumentRecord;
       content: Buffer;
       validityConfirmed: boolean;
+      onExtractionSummary?: (summary: DocumentExtractionSummary) => void;
     }>
   ): Promise<DevelopmentDocumentMemoryStatus>;
 }>;
 
 export function createDevelopmentDocumentMemory(
-  initialChunks: readonly RetrievableChunk[] = []
+  initialChunks: readonly RetrievableChunk[] = [],
+  processingAdapters: DocumentProcessingAdapters = {}
 ): DevelopmentDocumentMemory {
   const chunks: RetrievableChunk[] = [...initialChunks];
   const index = createInMemoryScopedRetrievalIndex(chunks);
   const condominiumChecks = new Map<string, DocumentCondominiumCheck>();
+  const sourcePages = new Map<string, DocumentSourcePage>();
+  const sourceKey = (tenant: string, document: string, version: string, page: number) =>
+    JSON.stringify([tenant, document, version, page]);
 
   return Object.freeze({
     index,
     analysisReader: createMemoryDocumentAnalysisReader(chunks),
+    // Only processed uploads are stored here; seeded/legislation readers are composed by startup.
+    createSourceReader(catalog) {
+      return Object.freeze({
+        async getAuthorizedPage(
+          context: Parameters<DocumentSourceReader["getAuthorizedPage"]>[0],
+          input: Parameters<DocumentSourceReader["getAuthorizedPage"]>[1]
+        ) {
+          if (
+            !context.permissions.includes("document:read") ||
+            !Number.isInteger(input.page) ||
+            input.page < 1
+          )
+            return undefined;
+          const page = sourcePages.get(
+            sourceKey(context.condominiumId, input.documentId, input.documentVersionId, input.page)
+          );
+          if (!page) return undefined;
+          const documents = await listRegisteredDocuments(catalog, context);
+          return documents.some((document) => document.documentId === input.documentId)
+            ? page
+            : undefined;
+        }
+      });
+    },
     getCondominiumCheck: (condominiumId: string, documentVersionId: string) =>
       condominiumChecks.get(`${condominiumId}:${documentVersionId}`),
     confirmCondominium(condominiumId: string, documentVersionId: string) {
@@ -60,9 +96,10 @@ export function createDevelopmentDocumentMemory(
         Object.freeze({ ...check, status: "confirmed" })
       );
     },
-    async indexUploaded({ record, content, validityConfirmed }) {
+    async indexUploaded({ record, content, validityConfirmed, onExtractionSummary }) {
       const document = documentVersionFromUpload(record);
       const outcome = await processDocumentVersion({
+        ...processingAdapters,
         condominiumId: record.condominiumId,
         documentId: record.documentId,
         documentVersionId: record.documentVersionId,
@@ -75,6 +112,7 @@ export function createDevelopmentDocumentMemory(
           : { selectedCondominiumName: record.selectedCondominiumName })
       });
 
+      onExtractionSummary?.(outcome.extractionSummary);
       if (outcome.condominiumCheck !== undefined)
         condominiumChecks.set(
           `${record.condominiumId}:${record.documentVersionId}`,
@@ -85,6 +123,21 @@ export function createDevelopmentDocumentMemory(
       if (outcome.status === "needs_review") return "needs_review";
 
       for (const page of outcome.pages) {
+        sourcePages.set(
+          sourceKey(
+            record.condominiumId,
+            record.documentId,
+            record.documentVersionId,
+            page.pageNumber
+          ),
+          Object.freeze({
+            documentId: record.documentId,
+            documentVersionId: record.documentVersionId,
+            title: record.title,
+            page: page.pageNumber,
+            content: page.extractedText
+          })
+        );
         for (const pageChunk of chunkPage({
           condominiumId: record.condominiumId,
           documentVersionId: record.documentVersionId,

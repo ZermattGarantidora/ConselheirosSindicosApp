@@ -9,6 +9,52 @@ const input = {
 };
 
 describe("conferência explícita de condomínio — RQ-3701", () => {
+  it.each([
+    "Janeiro de 2026",
+    "Fevereiro de 2026",
+    "Março de 2026",
+    "Abril de 2026",
+    "Maio de 2026",
+    "Junho de 2026",
+    "Julho de 2026",
+    "Agosto de 2026",
+    "Setembro de 2026",
+    "Outubro de 2026",
+    "Novembro de 2026",
+    "Dezembro de 2026",
+    "Setembro 2026",
+    "Outubro/2026",
+    "10/2026"
+  ])("AC-3702: competência no mesmo cabeçalho não muda o nome (%s)", (period) => {
+    expect(
+      checkDocumentCondominium({
+        ...input,
+        title: "Balancete_Residencial_Alameda_2026_10.pdf",
+        pages: [
+          { pageNumber: 1, extractedText: `CONDOMÍNIO ALAMEDA ${period}\nDemonstrativo FICTÍCIO` }
+        ]
+      })
+    ).toBeUndefined();
+  });
+
+  it.each(["Norte", "II"])("AC-3705: competência não apaga o complemento real %s", (qualifier) => {
+    expect(
+      checkDocumentCondominium({
+        ...input,
+        pages: [{ pageNumber: 1, extractedText: `Condomínio Alameda ${qualifier} Outubro de 2026` }]
+      })?.detectedNames
+    ).toEqual([`Condomínio Alameda ${qualifier}`]);
+  });
+
+  it("AC-3705: palavra de mês sem período completo continua parte do nome", () => {
+    expect(
+      checkDocumentCondominium({
+        ...input,
+        pages: [{ pageNumber: 1, extractedText: "Condomínio Alameda de Maio" }]
+      })?.detectedNames
+    ).toEqual(["Condomínio Alameda de Maio"]);
+  });
+
   it("identifica nome diferente com página e preserva nomes legíveis", () => {
     expect(checkDocumentCondominium(input)).toEqual({
       status: "pending",
@@ -37,6 +83,34 @@ describe("conferência explícita de condomínio — RQ-3701", () => {
         pages: [{ pageNumber: 1, extractedText: "RESIDENCIAL SAO-JOSE" }]
       })
     ).toBeUndefined();
+  });
+  it("ignora “Preenchida” no fim do nome do arquivo quando o cabeçalho confirma o mesmo condomínio", () => {
+    expect(
+      checkDocumentCondominium({
+        ...input,
+        expectedName: "Condomínio Jardim do Horizonte",
+        title: "Convencao_Condominio_Jardim_do_Horizonte_Preenchida.pdf",
+        pages: [
+          { pageNumber: 1, extractedText: "CONDOMÍNIO JARDIM DO HORIZONTE\nConvenção condominial" }
+        ]
+      })
+    ).toBeUndefined();
+  });
+  it("preserva a confirmação quando o título contém outro nome completo", () => {
+    expect(
+      checkDocumentCondominium({
+        ...input,
+        expectedName: "Condomínio Jardim do Horizonte",
+        title: "Condominio_Jardim_do_Horizonte_Norte.pdf",
+        pages: [{ pageNumber: 1, extractedText: "CONDOMÍNIO JARDIM DO HORIZONTE" }]
+      })
+    ).toMatchObject({
+      status: "pending",
+      detectedNames: expect.arrayContaining([
+        "Condominio Jardim do Horizonte Norte",
+        "CONDOMÍNIO JARDIM DO HORIZONTE"
+      ])
+    });
   });
   it.each([
     "Balancete - Condomínio Bosque - 2026-01.pdf",

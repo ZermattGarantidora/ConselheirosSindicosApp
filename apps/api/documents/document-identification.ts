@@ -37,18 +37,46 @@ const unidentifiedDocument: DocumentIdentification = Object.freeze({
   identified: false
 });
 
+/** Presentation category only: a filename or a mention in prose cannot label a statement. */
+export function identifyFinancialStatement(
+  pages: readonly Readonly<{ extractedText: string }>[]
+): boolean {
+  const headings = pages.map((page) => page.extractedText.slice(0, 1024));
+  if (
+    headings.some(
+      (text) =>
+        /^\s*(?:conven[cç][aã]o|regimento|ata|contrato|extrato|nota\s+fiscal|recibo)\b/imu.test(
+          text
+        ) || identificationRules.some((rule) => rule.patterns.some((pattern) => pattern.test(text)))
+    )
+  )
+    return false;
+  return headings.some((text) =>
+    /^\s*(?:balancete\b|presta[cç][aã]o\s+de\s+contas\b)/imu.test(text)
+  );
+}
+
 /**
  * Labels a document only when its extracted text has a direct, narrow signal.
  * Extracted text remains untrusted data; this function never interprets or executes it.
  */
 export function identifyDocumentType(extractedText: string): DocumentIdentification {
-  const text = extractedText.trim();
-  if (text.length === 0) return unidentifiedDocument;
+  return identifyDocumentPages([{ extractedText }]);
+}
 
-  const matched = identificationRules.find((rule) =>
-    rule.patterns.some((pattern) => pattern.test(text))
-  );
-  return matched === undefined
+/** Scans every page without copying the whole document or selecting one conflicting type. */
+export function identifyDocumentPages(
+  pages: readonly Readonly<{ extractedText: string }>[]
+): DocumentIdentification {
+  const matched = new Set<Exclude<DocumentType, "other">>();
+  for (const page of pages) {
+    for (const rule of identificationRules) {
+      if (rule.patterns.some((pattern) => pattern.test(page.extractedText))) {
+        matched.add(rule.documentType);
+      }
+    }
+  }
+  return matched.size !== 1
     ? unidentifiedDocument
-    : Object.freeze({ documentType: matched.documentType, identified: true });
+    : Object.freeze({ documentType: [...matched][0]!, identified: true });
 }

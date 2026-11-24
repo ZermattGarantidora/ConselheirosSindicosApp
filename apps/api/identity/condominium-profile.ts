@@ -196,7 +196,7 @@ function capture(message: string, expression: RegExp, maximumLength: number): st
 
 /**
  * Aprende somente declarações explícitas feitas pela pessoa. Não infere dados pessoais a partir de
- * documentos nem de perguntas ambíguas; a confirmação continua visível em "Meus dados".
+ * documentos nem de perguntas ambíguas. Renomear exige um pedido direto da própria pessoa.
  */
 export function learnCondominiumProfileFromConversation(
   current: CondominiumProfile,
@@ -255,8 +255,8 @@ export function learnCondominiumProfileFromConversation(
   }
 
   const condominiumName = capture(
-    message,
-    /\b(?:o nome do condom[ií]nio (?:é|e)|o condom[ií]nio se chama)\s+([^.,;!?\n]{2,120})/iu,
+    message.trim(),
+    /^(?:por favor,?\s+)?(?:(?:(?:quero|preciso|gostaria de)\s+(?:mudar|alterar|corrigir|trocar)|mude|altere|corrija|troque)\s+o nome do|(?:renomeie|(?:quero|preciso|gostaria de)\s+renomear)\s+o)\s+condom[ií]nio para\s+([^.,;!?\n]{2,120})[.!]?$/iu,
     120
   );
   if (condominiumName !== undefined && condominiumName !== name) {

@@ -1,0 +1,122 @@
+[
+  {
+    "condominiumId": "alameda",
+    "documentId": "01-balancete-2026-01-janeiro.pdf",
+    "documentVersionId": "01-balancete-2026-01-janeiro.pdf",
+    "documentTitle": "01-balancete-2026-01-janeiro.pdf",
+    "pages": [
+      {
+        "pageIndex": 0,
+        "pageNumber": 1,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-01 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 1 de 2\nBalancete mensal de janeiro de 2026\nCondomínio Jardim do Horizonte\nBAL-JH-2026-01 | Versão 1.0 | Emissão em 10/02/2026\nRegime de caixa. Valores em reais. Plano de contas JH-2026. Quarenta unidades com frações iguais. As transferências entre contas\npróprias não compõem receitas nem despesas externas.\nResumo da movimentação\nDescrição Valor\nSaldo inicial consolidado R$ 70.000,00\nReceitas totais do mês R$ 49.510,00\nDespesas totais do mês R$ 46.750,00\nSaldo final consolidado informado R$ 72.760,00\nReceitas recebidas\nRubrica Recebido\nCotas ordinárias do mês R$ 45.600,00\nCotas de reserva do mês R$ 2.280,00\nRecuperação de cotas ordinárias anteriores R$ 1.200,00\nRecuperação de cotas de reserva anteriores R$ 0,00\nMultas e juros recebidos R$ 180,00\nRendimentos do fundo de reserva R$ 250,00\nDespesas pagas\nRubrica Realizado\nFolha e encargos R$ 19.800,00\nPortaria terceirizada R$ 10.500,00\nLimpeza terceirizada R$ 4.200,00\nÁgua e esgoto R$ 4.800,00\nEnergia elétrica R$ 2.100,00\nManutenção de elevadores R$ 1.500,00\nManutenção predial R$ 1.200,00\nAdministração R$ 1.800,00\nSeguro R$ 700,00\nTarifas bancárias R$ 150,00\nImpermeabilização extraordinária R$ 0,00\nOrçamento e autorizações de referência: ata AGO-JH-2025-12-15 v1.0, páginas 1 e 2. O orçamento mensal de despesas é R$ 47.700,00 de\njaneiro a maio; em junho é R$ 48.300,00, mais R$ 6.200,00 para a obra específica.",
+        "contentSha256": "128ba3ddbed54ed6f293c4ce9a7d2625c985b309e40f1c7297aa85f382392046",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      },
+      {
+        "pageIndex": 1,
+        "pageNumber": 2,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-01 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 2 de 2\nContas e pendências de janeiro\nCondomínio Jardim do Horizonte\nBAL-JH-2026-01 | Versão 1.0 | Data-base em 31/01/2026\nComposição por conta\nMovimentação Operacional Reserva\nSaldo inicial R$ 40.000,00 R$ 30.000,00\nIngressos externos R$ 46.980,00 R$ 2.530,00\nTransferência interna recebida R$ 0,00 R$ 0,00\nTransferência interna enviada R$ 0,00 R$ 0,00\nDespesas externas pagas R$ 46.750,00 R$ 0,00\nSaldo final da conta R$ 40.230,00 R$ 32.530,00\nContas de referência exclusivamente simuladas: OP-JH e FR-JH. A composição acima é um registro da tesouraria. Extratos bancários e\nconciliação independente não acompanham este arquivo.\nInadimplência pelo principal\nIndicador Posição\nPrincipal em aberto no início R$ 6.300,00\nCotas do mês não recebidas R$ 2.520,00\nPrincipal anterior recuperado R$ 1.200,00\nPrincipal em aberto no fim R$ 7.620,00\nUnidades com principal em aberto no fim 4 de 40\nEmissão mensal: cotas ordinárias de R$ 48.000,00 e cotas de reserva de R$ 2.400,00. O estoque inclui somente principal de cotas vencidas,\nsem multas e juros a receber. Não integra o saldo de caixa. Não há nomes nem dados de moradores.\nCompromissos conhecidos de fevereiro de 2026\nVencimento e obrigação Valor previsto\n05/02/2026 - Folha e encargos R$ 20.000,00\n10/02/2026 - Portaria terceirizada R$ 10.500,00\n10/02/2026 - Limpeza terceirizada R$ 4.200,00\n15/02/2026 - Manutenção de elevadores R$ 1.500,00\n20/02/2026 - Administração R$ 1.800,00\n25/02/2026 - Seguro R$ 700,00\nRelação parcial dos compromissos conhecidos no encerramento. Água, energia, tributos e despesas variáveis do mês seguinte não estão\nintegralmente levantados. Não há previsão de novas entradas nesta relação.\nRegistro de fechamento\nA tesouraria informa ausência de transferências internas e de despesas extraordinárias no mês. Folha, portaria, limpeza, administração e\nseguro mantêm os valores pagos nos meses anteriores disponíveis. A manutenção predial corresponde a pequenos reparos.\nResponsável pela elaboração: Tesouraria de Teste. Conferência interna: Conselho Fiscal de Teste. Extratos, notas fiscais, contratos e\ncomprovantes de pagamento não integram este arquivo; os valores são declarados, sem certificação independente.",
+        "contentSha256": "63f55d28ba5bea193a8c02569ff990f52d4eb57904640c85afaf9fcd220967eb",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      }
+    ]
+  },
+  {
+    "condominiumId": "alameda",
+    "documentId": "02-balancete-2026-02-fevereiro.pdf",
+    "documentVersionId": "02-balancete-2026-02-fevereiro.pdf",
+    "documentTitle": "02-balancete-2026-02-fevereiro.pdf",
+    "pages": [
+      {
+        "pageIndex": 0,
+        "pageNumber": 1,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-02 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 1 de 2\nBalancete mensal de fevereiro de 2026\nCondomínio Jardim do Horizonte\nBAL-JH-2026-02 | Versão 1.0 | Emissão em 10/03/2026\nRegime de caixa. Valores em reais. Plano de contas JH-2026. Quarenta unidades com frações iguais. As transferências entre contas\npróprias não compõem receitas nem despesas externas.\nResumo da movimentação\nDescrição Valor\nSaldo inicial consolidado R$ 72.760,00\nReceitas totais do mês R$ 52.080,00\nDespesas totais do mês R$ 46.800,00\nSaldo final consolidado informado R$ 78.040,00\nReceitas recebidas\nRubrica Recebido\nCotas ordinárias do mês R$ 46.800,00\nCotas de reserva do mês R$ 2.340,00\nRecuperação de cotas ordinárias anteriores R$ 2.400,00\nRecuperação de cotas de reserva anteriores R$ 120,00\nMultas e juros recebidos R$ 160,00\nRendimentos do fundo de reserva R$ 260,00\nDespesas pagas\nRubrica Realizado\nFolha e encargos R$ 19.800,00\nPortaria terceirizada R$ 10.500,00\nLimpeza terceirizada R$ 4.200,00\nÁgua e esgoto R$ 4.900,00\nEnergia elétrica R$ 2.150,00\nManutenção de elevadores R$ 1.500,00\nManutenção predial R$ 1.100,00\nAdministração R$ 1.800,00\nSeguro R$ 700,00\nTarifas bancárias R$ 150,00\nImpermeabilização extraordinária R$ 0,00\nOrçamento e autorizações de referência: ata AGO-JH-2025-12-15 v1.0, páginas 1 e 2. O orçamento mensal de despesas é R$ 47.700,00 de\njaneiro a maio; em junho é R$ 48.300,00, mais R$ 6.200,00 para a obra específica.",
+        "contentSha256": "1ad3cabeaf027c90ee467123678688ed49842448ee83b2bff0ee933ab9d752fb",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      },
+      {
+        "pageIndex": 1,
+        "pageNumber": 2,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-02 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 2 de 2\nContas e pendências de fevereiro\nCondomínio Jardim do Horizonte\nBAL-JH-2026-02 | Versão 1.0 | Data-base em 28/02/2026\nComposição por conta\nMovimentação Operacional Reserva\nSaldo inicial R$ 40.230,00 R$ 32.530,00\nIngressos externos R$ 49.360,00 R$ 2.720,00\nTransferência interna recebida R$ 0,00 R$ 0,00\nTransferência interna enviada R$ 0,00 R$ 0,00\nDespesas externas pagas R$ 46.800,00 R$ 0,00\nSaldo final da conta R$ 42.790,00 R$ 35.250,00\nContas de referência exclusivamente simuladas: OP-JH e FR-JH. A composição acima é um registro da tesouraria. Extratos bancários e\nconciliação independente não acompanham este arquivo.\nInadimplência pelo principal\nIndicador Posição\nPrincipal em aberto no início R$ 7.620,00\nCotas do mês não recebidas R$ 1.260,00\nPrincipal anterior recuperado R$ 2.520,00\nPrincipal em aberto no fim R$ 6.360,00\nUnidades com principal em aberto no fim 3 de 40\nEmissão mensal: cotas ordinárias de R$ 48.000,00 e cotas de reserva de R$ 2.400,00. O estoque inclui somente principal de cotas vencidas,\nsem multas e juros a receber. Não integra o saldo de caixa. Não há nomes nem dados de moradores.\nCompromissos conhecidos de março de 2026\nVencimento e obrigação Valor previsto\n05/03/2026 - Folha e encargos R$ 20.000,00\n10/03/2026 - Portaria terceirizada R$ 10.500,00\n10/03/2026 - Limpeza terceirizada R$ 4.200,00\n15/03/2026 - Manutenção de elevadores R$ 1.500,00\n20/03/2026 - Administração R$ 1.800,00\n25/03/2026 - Seguro R$ 700,00\nRelação parcial dos compromissos conhecidos no encerramento. Água, energia, tributos e despesas variáveis do mês seguinte não estão\nintegralmente levantados. Não há previsão de novas entradas nesta relação.\nRegistro de fechamento\nA tesouraria informa ausência de transferências internas e de despesas extraordinárias no mês. Folha, portaria, limpeza, administração e\nseguro mantêm os valores pagos nos meses anteriores disponíveis. A manutenção predial corresponde a pequenos reparos.\nResponsável pela elaboração: Tesouraria de Teste. Conferência interna: Conselho Fiscal de Teste. Extratos, notas fiscais, contratos e\ncomprovantes de pagamento não integram este arquivo; os valores são declarados, sem certificação independente.",
+        "contentSha256": "966a4ffc0866bd6643f7309529611821a9f5870ba5d7e3aabff1ec5a27bc29b8",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      }
+    ]
+  },
+  {
+    "condominiumId": "alameda",
+    "documentId": "03-balancete-2026-03-marco.pdf",
+    "documentVersionId": "03-balancete-2026-03-marco.pdf",
+    "documentTitle": "03-balancete-2026-03-marco.pdf",
+    "pages": [
+      {
+        "pageIndex": 0,
+        "pageNumber": 1,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-03 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 1 de 2\nBalancete mensal de março de 2026\nCondomínio Jardim do Horizonte\nBAL-JH-2026-03 | Versão 1.0 | Emissão em 10/04/2026\nRegime de caixa. Valores em reais. Plano de contas JH-2026. Quarenta unidades com frações iguais. As transferências entre contas\npróprias não compõem receitas nem despesas externas.\nResumo da movimentação\nDescrição Valor\nSaldo inicial consolidado R$ 78.040,00\nReceitas totais do mês R$ 50.820,00\nDespesas totais do mês R$ 46.700,00\nSaldo final consolidado informado R$ 82.160,00\nReceitas recebidas\nRubrica Recebido\nCotas ordinárias do mês R$ 46.800,00\nCotas de reserva do mês R$ 2.340,00\nRecuperação de cotas ordinárias anteriores R$ 1.200,00\nRecuperação de cotas de reserva anteriores R$ 60,00\nMultas e juros recebidos R$ 150,00\nRendimentos do fundo de reserva R$ 270,00\nDespesas pagas\nRubrica Realizado\nFolha e encargos R$ 19.800,00\nPortaria terceirizada R$ 10.500,00\nLimpeza terceirizada R$ 4.200,00\nÁgua e esgoto R$ 4.700,00\nEnergia elétrica R$ 2.050,00\nManutenção de elevadores R$ 1.500,00\nManutenção predial R$ 1.300,00\nAdministração R$ 1.800,00\nSeguro R$ 700,00\nTarifas bancárias R$ 150,00\nImpermeabilização extraordinária R$ 0,00\nOrçamento e autorizações de referência: ata AGO-JH-2025-12-15 v1.0, páginas 1 e 2. O orçamento mensal de despesas é R$ 47.700,00 de\njaneiro a maio; em junho é R$ 48.300,00, mais R$ 6.200,00 para a obra específica.",
+        "contentSha256": "b8a4ed9f99a80a5da7e6b61038acaeb03da0470b81f4be1e785de6da4c198e6c",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      },
+      {
+        "pageIndex": 1,
+        "pageNumber": 2,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-03 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 2 de 2\nContas e pendências de março\nCondomínio Jardim do Horizonte\nBAL-JH-2026-03 | Versão 1.0 | Data-base em 31/03/2026\nComposição por conta\nMovimentação Operacional Reserva\nSaldo inicial R$ 42.790,00 R$ 35.250,00\nIngressos externos R$ 48.150,00 R$ 2.670,00\nTransferência interna recebida R$ 0,00 R$ 0,00\nTransferência interna enviada R$ 0,00 R$ 0,00\nDespesas externas pagas R$ 46.700,00 R$ 0,00\nSaldo final da conta R$ 44.240,00 R$ 37.920,00\nContas de referência exclusivamente simuladas: OP-JH e FR-JH. A composição acima é um registro da tesouraria. Extratos bancários e\nconciliação independente não acompanham este arquivo.\nInadimplência pelo principal\nIndicador Posição\nPrincipal em aberto no início R$ 6.360,00\nCotas do mês não recebidas R$ 1.260,00\nPrincipal anterior recuperado R$ 1.260,00\nPrincipal em aberto no fim R$ 6.360,00\nUnidades com principal em aberto no fim 3 de 40\nEmissão mensal: cotas ordinárias de R$ 48.000,00 e cotas de reserva de R$ 2.400,00. O estoque inclui somente principal de cotas vencidas,\nsem multas e juros a receber. Não integra o saldo de caixa. Não há nomes nem dados de moradores.\nCompromissos conhecidos de abril de 2026\nVencimento e obrigação Valor previsto\n05/04/2026 - Folha e encargos R$ 20.000,00\n10/04/2026 - Portaria terceirizada R$ 10.500,00\n10/04/2026 - Limpeza terceirizada R$ 4.200,00\n15/04/2026 - Manutenção de elevadores R$ 1.500,00\n20/04/2026 - Administração R$ 1.800,00\n25/04/2026 - Seguro R$ 700,00\nRelação parcial dos compromissos conhecidos no encerramento. Água, energia, tributos e despesas variáveis do mês seguinte não estão\nintegralmente levantados. Não há previsão de novas entradas nesta relação.\nRegistro de fechamento\nA tesouraria informa ausência de transferências internas e de despesas extraordinárias no mês. Folha, portaria, limpeza, administração e\nseguro mantêm os valores pagos nos meses anteriores disponíveis. A manutenção predial corresponde a pequenos reparos.\nResponsável pela elaboração: Tesouraria de Teste. Conferência interna: Conselho Fiscal de Teste. Extratos, notas fiscais, contratos e\ncomprovantes de pagamento não integram este arquivo; os valores são declarados, sem certificação independente.",
+        "contentSha256": "d7f855b336c7000679dc80c64ad37e4b5cb8b36cac2aa56ccd68ab6981afa5ea",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      }
+    ]
+  },
+  {
+    "condominiumId": "alameda",
+    "documentId": "04-balancete-2026-04-abril.pdf",
+    "documentVersionId": "04-balancete-2026-04-abril.pdf",
+    "documentTitle": "04-balancete-2026-04-abril.pdf",
+    "pages": [
+      {
+        "pageIndex": 0,
+        "pageNumber": 1,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-04 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 1 de 2\nBalancete mensal de abril de 2026\nCondomínio Jardim do Horizonte\nBAL-JH-2026-04 | Versão 1.0 | Emissão em 10/05/2026\nRegime de caixa. Valores em reais. Plano de contas JH-2026. Quarenta unidades com frações iguais. As transferências entre contas\npróprias não compõem receitas nem despesas externas.\nResumo da movimentação\nDescrição Valor\nSaldo inicial consolidado R$ 82.160,00\nReceitas totais do mês R$ 52.040,00\nDespesas totais do mês R$ 46.850,00\nSaldo final consolidado informado R$ 87.350,00\nReceitas recebidas\nRubrica Recebido\nCotas ordinárias do mês R$ 48.000,00\nCotas de reserva do mês R$ 2.400,00\nRecuperação de cotas ordinárias anteriores R$ 1.200,00\nRecuperação de cotas de reserva anteriores R$ 60,00\nMultas e juros recebidos R$ 100,00\nRendimentos do fundo de reserva R$ 280,00\nDespesas pagas\nRubrica Realizado\nFolha e encargos R$ 19.800,00\nPortaria terceirizada R$ 10.500,00\nLimpeza terceirizada R$ 4.200,00\nÁgua e esgoto R$ 5.000,00\nEnergia elétrica R$ 2.200,00\nManutenção de elevadores R$ 1.500,00\nManutenção predial R$ 1.000,00\nAdministração R$ 1.800,00\nSeguro R$ 700,00\nTarifas bancárias R$ 150,00\nImpermeabilização extraordinária R$ 0,00\nOrçamento e autorizações de referência: ata AGO-JH-2025-12-15 v1.0, páginas 1 e 2. O orçamento mensal de despesas é R$ 47.700,00 de\njaneiro a maio; em junho é R$ 48.300,00, mais R$ 6.200,00 para a obra específica.",
+        "contentSha256": "c58b32a1dd59a927d8dcd6fdf1ab470f5f11b970f17e51c183e789f962b5c8f1",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      },
+      {
+        "pageIndex": 1,
+        "pageNumber": 2,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-04 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 2 de 2\nContas e pendências de abril\nCondomínio Jardim do Horizonte\nBAL-JH-2026-04 | Versão 1.0 | Data-base em 30/04/2026\nComposição por conta\nMovimentação Operacional Reserva\nSaldo inicial R$ 44.240,00 R$ 37.920,00\nIngressos externos R$ 49.300,00 R$ 2.740,00\nTransferência interna recebida R$ 0,00 R$ 0,00\nTransferência interna enviada R$ 0,00 R$ 0,00\nDespesas externas pagas R$ 46.850,00 R$ 0,00\nSaldo final da conta R$ 46.690,00 R$ 40.660,00\nContas de referência exclusivamente simuladas: OP-JH e FR-JH. A composição acima é um registro da tesouraria. Extratos bancários e\nconciliação independente não acompanham este arquivo.\nInadimplência pelo principal\nIndicador Posição\nPrincipal em aberto no início R$ 6.360,00\nCotas do mês não recebidas R$ 0,00\nPrincipal anterior recuperado R$ 1.260,00\nPrincipal em aberto no fim R$ 5.100,00\nUnidades com principal em aberto no fim 3 de 40\nEmissão mensal: cotas ordinárias de R$ 48.000,00 e cotas de reserva de R$ 2.400,00. O estoque inclui somente principal de cotas vencidas,\nsem multas e juros a receber. Não integra o saldo de caixa. Não há nomes nem dados de moradores.\nCompromissos conhecidos de maio de 2026\nVencimento e obrigação Valor previsto\n05/05/2026 - Folha e encargos R$ 20.000,00\n10/05/2026 - Portaria terceirizada R$ 10.500,00\n10/05/2026 - Limpeza terceirizada R$ 4.200,00\n15/05/2026 - Manutenção de elevadores R$ 1.500,00\n20/05/2026 - Administração R$ 1.800,00\n25/05/2026 - Seguro R$ 700,00\nRelação parcial dos compromissos conhecidos no encerramento. Água, energia, tributos e despesas variáveis do mês seguinte não estão\nintegralmente levantados. Não há previsão de novas entradas nesta relação.\nRegistro de fechamento\nA tesouraria informa ausência de transferências internas e de despesas extraordinárias no mês. Folha, portaria, limpeza, administração e\nseguro mantêm os valores pagos nos meses anteriores disponíveis. A manutenção predial corresponde a pequenos reparos.\nResponsável pela elaboração: Tesouraria de Teste. Conferência interna: Conselho Fiscal de Teste. Extratos, notas fiscais, contratos e\ncomprovantes de pagamento não integram este arquivo; os valores são declarados, sem certificação independente.",
+        "contentSha256": "4ac2a584f27ff66ef56ee71e0ae2a755794947b2ad8836b46003cbec7e2ca118",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      }
+    ]
+  },
+  {
+    "condominiumId": "alameda",
+    "documentId": "05-balancete-2026-05-maio.pdf",
+    "documentVersionId": "05-balancete-2026-05-maio.pdf",
+    "documentTitle": "05-balancete-2026-05-maio.pdf",
+    "pages": [
+      {
+        "pageIndex": 0,
+        "pageNumber": 1,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-05 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 1 de 2\nBalancete mensal de maio de 2026\nCondomínio Jardim do Horizonte\nBAL-JH-2026-05 | Versão 1.0 | Emissão em 10/06/2026\nRegime de caixa. Valores em reais. Plano de contas JH-2026. Quarenta unidades com frações iguais. As transferências entre contas\npróprias não compõem receitas nem despesas externas.\nResumo da movimentação\nDescrição Valor\nSaldo inicial consolidado R$ 87.350,00\nReceitas totais do mês R$ 50.830,00\nDespesas totais do mês R$ 46.870,00\nSaldo final consolidado informado R$ 91.310,00\nReceitas recebidas\nRubrica Recebido\nCotas ordinárias do mês R$ 46.800,00\nCotas de reserva do mês R$ 2.340,00\nRecuperação de cotas ordinárias anteriores R$ 1.200,00\nRecuperação de cotas de reserva anteriores R$ 60,00\nMultas e juros recebidos R$ 140,00\nRendimentos do fundo de reserva R$ 290,00\nDespesas pagas\nRubrica Realizado\nFolha e encargos R$ 19.800,00\nPortaria terceirizada R$ 10.500,00\nLimpeza terceirizada R$ 4.200,00\nÁgua e esgoto R$ 4.850,00\nEnergia elétrica R$ 2.120,00\nManutenção de elevadores R$ 1.500,00\nManutenção predial R$ 1.250,00\nAdministração R$ 1.800,00\nSeguro R$ 700,00\nTarifas bancárias R$ 150,00\nImpermeabilização extraordinária R$ 0,00\nOrçamento e autorizações de referência: ata AGO-JH-2025-12-15 v1.0, páginas 1 e 2. O orçamento mensal de despesas é R$ 47.700,00 de\njaneiro a maio; em junho é R$ 48.300,00, mais R$ 6.200,00 para a obra específica.",
+        "contentSha256": "31433b828d65bcccf4f5f4885f4037e7c03ff669a1a2fb171e4bab36f287c174",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      },
+      {
+        "pageIndex": 1,
+        "pageNumber": 2,
+        "extractedText": "FICTÍCIO - GERADO POR IA - SOMENTE TESTE BAL-JH-2026-05 | v1.0\ncondominium_id: cnd-synthetic-jardim-horizonte-2026-01 Página 2 de 2\nContas e pendências de maio\nCondomínio Jardim do Horizonte\nBAL-JH-2026-05 | Versão 1.0 | Data-base em 31/05/2026\nComposição por conta\nMovimentação Operacional Reserva\nSaldo inicial R$ 46.690,00 R$ 40.660,00\nIngressos externos R$ 48.140,00 R$ 2.690,00\nTransferência interna recebida R$ 0,00 R$ 0,00\nTransferência interna enviada R$ 0,00 R$ 0,00\nDespesas externas pagas R$ 46.870,00 R$ 0,00\nSaldo final da conta R$ 47.960,00 R$ 43.350,00\nContas de referência exclusivamente simuladas: OP-JH e FR-JH. A composição acima é um registro da tesouraria. Extratos bancários e\nconciliação independente não acompanham este arquivo.\nInadimplência pelo principal\nIndicador Posição\nPrincipal em aberto no início R$ 5.100,00\nCotas do mês não recebidas R$ 1.260,00\nPrincipal anterior recuperado R$ 1.260,00\nPrincipal em aberto no fim R$ 5.100,00\nUnidades com principal em aberto no fim 3 de 40\nEmissão mensal: cotas ordinárias de R$ 48.000,00 e cotas de reserva de R$ 2.400,00. O estoque inclui somente principal de cotas vencidas,\nsem multas e juros a receber. Não integra o saldo de caixa. Não há nomes nem dados de moradores.\nCompromissos conhecidos de junho de 2026\nVencimento e obrigação Valor previsto\n05/06/2026 - Folha e encargos R$ 20.000,00\n10/06/2026 - Portaria terceirizada R$ 10.500,00\n10/06/2026 - Limpeza terceirizada R$ 4.200,00\n15/06/2026 - Manutenção de elevadores R$ 2.100,00\n20/06/2026 - Administração R$ 1.800,00\n25/06/2026 - Seguro R$ 700,00\nRelação parcial dos compromissos conhecidos no encerramento. Água, energia, tributos e despesas variáveis do mês seguinte não estão\nintegralmente levantados. Não há previsão de novas entradas nesta relação.\nRegistro de fechamento\nA tesouraria informa ausência de transferências internas e de despesas extraordinárias no mês. Folha, portaria, limpeza, administração e\nseguro mantêm os valores pagos nos meses anteriores disponíveis. A manutenção predial corresponde a pequenos reparos.\nResponsável pela elaboração: Tesouraria de Teste. Conferência interna: Conselho Fiscal de Teste. Extratos, notas fiscais, contratos e\ncomprovantes de pagamento não integram este arquivo; os valores são declarados, sem certificação independente.",
+        "contentSha256": "ea37769441cf91d17ffe3004546f9ce6d9d4c36af986566edf991d00e2a5cb0d",
+        "extractionMethod": "pdf_text",
+        "qualityScore": 1
+      }
+    ]
+  }
+]

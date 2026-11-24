@@ -1,0 +1,166 @@
+{
+  "kind": "local-budget-preparation-not-release",
+  "recordedAtUtc": "2026-11-09T18:36:50.6504993+00:00",
+  "baseCommit": "3b702db6f91dbbeb2ede1a6063053296298d913c",
+  "budgetTestsPassed": 30,
+  "expandedTestsPassed": 77,
+  "expandedTestFiles": 10,
+  "failedTests": 0,
+  "coverage": {
+    "statements": 94.37,
+    "branches": 93.95,
+    "functions": 95,
+    "lines": 98.02,
+    "scope": "three-new-budget-modules-no-exclusions"
+  },
+  "lint": "passed-focused",
+  "types": "passed-focused",
+  "formatting": "passed-focused-after-format-only-correction",
+  "specVisionScope": [
+    "011",
+    "068",
+    "072"
+  ],
+  "specVisionResult": "passed-on-isolated-copy-of-canonical-script",
+  "specVisionWorkspace": ".local/pilot-security/budget-spec-vision-9afd8f4fe5ba4ceeb48a16652d7fc7e4",
+  "fullRepositoryGates": "pending-stable-coordinated-candidate",
+  "independentReview": "pending",
+  "sqlExecution": "not-executed-by-security-front",
+  "centralIntegration": "pending-owner",
+  "dataPolicy": "synthetic-only",
+  "documentsP1": "pending-policy-revision-isolation",
+  "files": [
+    {
+      "path": "apps/api/security/operation-budget.ts",
+      "sha256": "cc3cbae2db6ea149358f25b0b627cde65420ad1617ae10b931df914077c8c8de"
+    },
+    {
+      "path": "apps/api/security/local-operation-budget-store.ts",
+      "sha256": "4aa9c0aa3728b21383764f46092d1c5cbcebcaa380730b44f7e8b1a2fe993454"
+    },
+    {
+      "path": "apps/api/security/postgres-operation-budget-store.ts",
+      "sha256": "f505898eede6c2e168c8bbd05956589d5e445de9d131f54f1ebbf2f369dcf831"
+    },
+    {
+      "path": "infrastructure/database/040_access_login_attempt_limits.sql",
+      "sha256": "f5bab0acd48d464b89e9df5c77074c1a4962f89c2504fb66e26da284061e1683"
+    },
+    {
+      "path": "tests/unit/operation-budget.test.ts",
+      "sha256": "70041879dce37b3354f441b23e42740f64bb5a764c2f1df70fe7e5957d434a91"
+    },
+    {
+      "path": "tests/fixtures/operation-budget-client.ts",
+      "sha256": "420cd51ad94dc0fef12e522b4ab3affb30a605f52f9a37178af4c77cae8b3092"
+    },
+    {
+      "path": "tests/vitest.operation-budget.config.ts",
+      "sha256": "ff6d094f133a7f1ff34c461cf78ca891fcf07df2a5eee397ec9fca4d7a04c9da"
+    },
+    {
+      "path": "tests/vitest.pilot-security.config.ts",
+      "sha256": "b8eac0dd6597b402c52682603151e6cf2a7c4cf5f8c2439d546443ba02de5c96"
+    },
+    {
+      "path": "docs/specs/072-reserva-duravel-de-consumo/spec.md",
+      "sha256": "4dbc4c8a7024079821eb27e472c098f09e00d4131c83ddb020c0fe12d0397aa3"
+    },
+    {
+      "path": "docs/specs/072-reserva-duravel-de-consumo/acceptance.md",
+      "sha256": "e71c354ec263215857b00c2457b770272b5c654d1b87f76e072b333532e4f229"
+    },
+    {
+      "path": "docs/specs/068-entrada-por-codigo/spec.md",
+      "sha256": "0ca64b8ac7761e512fd71aba7bfb4d0626d8170e13f9edee3e3b3c094e6f0ad8"
+    },
+    {
+      "path": "docs/specs/068-entrada-por-codigo/acceptance.md",
+      "sha256": "59a606a5a94b94af41fe6222356fba539120b84be45ac69db4438d76e0d185e7"
+    },
+    {
+      "path": "docs/specs/011-piloto-real-controlado/spec.md",
+      "sha256": "27eaac743a5f5419db5d96f747adb20035852b12dd4ffe147435ed6f3b5efa4e"
+    },
+    {
+      "path": "docs/specs/011-piloto-real-controlado/acceptance.md",
+      "sha256": "fe7ca04bcc873c8d19d2204f915c51c175b38692ab28c4c7cf6263411bf8abac"
+    },
+    {
+      "path": "docs/adr/0044-limites-persistentes-de-entrada.md",
+      "sha256": "262ecf403585bd163e56c772d0efa804f3a61a5508b34b64a7ffe36ba672f1fb"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/README.md",
+      "sha256": "82fee96cb04b1fa02c5c244daa72c1218c01b0de52e15e0160e5cd2c2443e6c7"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/politica-candidata.md",
+      "sha256": "da58fe70748cfd901f7abb064cac62f4161b2d1df4cf41bd00bf149758a9523e"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/incidentes-e-suporte.md",
+      "sha256": "e1ec6042bd627c4a12376bc8f89c272ebe2af8687b67cdded4b686f70a69e0ee"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/direitos-exportacao-exclusao.md",
+      "sha256": "a1c79dbad2d94a2f643ea6613dca6ae43abb2d5e502c4147f3b75cd66640f0e8"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/redaction-e-acesso-operacional.md",
+      "sha256": "523d8bbb3338f39b5de5c1e601e2fbc0ab2d7442eab7db30fca969c92406dfde"
+    },
+    {
+      "path": "docs/quality/pilot-2026-11-16-sessions.md",
+      "sha256": "8be1a898c109b4c09c8bfe4f1531773408724198a3af4c5c330c67c3423542bb"
+    },
+    {
+      "path": "docs/quality/pilot-2026-11-16-release-gates.md",
+      "sha256": "43a1c07cddc129b21e8c46e707659fd949d2e0665f7cf8c1d69481ef1d10e369"
+    },
+    {
+      "path": "docs/quality/traceability.md",
+      "sha256": "ae136b37e855e3aad12950862b113f81ff6d48a7827e7f06a556f6d76de6fdc9"
+    },
+    {
+      "path": "docs/release/pilot-2026-11-16-security.md",
+      "sha256": "a31fd6336fcf6c50f5ae9b483c233b44f810b95c3ad139231f31dce52382ed89"
+    },
+    {
+      "path": "docs/reviews/2026-11-09-pilot-budget-local.md",
+      "sha256": "7818abf6bc621fc5a915325d80f0b3edfd132b25b49cdf62f18e665db2ab1f92"
+    },
+    {
+      "path": "docs/reviews/2026-11-09-pilot-documents-security-review.md",
+      "sha256": "7bb3d5b0cef56e9a67acbb95ae6a8da119e3ae21371c16e29d71907d4c8dc8b8"
+    },
+    {
+      "path": "docs/reviews/2026-11-09-pilot-infrastructure-supplement.md",
+      "sha256": "8ff0225a3abb591f0e1bf4a02918269c0eaf58f1e7d556e1d27852349619b906"
+    },
+    {
+      "path": "docs/reviews/pilot-budget-tests-r2-2026-11-09.json",
+      "sha256": "3a83229030435e54a3aaf932aa9a150f4d4a4297d94bd9fa814504fd736a20e9"
+    },
+    {
+      "path": "docs/reviews/pilot-security-expanded-tests-2026-11-09.json",
+      "sha256": "4e8ef076fb7fcd7b5546158b8dd0af460a05bd3d32af27ef651c6a24e0dc2b3b"
+    },
+    {
+      "path": "docs/reviews/pilot-budget-coverage-2026-11-09.json",
+      "sha256": "003baf53650b0d7b780b9cc7cd02282bc7d625b265d3f39684ef44a76e4e7e1b"
+    },
+    {
+      "path": "package.json",
+      "sha256": "1a7ee5ea18bfa7d56ff31a251f3cacd9dabe82231408f2ae9ae17e2538f42443"
+    },
+    {
+      "path": "README.md",
+      "sha256": "a1b78b8e0badffc7248fd3541161fdae6bb7fd90e89673ed11246b4b6770e359"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "8ea9864c9e281d7b333f55c2762e38825812c6af1cf3652378bd68976d43c16e"
+    }
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "suite": "spec-001-consulta-documental",
+  "caseCount": 20,
+  "passed": 20,
+  "p0": {
+    "total": 14,
+    "failures": 0,
+    "passRate": 1
+  },
+  "p1": {
+    "total": 6,
+    "passRate": 1
+  },
+  "thresholds": {
+    "maxP0Failures": 0,
+    "minimumP1PassRate": 0.9,
+    "maxCaseCountDelta": 0
+  },
+  "averageEstimatedCostMicrounits": 0,
+  "gatewayCalls": 15,
+  "results": [
+    {
+      "id": "EVAL-001",
+      "priority": "P1",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-002",
+      "priority": "P1",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-003",
+      "priority": "P1",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-004",
+      "priority": "P1",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-005",
+      "priority": "P1",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-006",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "abstained",
+      "failure": null
+    },
+    {
+      "id": "EVAL-007",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "abstained",
+      "failure": null
+    },
+    {
+      "id": "EVAL-008",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "conflict",
+      "failure": null
+    },
+    {
+      "id": "EVAL-009",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-010",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "abstained",
+      "failure": null
+    },
+    {
+      "id": "EVAL-011",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": null,
+      "failure": null
+    },
+    {
+      "id": "EVAL-012",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-013",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "abstained",
+      "failure": null
+    },
+    {
+      "id": "EVAL-014",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "abstained",
+      "failure": null
+    },
+    {
+      "id": "EVAL-015",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-016",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-017",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-018",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "grounded",
+      "failure": null
+    },
+    {
+      "id": "EVAL-019",
+      "priority": "P0",
+      "passed": true,
+      "answerMode": "abstained",
+      "failure": null
+    },
+    {
+      "id": "EVAL-020",
+      "priority": "P1",
+      "passed": true,
+      "answerMode": null,
+      "failure": null
+    }
+  ]
+}

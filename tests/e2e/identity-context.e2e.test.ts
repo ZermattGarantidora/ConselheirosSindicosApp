@@ -25,10 +25,12 @@ describe("seleção de condomínio", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
+      historyPersistence: "volatile",
       status: "ok",
       version: "0.1.0",
       aiProvider: "local",
       authMode: "development",
+      accessCodeEnabled: false,
       googleAuthEnabled: false,
       authSessionRestore: false,
       accountSecurityEnabled: false,

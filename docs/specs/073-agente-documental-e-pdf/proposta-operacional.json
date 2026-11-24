@@ -1,0 +1,76 @@
+{
+  "version": "authoring-operations-proposal-v1",
+  "state": "proposed-not-approved",
+  "enabled": false,
+  "environment": "synthetic-local-only",
+  "externalCallsEnabled": false,
+  "externalSpendingMicrounits": 0,
+  "provider": null,
+  "target": null,
+  "historyProposed": {
+    "permanentConversation": true,
+    "noSilentMessageDeletion": true,
+    "artifactHistoryCompatibility": "pending",
+    "originalPdfAndWordPolicy": "Permanece na política documental vigente; o prazo de rascunhos não expira os originais."
+  },
+  "retentionProposed": {
+    "draftSeconds": 604800,
+    "audioSeconds": 86400,
+    "transcriptSeconds": 86400,
+    "effectiveRule": "O derivado deixa de ser acessível quando expira qualquer origem necessária; edição e restore não renovam prazo.",
+    "exportStored": false,
+    "consumptionAndTombstoneDays": null
+  },
+  "limitsProposed": {
+    "scopeDailyOperations": 30,
+    "globalDailyOperations": 200,
+    "scopeConcurrent": 2,
+    "globalConcurrent": 4,
+    "maximumSources": 20,
+    "maximumSourceCharacters": 80000,
+    "maximumAudioBytes": 26214400,
+    "dictationSeconds": 600,
+    "meetingSeconds": 3600,
+    "automaticOriginalBlockCharacters": 1000,
+    "maintenanceBatch": 50,
+    "maximumFamily": 100,
+    "maximumInventory": 10000
+  },
+  "maintenanceProposed": {
+    "intervalMinutes": 15,
+    "scheduled": false,
+    "scopeRequired": true,
+    "callsModels": false,
+    "reason": "Reaplicar exclusões e purgar expirados em lote explícito; a cadência é proposta, não cron implementado."
+  },
+  "recoveryProposed": {
+    "sqlRpoMinutes": 15,
+    "rtoMinutes": 240,
+    "targetsMeasured": false,
+    "cofreOutsideDump": true,
+    "lifecycleOutsideDump": true,
+    "missingCofreQuarantines": true,
+    "restoreStartsQuarantined": true,
+    "reapplyDeletionAndRevocation": true,
+    "retryUnknownDispatch": false
+  },
+  "responsibilitiesProposed": {
+    "product": "Aprovar limites e critérios de utilidade.",
+    "operations": "Custodiar cofres/journals, realizar manutenção e ensaiar restore; responsável nominal pendente.",
+    "securityAndData": "Revisar destino, acessos, retenção, exclusão e dados antes de qualquer operação real.",
+    "reviewer": "Conferir corpus, fontes e resultados de redação/transcrição; qualificação conforme o risco.",
+    "engineering": "Revisar o diff, versões, CI e plano de recuperação antes da integração."
+  },
+  "approvals": {
+    "dataPolicy": null,
+    "retentionAndConsumption": null,
+    "historyRetentionCompatibility": null,
+    "providerAndSpending": null,
+    "targetAndCustody": null,
+    "namedOperationsOwner": null,
+    "realModelQuality": null,
+    "independentReview": null,
+    "ciCommit": null,
+    "release": null
+  }
+}

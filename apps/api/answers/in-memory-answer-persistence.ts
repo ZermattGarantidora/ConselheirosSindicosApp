@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { parseDocumentaryReplayLedger } from "./documentary-replay.js";
 import { legacyChatId } from "../chats/chat-repository.js";
 
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
@@ -12,6 +13,7 @@ import type {
 } from "./answer-persistence.js";
 import { validateFeedbackInput } from "./answer-persistence.js";
 import type { AnswerRecord } from "./answer-contract.js";
+import { createLocalChatTurnGuard } from "./conversation-memory.js";
 
 export type InMemoryAnswerPersistence = AnswerPersistence &
   Readonly<{
@@ -34,6 +36,7 @@ export function createInMemoryAnswerPersistence(
   const auditEvents: AuditEventRecord[] = [];
 
   return {
+    acquireChatTurn: createLocalChatTurnGuard(),
     async saveInteraction(input) {
       const key = interactionKey(input.answer.condominiumId, input.answer.answerId);
       if (interactions.has(key)) {
@@ -121,6 +124,22 @@ export function createInMemoryAnswerPersistence(
           .map((interaction) =>
             Object.freeze({
               questionId: interaction.question.id,
+              documentaryReplayLedger: parseDocumentaryReplayLedger(
+                interaction.auditEvents.find(
+                  (event) =>
+                    event.subjectId === interaction.answer.answerId &&
+                    event.eventType === "answer_created"
+                )?.metadata.documentaryReplayLedger
+              ),
+              ...(interaction.question.chatId === undefined
+                ? {}
+                : { chatId: interaction.question.chatId }),
+              memoryReplaySafe: interaction.auditEvents.some(
+                (event) =>
+                  event.subjectId === interaction.answer.answerId &&
+                  event.metadata.memoryReplaySafe === true &&
+                  event.metadata.memoryPolicyVersion === "recent-chat-v1"
+              ),
               question: interaction.question.content,
               answer: interaction.answer,
               createdAt: interaction.question.createdAt

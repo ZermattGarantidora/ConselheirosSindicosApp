@@ -69,11 +69,14 @@ export async function sendDocumentMessage(
   input: Readonly<{
     message: string;
     receive: () => Promise<void>;
+    acknowledge?: () => Promise<void>;
     waitUntilProcessed: () => Promise<DocumentProcessingStatus>;
     ask: (message: string) => Promise<void>;
   }>
 ): Promise<void> {
   await input.receive();
+  // A fala de recebimento não cancela um original já registrado se o provedor falhar.
+  await input.acknowledge?.().catch(() => undefined);
   const status = await input.waitUntilProcessed();
   if (input.message.trim() === "") return;
   if (status !== "ready") {

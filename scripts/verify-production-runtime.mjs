@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
 import { setInterval, clearInterval } from "node:timers";
 import { setTimeout as pause } from "node:timers/promises";
 
@@ -18,21 +21,39 @@ sample("before_import");
 const { createSyntheticTextPdf, createSyntheticElectionMinutesPdf } =
   await import("../tests/fixtures/synthetic-pdfs.ts");
 const { startServer } = await import("../dist/api/app/server.js");
+const { createLocalAccessCodeService } =
+  await import("../dist/api/identity/local-access-code-store.js");
+const accessDirectory = await mkdtemp(join(tmpdir(), "alvitra-runtime-access-"));
 sample("after_import");
 const app = await startServer(0, {
   APP_ENV: "production",
   DEMO_MODE: "true",
-  DEMO_SEED_DOCUMENTS: "false"
+  DEMO_SEED_DOCUMENTS: "false",
+  ACCESS_CODE_DIRECTORY: accessDirectory
 });
 const timer = setInterval(() => {
   peakResidentBytes = Math.max(peakResidentBytes, process.memoryUsage().rss);
 }, 10);
 timer.unref();
-const headers = { "x-development-user-id": "sindico-demo" };
 
 try {
   sample("ready");
   assert.equal((await app.inject({ url: "/health" })).statusCode, 200);
+  const code = await (
+    await createLocalAccessCodeService(accessDirectory)
+  ).provision("sindico-demo");
+  const login = await app.inject({ method: "POST", url: "/v1/access/login", payload: { code } });
+  assert.equal(login.statusCode, 200);
+  const headers = { cookie: String(login.headers["set-cookie"]).split(";")[0] };
+  assert.equal(
+    (
+      await app.inject({
+        url: "/v1/condominiums/alameda/documents",
+        headers: { "x-development-user-id": "sindico-demo" }
+      })
+    ).statusCode,
+    401
+  );
   for (const [title, content] of [
     ["Documento sintético de duas páginas", createSyntheticTextPdf()],
     ["Ata sintética de eleição", createSyntheticElectionMinutesPdf()]
@@ -98,4 +119,7 @@ try {
 } finally {
   clearInterval(timer);
   await app.close();
+  assert.equal(dirname(resolve(accessDirectory)), resolve(tmpdir()));
+  assert.ok(basename(accessDirectory).startsWith("alvitra-runtime-access-"));
+  await rm(accessDirectory, { recursive: true, force: true });
 }

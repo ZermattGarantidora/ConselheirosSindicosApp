@@ -2,7 +2,7 @@
 
 **Status:** implementação sintética em validação; dados reais bloqueados
 **Responsável:** produto e engenharia
-**Atualizado em:** 2026-10-19
+**Atualizado em:** 2026-11-04
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -17,6 +17,12 @@
 | Técnica e validação   | §§12–14                     | Usa gateway substituível, mede qualidade, custo e respostas aprovadas por evals.                                      |
 
 ### Limites respeitados
+
+O ajuste de comunicação solicitado em 2026-10-27 aplica briefing §§1, 6.4, 7 (Bloco 6) e 9:
+explicita que enviar documentos relevantes é essencial para conhecer o condomínio e que a
+ausência deles dificulta a ajuda local. Atende ao gate competitivo por esclarecer o valor da
+memória documental na conversa, sem módulo ou chamada adicional. Preserva orientação geral,
+isolamento, citações e pedidos contextuais; testes e geração sintética verificam o resultado.
 
 - O chat continua sendo a interface principal; não cria dashboard ou módulo paralelo.
 - A conversa e a configuração começam sem upload obrigatório; respostas sobre fatos e regras particulares do condomínio exigem os documentos relevantes e evidência autorizada.
@@ -105,8 +111,9 @@ ou risco alto não recebe certeza sem base adequada.
 
 Afirmações específicas do condomínio exigem evidência recuperada do contexto autorizado, com
 documento, versão, página e trecho. Quando a resposta local depender de um documento ausente, a
-Alvitra explica por que ele é necessário, pede somente o material pertinente e informa que pode ser
-enviado depois, mas continua respondendo com orientação geral e base legal disponível. Se o usuário
+Alvitra explica por que seu envio é essencial e por que a falta dele dificulta a ajuda com precisão,
+pede somente o material pertinente e continua respondendo com orientação geral e base legal disponível. A fala
+não minimiza a necessidade, não diz “não precisa enviar” e não oferece adiamento espontâneo. Se o usuário
 não enviar o material naquele momento, ela segue a conversa e mantém a lacuna explícita;
 ao recebê-lo, aprofunda a resposta. Documento ou foto ilegível, incerto ou conflitante leva à
 limitação correspondente. Descrição de imagem é rotulada como observação de IA e conferível no
@@ -116,6 +123,12 @@ original.
 
 Quando houver problema, a Alvitra o nomeia, explica o motivo e o impacto, e propõe um a três passos concretos. Quando algo estiver saudável, reconhece sem elogio inventado. Evita humilhação, alarmismo e concordância automática.
 
+O ajuste solicitado em 2026-10-27 reforça o tom de consultora proativa e acessível: falar como
+gente, explicar termos contábeis indispensáveis e evitar formatação robótica. A interface não
+acrescenta rótulos “Atenção”, “Próximo passo” ou blocos mecânicos de insuficiência à fala gerada.
+Limitações reais, conflitos, fontes e recomendação de validação humana continuam disponíveis na
+própria conversa. O system prompt já aprovado permanece inalterado nesta correção de apresentação.
+
 ### RQ-2605 — Provedores e validação
 
 A OpenAI e a Gemini são integradas pelo servidor sob o mesmo contrato do gateway. OpenAI tem
@@ -124,12 +137,30 @@ alternativa temporária quando o provedor principal estiver indisponível. O apl
 autorização antes de enviar contexto e valida saída, citações e risco depois da geração. Falha dos
 provedores não pode produzir uma resposta fabricada como se fosse da Alvitra.
 
+Para uso pessoal em demonstração local, o opt-in da [Spec 042](../042-conversas-locais-plano-codex/spec.md)
+usa o plano ChatGPT por meio do Codex CLI em todas as mensagens geradas, inclusive configuração.
+Esse modo é exclusivo, sem fallback para APIs com cobrança separada; a seleção padrão acima
+permanece nos demais ambientes. Não autoriza dados reais, hospedagem pública ou mudança do prompt.
+
+A exceção local explicitamente solicitada em 04/11/2026 está delimitada na
+[Spec 066](../066-documentos-teste-locais/spec.md): contexto opt-in de simulação para não recusar
+documentos apenas pela origem sintética nem repetir avisos rotineiros de teste, sem alterar a
+personalidade, os validadores ou o comportamento padrão de produção.
+
 Na interpretação `setup_turn`, a Gemini também recebe um JSON Schema de saída com exatamente
 `intent`, `field`, `value` e `reply`, todos obrigatórios, sem propriedades adicionais. O formato
 é pedido no transporte mesmo sem evidência documental; o validador local continua recusando
 campos extras, tipos e transições inválidos. Não descartar silenciosamente um campo extra para
 avançar o cadastro nem alterar o prompt aprovado. Isso detalha briefing §§6 e 10: conversa
 natural sem transformar saída arbitrária do provedor em dado cadastral.
+
+A correção de 03/11/2026 também valida a coerência da fala com a transição de cadastro
+(AC-2403a da Spec 024). O servidor informa as transições como dados do turno, sem mudar o
+system prompt aprovado ou classificar a intenção da pessoa por palavras-chave. Para atualizações
+válidas que ainda deixam um campo pendente, verifica a pergunta desse campo e sinais explícitos
+de conclusão prematura. Uma única reparação no mesmo gateway/tarefa pode reescrever a fala,
+mantendo intenção, campo e valor. Falha persistente não produz fala pronta nem atualiza o
+cadastro. Os limites por geração permanecem; não há classificador pago ou escalada de modelo.
 
 ### RQ-2606 — Fotos durante a migração de provedor
 

@@ -10,12 +10,28 @@ import {
   type SpecialistType
 } from "./answer-contract.js";
 import { answerPromptVersion, buildAnswerPrompt, type AnswerPromptTask } from "./prompt-catalog.js";
+import type { ConversationContext } from "./conversation-memory.js";
+import type { AnswerValidationCode } from "./citation-validator.js";
+import { detectDocumentConflict } from "./conflict-detection.js";
+import { syntheticAgendaAnswer } from "./synthetic-agenda.js";
+import type { UsageAccounting } from "./usage-accounting.js";
 
 export type AnswerGatewayInput = Readonly<{
   question: string;
   task: AnswerPromptTask;
   riskClass: RiskClass;
   evidence: readonly RetrievalEvidence[];
+  conversationContext?: ConversationContext;
+  validationFeedback?: AnswerValidationCode;
+  documentaryState?:
+    | "available"
+    | "answer_not_validated"
+    | "no_relevant_excerpt"
+    | "quality_below_floor"
+    | "validity_pending"
+    | "no_candidates"
+    | "retrieval_unavailable";
+  signal?: AbortSignal;
   budget: Readonly<{
     maximumOutputTokens: number;
     maximumCostMicrounits: number;
@@ -23,6 +39,7 @@ export type AnswerGatewayInput = Readonly<{
 }>;
 
 export type AnswerGatewayTelemetry = Readonly<{
+  usageAccounting?: UsageAccounting;
   providerKey: string;
   modelKey: string;
   modelVersion: string;
@@ -50,6 +67,15 @@ export type AnswerGatewayResult = Readonly<{
 
 export interface AnswerGateway {
   generate(input: AnswerGatewayInput): Promise<AnswerGatewayResult>;
+}
+
+// Preserva a classe do erro sem anexar payloads ou mensagens arbitrárias à telemetria.
+const errorTelemetry = new WeakMap<Error, AnswerGatewayTelemetry>();
+export function attachGatewayErrorTelemetry(error: Error, telemetry: AnswerGatewayTelemetry) {
+  errorTelemetry.set(error, telemetry);
+}
+export function gatewayErrorTelemetry(error: unknown): AnswerGatewayTelemetry | undefined {
+  return error instanceof Error ? errorTelemetry.get(error) : undefined;
 }
 
 export class AnswerGatewayUnavailableError extends Error {
@@ -487,6 +513,7 @@ function conflictAnswer(
   evidence: readonly RetrievalEvidence[],
   riskClass: RiskClass
 ): GeneratedAnswer {
+  const detected = detectDocumentConflict(question, evidence);
   const convention = evidence.find(
     (item) => item.documentType === "convention" && /noventa|90/iu.test(item.content)
   );
@@ -494,7 +521,10 @@ function conflictAnswer(
     (item) => item.documentType === "internal_rules" && /trinta|30/iu.test(item.content)
   );
   const citations = Object.freeze(
-    (convention === undefined && rules === undefined ? evidence : [convention, rules])
+    (
+      detected?.evidence ??
+      (convention === undefined && rules === undefined ? evidence : [convention, rules])
+    )
       .filter((item): item is RetrievalEvidence => item !== undefined)
       .map((item) => citationFor(item, question))
       .filter((citation): citation is GeneratedCitation => citation !== null)
@@ -503,9 +533,12 @@ function conflictAnswer(
 
   return Object.freeze({
     answer:
-      "Há um conflito documental: a convenção vigente informa prazo mínimo de noventa dias, " +
-      "enquanto o regimento informa trinta dias. Os documentos precisam ser conciliados ou validados; " +
-      "não é seguro escolher uma regra silenciosamente.",
+      convention !== undefined && rules !== undefined
+        ? `Há um conflito documental: a convenção ${convention.validityStatus === "confirmed" && convention.validFrom !== null ? "vigente " : ""}informa prazo mínimo de noventa dias, ` +
+          "enquanto o regimento informa trinta dias. Os documentos precisam ser conciliados ou validados; " +
+          "não é seguro escolher uma regra silenciosamente."
+        : (detected?.reason ??
+          "As fontes recuperadas precisam ser conciliadas antes de confirmar a regra aplicável."),
     answerMode: "conflict" as const,
     citations,
     attentionPoints: Object.freeze([
@@ -517,7 +550,7 @@ function conflictAnswer(
     specialist,
     claims: Object.freeze([
       Object.freeze({
-        statement: "As fontes recuperadas apresentam prazos incompatíveis.",
+        statement: detected?.reason ?? "As fontes recuperadas apresentam prazos incompatíveis.",
         claimType: "interpretation" as const,
         evidenceRequired: true,
         citationEvidenceIds: Object.freeze(citations.map((citation) => citation.evidenceId))
@@ -586,7 +619,9 @@ function groundedAnswer(
     claims: Object.freeze([
       Object.freeze({
         statement: answer,
-        claimType: "condominium_fact" as const,
+        claimType: selected.every((item) => item.sourceScope === "legislation")
+          ? ("interpretation" as const)
+          : ("condominium_fact" as const),
         evidenceRequired: true,
         citationEvidenceIds: Object.freeze(citations.map((citation) => citation.evidenceId))
       })
@@ -599,24 +634,34 @@ export function createLocalSyntheticAnswerGateway(
 ): AnswerGateway {
   return Object.freeze({
     async generate(input: AnswerGatewayInput): Promise<AnswerGatewayResult> {
-      if (input.evidence.length === 0) {
+      if (
+        input.evidence.length === 0 ||
+        input.evidence.every((item) => ["pending", "disputed"].includes(item.validityStatus))
+      ) {
         const conversationIntent = classifySimpleConversation(input.question);
         const isSimpleConversation = conversationIntent !== null;
+        const agendaAnswer = syntheticAgendaAnswer(input);
         const answer = Object.freeze({
           answer:
-            conversationIntent === "greeting"
-              ? "Olá! Sou a Alvitra, sua conselheira documental."
-              : conversationIntent === "capability"
-                ? "Posso consultar convenções, regimentos, atas e contratos do condomínio, explicar o que encontrei e indicar quando vale validar com um especialista."
-                : "Não encontrei base documental para confirmar essa informação. Neste ambiente local, não há um modelo generativo conectado para formular uma orientação geral específica.",
+            agendaAnswer ??
+            (input.evidence.length > 0
+              ? "As versões recebidas estão pendentes ou disputadas; não confirmam uma regra vigente. Confira a aprovação e a relação entre as versões antes de decidir."
+              : conversationIntent === "greeting"
+                ? "Olá! Sou a Alvitra, sua conselheira documental."
+                : conversationIntent === "capability"
+                  ? "Posso consultar convenções, regimentos, atas e contratos do condomínio, explicar o que encontrei e indicar quando vale validar com um especialista."
+                  : "Não encontrei base documental para confirmar essa informação. Neste ambiente local, não há um modelo generativo conectado para formular uma orientação geral específica."),
           answerMode: "abstained" as const,
           citations: Object.freeze([]),
           attentionPoints: Object.freeze(
-            isSimpleConversation ? [] : ["Esta resposta não confirma uma regra do condomínio."]
+            isSimpleConversation || agendaAnswer
+              ? []
+              : ["Esta resposta não confirma uma regra do condomínio."]
           ),
-          suggestedNextStep: isSimpleConversation
-            ? null
-            : "Confira ou envie o documento que trata diretamente do assunto e tente novamente.",
+          suggestedNextStep:
+            isSimpleConversation || agendaAnswer
+              ? null
+              : "Confira ou envie o documento que trata diretamente do assunto e tente novamente.",
           specialist: Object.freeze({ required: false, type: null, reason: null }),
           claims: Object.freeze([])
         });
@@ -651,12 +696,7 @@ export function createLocalSyntheticAnswerGateway(
         });
       }
 
-      const prompt = buildAnswerPrompt({
-        question: input.question,
-        task: input.task,
-        riskClass: input.riskClass,
-        evidence: input.evidence
-      });
+      const prompt = buildAnswerPrompt(input);
       const startedAt = now();
       const output =
         input.task === "document_conflict"

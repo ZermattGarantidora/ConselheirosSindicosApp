@@ -1,5 +1,13 @@
 # Spec 038 — Novo chat na reentrada com conversas anteriores preservadas
 
+> A Spec 044 detalha o acesso às conversas por condomínio na lateral esquerda. Persistência,
+> reentrada e limites de autorização desta spec continuam vigentes.
+
+> A decisão de 29/10/2026 na Spec 058 torna o histórico completo dos dois lados e sua durabilidade
+> obrigatórios antes do lançamento. A limitação de reinício da demonstração abaixo continua
+> descrevendo somente o ambiente de teste; falas auxiliares ainda não persistidas são uma lacuna
+> de implementação, sem aprovação de lançamento.
+
 **Status:** implementada localmente; integração e revisão pendentes  
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-26

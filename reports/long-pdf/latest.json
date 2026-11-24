@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "runtime": "compiled-node",
+  "syntheticOnly": true,
+  "pageCount": 300,
+  "sizeBytes": 1393515,
+  "characters": 1186305,
+  "indexingMs": 2446.7896,
+  "queries": [
+    {
+      "page": 1,
+      "elapsedMs": 2144.0182000000004,
+      "pass": "cold"
+    },
+    {
+      "page": 150,
+      "elapsedMs": 516.3231999999998,
+      "pass": "cold"
+    },
+    {
+      "page": 300,
+      "elapsedMs": 1179.3291,
+      "pass": "cold"
+    },
+    {
+      "page": 1,
+      "elapsedMs": 558.9960999999994,
+      "pass": "warm"
+    },
+    {
+      "page": 150,
+      "elapsedMs": 453.0523000000003,
+      "pass": "warm"
+    },
+    {
+      "page": 300,
+      "elapsedMs": 856.0458000000008,
+      "pass": "warm"
+    }
+  ],
+  "peakRssMiB": 295.56640625,
+  "thresholds": {
+    "indexingMs": 60000,
+    "warmQueryMs": 5000,
+    "peakRssMiB": 512
+  },
+  "passed": true
+}

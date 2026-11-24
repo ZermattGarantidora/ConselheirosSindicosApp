@@ -1,0 +1,34 @@
+[
+  {
+    "path": "apps/api/analysis/financial-review.ts",
+    "sha256": "063CF48943AE19991940C6AF0BDB94E1EABA2E9143AB0DC020370B2878DC3A98"
+  },
+  {
+    "path": "apps/api/analysis/document-snapshot.ts",
+    "sha256": "D934E6C9288388AF23DFB7D69D2EBBA2123AD1791615C65B445D782D681EC5BD"
+  },
+  {
+    "path": "apps/api/analysis/document-analysis.ts",
+    "sha256": "2F3FE93202070BFAC37CD8B57000415711C8F72DB60C0503DBC9C006C19183C1"
+  },
+  {
+    "path": "apps/api/app/create-api.ts",
+    "sha256": "19EDB004155718ABD97DCF478FD1D1FDB3E0F53F351479B7B12C51C70150D5F4"
+  },
+  {
+    "path": "apps/web/App.tsx",
+    "sha256": "F996BCC5CAF8CBFF7657595FE3E91EC244756BB842B9968178EA90933D8EF942"
+  },
+  {
+    "path": "tests/unit/financial-review.test.ts",
+    "sha256": "61C51DB77DE8CB221D1C0F55BFB7E95B2B4B7BE5ECD3B4B5573311036E84E067"
+  },
+  {
+    "path": "tests/unit/document-snapshot.test.ts",
+    "sha256": "8F548217A5EE742113E7F775F0D59732057AB6E8CCDF00BAC9FF46F68A399C45"
+  },
+  {
+    "path": "tests/e2e/document-snapshot.e2e.test.ts",
+    "sha256": "BCB3475375DC8701F48E8662F9B3738E2021D27D18E8F6A7188F0E1895137BFD"
+  }
+]

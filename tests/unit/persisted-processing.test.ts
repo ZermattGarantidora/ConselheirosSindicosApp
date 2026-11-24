@@ -138,7 +138,11 @@ describe("adaptadores persistidos de documentos", () => {
     await idleQueue.fail?.(job);
     await createPostgresProcessingJobQueue(failedFixture.pool).fail?.(job);
     expect(
-      failedFixture.queries.some((query) => query.includes("processing_status = 'failed'"))
+      failedFixture.queries.some(
+        (query) =>
+          query.includes("processing_status = CASE WHEN jobs.status = 'failed' THEN 'failed'") &&
+          query.includes("ELSE 'processing' END")
+      )
     ).toBe(true);
   });
 
@@ -299,6 +303,8 @@ describe("adaptadores persistidos de documentos", () => {
 
   it("persiste o embedding OpenAI da descrição separado do perfil local no mesmo chunk do condomínio", async () => {
     const embeddingProfiles: unknown[] = [];
+    const embeddingScopes: unknown[] = [];
+    const embeddingChunkIds: unknown[] = [];
     const fixture = createFakePool((sql, values) => {
       if (sql.includes("SELECT 1 AS active")) {
         return result([
@@ -310,7 +316,12 @@ describe("adaptadores persistidos de documentos", () => {
         ] as never[]);
       }
       if (sql.includes("INSERT INTO app.document_chunk_embeddings")) {
-        embeddingProfiles.push(values[3]);
+        expect(values.length % 11).toBe(0);
+        for (let offset = 0; offset < values.length; offset += 11) {
+          embeddingProfiles.push(values[offset + 3]);
+          embeddingScopes.push(values[offset]);
+          embeddingChunkIds.push(values[offset + 2]);
+        }
       }
       return result([], 1);
     });
@@ -371,6 +382,9 @@ describe("adaptadores persistidos de documentos", () => {
 
     expect(embeddingProfiles).toHaveLength(2);
     expect(embeddingProfiles).toContain(openAiImageEmbeddingProfile.embeddingProfile);
+    expect(new Set(embeddingProfiles).size).toBe(2);
+    expect(embeddingScopes).toEqual([condominiumId, condominiumId]);
+    expect(new Set(embeddingChunkIds).size).toBe(1);
     expect(fixture.queries.some((sql) => sql.includes("INSERT INTO app.document_chunks"))).toBe(
       true
     );

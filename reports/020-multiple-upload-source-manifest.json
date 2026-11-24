@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "path": "apps/web/App.tsx",
+      "sha256": "89639f1532d91871ae70302a3d4dff43f96d84657182e659fa14f3978f13324a"
+    },
+    {
+      "path": "apps/web/styles.css",
+      "sha256": "a314b97bc37a9a160c36cd40ac9329102544cb2441e86e36b6061c6dc046bef5"
+    },
+    {
+      "path": "apps/web/document-upload-batch.ts",
+      "sha256": "9aface8da8cfcc475e8519cddc770396fcd52bf24c8c1e9c0aba0299be2c5ad5"
+    },
+    {
+      "path": "apps/web/ChatDocumentAttachments.tsx",
+      "sha256": "23ab30b9d9e32fc1251151cac631155bad966288676e1ec3ec4d65aeef30581c"
+    },
+    {
+      "path": "tests/unit/document-upload-batch.test.ts",
+      "sha256": "a8ae11fad5e82dbdc551d32446700c531c641532a924616d8d78aaea5b01180b"
+    },
+    {
+      "path": "tests/e2e/document-upload-batch.e2e.test.ts",
+      "sha256": "ce019df160db41f3a66a290d91a7b2f13c15a06f5c58c3250751e37600cf4ddf"
+    },
+    {
+      "path": "tests/unit/chat-document-upload-ui.test.ts",
+      "sha256": "a4c0a1da3a219a5e4f619328909776aecc01378934dd9d57db834d5344d33f03"
+    },
+    {
+      "path": "tests/unit/account-menu-ui.test.ts",
+      "sha256": "1da652f1ad4b8670c31cd25e4eed6edff418dca07986a3b169d33d95da6a1298"
+    }
+  ]
+}

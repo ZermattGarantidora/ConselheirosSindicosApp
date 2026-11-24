@@ -4,7 +4,8 @@ import { expect } from "vitest";
 export async function expectDocumentReady(
   app: FastifyInstance,
   documentVersionId: string,
-  condominiumId = "alameda"
+  condominiumId = "alameda",
+  headers: Readonly<Record<string, string>> = { "x-development-user-id": "sindico-demo" }
 ): Promise<void> {
   await expect
     .poll(
@@ -12,7 +13,7 @@ export async function expectDocumentReady(
         const catalog = await app.inject({
           method: "GET",
           url: `/v1/condominiums/${condominiumId}/documents`,
-          headers: { "x-development-user-id": "sindico-demo" }
+          headers
         });
         expect(catalog.statusCode).toBe(200);
         return catalog

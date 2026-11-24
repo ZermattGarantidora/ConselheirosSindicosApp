@@ -52,8 +52,37 @@ jobs:
       - name: Run documentary evals
         run: pnpm run evals:documentary
 
+      - name: Prepare authoring homologation with synthetic contracts
+        run: pnpm run evals:authoring:homologation
+
+      - name: Lint authoring homologation instruments
+        run: pnpm exec eslint --no-ignore evals/authoring-homologation
+
+      - name: Upload authoring homologation review packet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authoring-homologation-${{ github.sha }}
+          path: |
+            reports/authoring-homologation-synthetic.json
+            reports/authoring-homologation-reviewer-packet.json
+            reports/authoring-homologation-review-form.template.json
+            reports/authoring-homologation.junit.xml
+          if-no-files-found: error
+
       - name: Check synthetic semantic replay contracts
         run: pnpm run evals:documentary:semantic --synthetic
+
+      - name: Check conversation replay contracts
+        run: pnpm run evals:conversations --synthetic
+
+      - name: Upload conversation review packet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conversation-review-${{ github.sha }}
+          path: reports/conversations-synthetic.json
+          if-no-files-found: error
 
       - name: Upload synthetic review packet
         if: always()

@@ -1,5 +1,6 @@
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 import type { DocumentCondominiumCheck } from "./document-condominium-check.js";
+import type { DocumentExtractionSummary } from "./document-processing.js";
 import type {
   DocumentExtractionMethod,
   DocumentMediaType,
@@ -14,6 +15,7 @@ export type RegisteredDocument = Readonly<{
   documentVersionId: string;
   title: string;
   documentType: DocumentType;
+  isFinancialStatement?: boolean;
   versionNumber: number;
   sizeBytes: number;
   mediaType?: DocumentMediaType;
@@ -50,6 +52,7 @@ export interface DocumentCatalogRepository {
       documentVersionId: string;
       processingStatus: DocumentProcessingStatus;
       condominiumCheck?: DocumentCondominiumCheck;
+      extractionSummary?: DocumentExtractionSummary;
     }>
   ): Promise<void>;
   confirmCondominium?(

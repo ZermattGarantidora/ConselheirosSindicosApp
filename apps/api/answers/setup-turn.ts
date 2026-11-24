@@ -1,4 +1,5 @@
 import type { AnswerGateway } from "./answer-gateway.js";
+import { nextSetupField, setupReplyIssue } from "./setup-turn-flow.js";
 
 export const setupTurnStages = [
   "manager_name",
@@ -193,42 +194,77 @@ function validatedUpdate(
   }
 }
 
-export async function interpretSetupTurn(
-  gateway: AnswerGateway | undefined,
-  request: SetupTurnRequest
-): Promise<SetupTurnResult> {
-  if (gateway === undefined) throw new Error("A Alvitra está indisponível no momento.");
-  const result = await gateway.generate({
-    question: JSON.stringify({
-      stage: request.stage,
-      expectedField: request.stage,
-      currentMessage: request.message,
-      recentHistory: request.history,
-      confirmedData: {
-        managerName: request.managerName ?? null,
-        condominiumName: request.condominiumName ?? null,
-        condominiumCount: request.condominiumCount ?? null,
-        condominiumIndex: request.condominiumIndex ?? null,
-        hasExistingContext: request.hasExistingContext ?? false
-      }
-    }),
-    task: "setup_turn",
-    riskClass: "low",
-    evidence: [],
-    budget: { maximumOutputTokens: 500, maximumCostMicrounits: 100_000 }
-  });
+function validatedResult(answer: string, stage: SetupTurnStage): SetupTurnResult {
   try {
-    const output = parsedProviderOutput(result.output.answer);
+    const output = parsedProviderOutput(answer);
     if (typeof output.intent !== "string" || !intents.includes(output.intent as SetupTurnIntent))
       throw new Error("A intenção interpretada é inválida.");
     const intent = output.intent as SetupTurnIntent;
     if ((output.field === null) !== (output.value === null))
       throw new Error("A atualização interpretada está incompleta.");
-    const update = validatedUpdate(output, intent, request.stage);
+    const update = validatedUpdate(output, intent, stage);
     return Object.freeze({ message: plainReply(output.reply), intent, update });
   } catch (error: unknown) {
     throw new InvalidSetupInterpretationError(
       error instanceof Error ? error.message : "A interpretação da conversa é inválida."
     );
   }
+}
+
+export async function interpretSetupTurn(
+  gateway: AnswerGateway | undefined,
+  request: SetupTurnRequest
+): Promise<SetupTurnResult> {
+  if (gateway === undefined) throw new Error("A Alvitra está indisponível no momento.");
+  const turn = {
+    stage: request.stage,
+    expectedField: request.stage,
+    currentMessage: request.message,
+    recentHistory: request.history,
+    confirmedData: {
+      managerName: request.managerName ?? null,
+      condominiumName: request.condominiumName ?? null,
+      condominiumCount: request.condominiumCount ?? null,
+      condominiumIndex: request.condominiumIndex ?? null,
+      hasExistingContext: request.hasExistingContext ?? false
+    },
+    nextFieldByUpdate: Object.fromEntries(
+      fields
+        .filter((field) => fieldAllowedAtStage(field, request.stage))
+        .map((field) => [field, nextSetupField(request, field)])
+    )
+  };
+  const generate = async (replyRepair?: Readonly<Record<string, unknown>>) => {
+    const result = await gateway.generate({
+      question: JSON.stringify({ ...turn, ...(replyRepair ? { replyRepair } : {}) }),
+      task: "setup_turn",
+      riskClass: "low",
+      evidence: [],
+      budget: { maximumOutputTokens: 500, maximumCostMicrounits: 100_000 }
+    });
+    return validatedResult(result.output.answer, request.stage);
+  };
+  const result = await generate();
+  if (result.update === null) return result;
+  const nextField = nextSetupField(request, result.update.field);
+  const issue = setupReplyIssue(result.message, nextField);
+  if (issue === null) return result;
+  const repaired = await generate({
+    issue,
+    nextField,
+    requiredIntent: result.intent,
+    requiredUpdate: result.update,
+    previousReply: result.message,
+    instruction:
+      "Reescreva somente reply para perguntar pelo próximo campo pendente, sem anunciar conclusão. Preserve intent, field e value; devolva as mesmas quatro chaves do contrato."
+  });
+  if (
+    repaired.intent !== result.intent ||
+    repaired.update?.field !== result.update.field ||
+    repaired.update.value !== result.update.value
+  )
+    throw new InvalidSetupInterpretationError("A reparação alterou o dado interpretado.");
+  if (setupReplyIssue(repaired.message, nextField) !== null)
+    throw new InvalidSetupInterpretationError("A fala não contém a próxima pergunta válida.");
+  return repaired;
 }

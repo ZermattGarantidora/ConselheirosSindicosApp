@@ -1,5 +1,8 @@
 # Critérios de aceitação — Spec 016
 
+> A Spec 068 substitui os critérios de entrada por nome e saída da demonstração por
+> código fornecido, sessão persistente e conexão de aparelhos pelo Perfil (05/11/2026).
+
 ## AC-1601 — Entrar antes do chat
 
 **Dado** que a pessoa acessa a raiz do aplicativo  
@@ -55,3 +58,11 @@ configurações ou painel administrativo
 **Quando** a conversa é usada  
 **Então** histórico e compositor permanecem legíveis  
 **E** anexar, remover anexo, enviar, abrir fonte e avaliar resposta funcionam por teclado e toque.
+
+## AC-1608 — Reduzir a tipografia das falas da Alvitra em 10%
+
+**Dado** que a conversa mostra uma fala da Alvitra ou uma orientação de resposta  
+**Quando** o texto é renderizado em qualquer largura suportada  
+**Então** os limites da escala tipográfica anterior são multiplicados por 0,9 (`clamp(18.9px, 2.7vw, 25.2px)`)  
+**E** texto do síndico, controles e avisos operacionais mantêm seus tamanhos atuais  
+**E** o conteúdo permanece legível e sem transbordamento a partir de 320 px.

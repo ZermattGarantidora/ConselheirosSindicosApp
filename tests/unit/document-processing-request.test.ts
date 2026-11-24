@@ -7,6 +7,42 @@ import {
 import { loadDocumentOriginal } from "../../apps/web/DocumentViewer.js";
 
 describe("mensagem e anexo no mesmo envio", () => {
+  it("AC-4501/4502: confirma recepção e entrega o resumo mesmo sem pergunta", async () => {
+    const order: string[] = [];
+    const ask = vi.fn();
+    await sendDocumentMessage({
+      message: " ",
+      receive: async () => {
+        order.push("recebido");
+      },
+      acknowledge: async () => {
+        order.push("confirmado antes da leitura");
+      },
+      waitUntilProcessed: async () => {
+        order.push("resumo automático");
+        return "ready";
+      },
+      ask
+    });
+    expect(order).toEqual(["recebido", "confirmado antes da leitura", "resumo automático"]);
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("AC-4501: falha da confirmação não interrompe leitura nem pergunta", async () => {
+    const waitUntilProcessed = vi.fn(async () => "ready" as const);
+    const ask = vi.fn();
+    await sendDocumentMessage({
+      message: "Pergunta original",
+      receive: async () => {},
+      acknowledge: async () => {
+        throw new Error("provedor indisponível");
+      },
+      waitUntilProcessed,
+      ask
+    });
+    expect(waitUntilProcessed).toHaveBeenCalledOnce();
+    expect(ask).toHaveBeenCalledWith("Pergunta original");
+  });
   it("preserva a mensagem e consulta uma vez somente depois da leitura", async () => {
     const order: string[] = [];
     let finish!: () => void;

@@ -9,6 +9,7 @@ import type {
 } from "./document-catalog.js";
 import type { DocumentUploadRepository, UploadedDocumentRecord } from "./upload-document.js";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
+import { identifyFinancialStatement } from "./document-identification.js";
 
 type PoolLike = Pick<Pool, "connect">;
 
@@ -65,6 +66,7 @@ type DocumentCatalogRow = Readonly<{
   storage_object_id: string;
   uploaded_by_current_user: boolean;
   condominium_check?: RegisteredDocument["condominiumCheck"];
+  page_headings?: readonly string[];
 }>;
 
 export function createPostgresDocumentUploadRepository(
@@ -256,6 +258,13 @@ export function createPostgresDocumentUploadRepository(
               version_state.extraction_method,
               version_state.ocr_quality_score,
               version_state.condominium_check,
+              ARRAY(
+                SELECT left(page.extracted_text, 1024)
+                FROM app.document_pages AS page
+                WHERE page.condominium_id = documents.condominium_id
+                  AND page.document_version_id = latest_version.id
+                ORDER BY page.page_number
+              ) AS page_headings,
               latest_version.created_at
             FROM app.documents AS documents
             JOIN LATERAL (
@@ -286,6 +295,11 @@ export function createPostgresDocumentUploadRepository(
               documentVersionId: row.document_version_id,
               title: row.title,
               documentType: row.document_type,
+              ...(identifyFinancialStatement(
+                (row.page_headings ?? []).map((extractedText) => ({ extractedText }))
+              )
+                ? { isFinancialStatement: true }
+                : {}),
               versionNumber: Number(row.version_number),
               sizeBytes: Number(row.size_bytes),
               mediaType: row.media_type ?? "application/pdf",

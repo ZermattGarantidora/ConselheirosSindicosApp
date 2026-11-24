@@ -4,7 +4,7 @@ function escapePdfText(value: string): string {
 
 export function createSyntheticPdf(
   pages: readonly (string | null)[],
-  options: Readonly<{ pageWidth?: number; fontSize?: number }> = {}
+  options: Readonly<{ pageWidth?: number; fontSize?: number; multiline?: boolean }> = {}
 ): Buffer {
   const pageWidth = options.pageWidth ?? 300;
   const fontSize = options.fontSize ?? 12;
@@ -13,16 +13,21 @@ export function createSyntheticPdf(
     `<< /Type /Pages /Kids [${pages.map((_, index) => `${index + 3} 0 R`).join(" ")}] /Count ${pages.length} >>`,
     ...pages.map((_, index) => {
       const contentObjectNumber = pages.length + 3 + index;
-      return `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} 144] /Resources << /Font << /F1 ${pages.length + 3 + pages.length} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
+      return `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${options.multiline === true ? 842 : 144}] /Resources << /Font << /F1 ${pages.length + 3 + pages.length} 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
     }),
     ...pages.map((text) => {
       const stream =
         text === null
           ? "q 0 0 300 144 re S Q"
-          : `BT /F1 ${fontSize} Tf 72 72 Td (${escapePdfText(text)}) Tj ET`;
+          : options.multiline === true
+            ? `BT /F1 ${fontSize} Tf ${fontSize + 4} TL 24 810 Td\n${text
+                .split("\n")
+                .map((line, index) => `${index === 0 ? "" : "T* "}(${escapePdfText(line)}) Tj`)
+                .join("\n")}\nET`
+            : `BT /F1 ${fontSize} Tf 72 72 Td (${escapePdfText(text)}) Tj ET`;
       return `<< /Length ${Buffer.byteLength(stream, "ascii")} >>\nstream\n${stream}\nendstream`;
     }),
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
   ];
   let pdf = "%PDF-1.4\n";
   const offsets = [0];

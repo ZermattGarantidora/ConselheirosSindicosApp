@@ -1,0 +1,52 @@
+name: Pilot operations - synthetic local recovery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: synthetic-local-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install PostgreSQL clients
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client-16
+      - name: Validate preparation without loading secrets
+        run: node scripts/run-tsx.mjs scripts/verify-pilot-preparation.ts
+      - name: Exercise full application restore in disposable local databases
+        env:
+          PILOT_RECOVERY_CONFIRMATION: synthetic-local-only
+          PILOT_RECOVERY_ADMIN_URL: postgresql://postgres:synthetic-local-only@127.0.0.1:5432/postgres
+        run: node scripts/run-tsx.mjs scripts/verify-pilot-recovery.ts
+      - name: Upload aggregate synthetic evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilot-operations-${{ github.sha }}
+          path: .local/pilot-operations/*/result.json
+          if-no-files-found: error
+          include-hidden-files: true

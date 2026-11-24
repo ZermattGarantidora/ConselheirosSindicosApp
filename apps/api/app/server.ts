@@ -1,4 +1,8 @@
 import { Pool } from "pg";
+import { createAccessCodeService } from "../identity/access-code.js";
+import { createLocalAccessCodeService } from "../identity/local-access-code-store.js";
+import { createPostgresAccessCodeStore } from "../identity/postgres-access-code-store.js";
+import { createPostgresConversationStore } from "../answers/postgres-conversation-store.js";
 import { createPostgresDocumentAnalysisReader } from "../analysis/document-analysis-reader.js";
 
 import {
@@ -9,9 +13,15 @@ import { createAnswerService } from "../answers/answer-service.js";
 import { createAnswerUseCase } from "../answers/answer-use-case.js";
 import { createLocalExtractiveGateway } from "../answers/local-extractive-gateway.js";
 import { createOpenAiAnswerGatewayFromEnvironment } from "../answers/openai-answer-gateway.js";
+import {
+  createCodexAnswerGatewayFromEnvironment,
+  createCodexDocumentBatchGatewayFromEnvironment,
+  type CodexDiagnostic
+} from "../answers/codex-answer-gateway.js";
 import { createGeminiAnswerGatewayFromEnvironment } from "../answers/gemini-answer-gateway.js";
 import { createInMemoryAnswerPersistence } from "../answers/in-memory-answer-persistence.js";
 import { createPostgresAnswerPersistence } from "../answers/postgres-answer-persistence.js";
+import { chatSessionConnectionString } from "../answers/chat-session-connection.js";
 import { createApi } from "./create-api.js";
 import { createPostgresChatRepository } from "../chats/postgres-chat-repository.js";
 import { createPostgresDocumentUploadRepository } from "../documents/postgres-document-upload-repository.js";
@@ -21,11 +31,8 @@ import type { RegisteredDocument } from "../documents/document-catalog.js";
 import { createDevelopmentDocumentUploadRepository } from "../documents/development-document-upload-repository.js";
 import { createPostgresPrivateDocumentStorage } from "../documents/postgres-private-document-storage.js";
 import { createPostgresDocumentRetentionRepository } from "../documents/postgres-document-retention-repository.js";
-import { unavailableOcrAdapter } from "../documents/ocr-quality.js";
-import { createOpenAiImageAnalysisAdapterFromEnvironment } from "../documents/openai-image-analysis.js";
-import { createGeminiImageAnalysisAdapterFromEnvironment } from "../documents/gemini-image-analysis.js";
-import { createOpenAiImageEmbeddingAdapterFromEnvironment } from "../retrieval/openai-image-embedding.js";
-import { createGeminiMultimodalEmbeddingAdapterFromEnvironment } from "../retrieval/gemini-multimodal-embedding.js";
+import { createHostedDocumentProcessingAdapters } from "../documents/hosted-document-processing.js";
+import { deniedApiOperationControl } from "./operation-control.js";
 import {
   createDevelopmentDocumentSourceReader,
   createPostgresDocumentSourceReader
@@ -55,6 +62,7 @@ import { registerWebAssets } from "./web-assets.js";
 import { createDemoWorkAdmission } from "../operations/demo-work-admission.js";
 import { startMemoryDiagnostics } from "../operations/memory-diagnostics.js";
 import { createVerifiedLegalLibrary } from "../legislation/verified-legal-library.js";
+import { createDemoWebResearchFromEnvironment } from "../answers/demo-web-research.js";
 import { createPostgresLegalCopyReader } from "../legislation/postgres-legal-copy-reader.js";
 
 function attachMemoryDiagnostics(
@@ -85,6 +93,16 @@ function listeningPort(fallbackPort: number, environment: NodeJS.ProcessEnv): nu
   return Number.isInteger(value) && value > 0 && value <= 65_535 ? value : fallbackPort;
 }
 
+function logCodexDiagnostic(diagnostic: CodexDiagnostic): void {
+  if (diagnostic.code === "codex_completed") return;
+  console.error("Falha controlada no gateway Codex", {
+    code: diagnostic.code,
+    stage: diagnostic.stage,
+    latencyMs: diagnostic.latencyMs,
+    ...(diagnostic.protocol === undefined ? {} : { protocol: diagnostic.protocol })
+  });
+}
+
 export async function startServer(
   port = 3000,
   environment: NodeJS.ProcessEnv = process.env
@@ -99,17 +117,32 @@ export async function startServer(
   const useDevelopmentRuntime = demoMode || databaseUrl === undefined || databaseUrl.length === 0;
   const demoSeedDocuments = environment.DEMO_SEED_DOCUMENTS?.trim().toLowerCase() === "true";
   const googleOAuth = demoMode ? undefined : createGoogleOAuthFromEnvironment(environment);
-  const openAiGateway = createOpenAiAnswerGatewayFromEnvironment(environment);
-  const geminiGateway = createGeminiAnswerGatewayFromEnvironment(environment);
+  const codexGateway = createCodexAnswerGatewayFromEnvironment(environment, logCodexDiagnostic);
+  const demoWebResearchGateway = createDemoWebResearchFromEnvironment(environment);
+  const openAiGateway =
+    codexGateway === undefined ? createOpenAiAnswerGatewayFromEnvironment(environment) : undefined;
+  const geminiGateway =
+    codexGateway === undefined ? createGeminiAnswerGatewayFromEnvironment(environment) : undefined;
   const configuredAnswerGateway =
-    openAiGateway !== undefined && geminiGateway !== undefined
+    codexGateway ??
+    (openAiGateway !== undefined && geminiGateway !== undefined
       ? createProviderFallbackAnswerGateway(openAiGateway, geminiGateway)
-      : (openAiGateway ?? geminiGateway);
+      : (openAiGateway ?? geminiGateway));
   const localAnswerGateway = createLocalSyntheticAnswerGateway();
   const answerGateway = configuredAnswerGateway ?? localAnswerGateway;
   const setupMessageGateway = configuredAnswerGateway;
+  const codexDocumentBatchGateway = createCodexDocumentBatchGatewayFromEnvironment(
+    environment,
+    logCodexDiagnostic
+  );
   const aiProvider =
-    openAiGateway !== undefined ? "openai" : geminiGateway !== undefined ? "gemini" : "local";
+    codexGateway !== undefined
+      ? "codex"
+      : openAiGateway !== undefined
+        ? "openai"
+        : geminiGateway !== undefined
+          ? "gemini"
+          : "local";
 
   if ((databaseUrl === undefined || databaseUrl.length === 0) && !demoMode) {
     throw new Error(
@@ -210,7 +243,15 @@ export async function startServer(
     );
     const developmentDocumentRepository =
       createDevelopmentDocumentUploadRepository(developmentDocuments);
+    const seededSourceReader = createDevelopmentDocumentSourceReader(seededDevelopmentChunks);
+    const uploadSourceReader = developmentDocumentMemory.createSourceReader(
+      developmentDocumentRepository
+    );
     const app = createApi({
+      accessCodeAuth: await createLocalAccessCodeService(
+        environment.ACCESS_CODE_DIRECTORY?.trim() || ".local/access-codes"
+      ),
+      secureCookies: environment.APP_ENV?.trim().toLowerCase() === "production",
       membershipRepository: developmentMembershipRegistry,
       developmentMembershipRegistry,
       condominiumProfileRepository,
@@ -223,20 +264,29 @@ export async function startServer(
       documentCatalogRepository: developmentDocumentRepository,
       aiProvider,
       ...(setupMessageGateway === undefined ? {} : { setupMessageGateway }),
+      ...(codexDocumentBatchGateway === undefined ? {} : { codexDocumentBatchGateway }),
       answerUseCase: createAnswerUseCase({
         retriever: createScopedTextRetriever(
           legalLibrary.composeIndex(developmentDocumentMemory.index)
         ),
         gateway: answerGateway,
-        persistence: createInMemoryAnswerPersistence()
+        ...(demoWebResearchGateway === undefined ? {} : { demoWebResearchGateway }),
+        persistence: createInMemoryAnswerPersistence(),
+        onValidationFailure: (diagnostic) =>
+          console.error("Falha controlada na validação da resposta", diagnostic)
       }),
       retriever: createScopedTextRetriever(
         legalLibrary.composeIndex(createDevelopmentScopedRetrievalIndex(seededDevelopmentChunks))
       ),
       answerService: createAnswerService(createLocalExtractiveGateway()),
-      documentSourceReader: legalLibrary.composeReader(
-        createDevelopmentDocumentSourceReader(seededDevelopmentChunks)
-      )
+      documentSourceReader: legalLibrary.composeReader({
+        async getAuthorizedPage(context, input) {
+          return (
+            (await uploadSourceReader.getAuthorizedPage(context, input)) ??
+            (await seededSourceReader.getAuthorizedPage(context, input))
+          );
+        }
+      })
     });
     attachMemoryDiagnostics(app, environment);
     if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
@@ -245,25 +295,28 @@ export async function startServer(
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
+  const chatSessionPool = new Pool({
+    connectionString: chatSessionConnectionString(databaseUrl),
+    max: 10,
+    connectionTimeoutMillis: 5_000
+  });
   const accountActionDelivery = createAccountActionDeliveryFromEnvironment(environment);
   const accountSecurity = createPostgresAccountSecurity(
     pool,
     createAccountSecretCipherFromEnvironment(environment)
   );
   const documentStorage = createPostgresPrivateDocumentStorage(pool);
-  const imageAnalysisAdapter =
-    createOpenAiImageAnalysisAdapterFromEnvironment(environment) ??
-    createGeminiImageAnalysisAdapterFromEnvironment(environment);
-  const imageEmbeddingAdapter =
-    createOpenAiImageEmbeddingAdapterFromEnvironment(environment) ??
-    createGeminiMultimodalEmbeddingAdapterFromEnvironment(environment);
+  // Nenhuma chave/flag autoriza transferência real nesta preparação (Spec 071/ADR 0043).
+  const hostedDocuments = createHostedDocumentProcessingAdapters();
+  const imageAnalysisAdapter = hostedDocuments.imageAnalysisAdapter;
+  const imageEmbeddingAdapter = undefined;
   const embeddedDocumentWorker =
     environment.DOCUMENT_WORKER_IN_API?.trim().toLowerCase() === "true";
   const processingQueue = createPostgresProcessingJobQueue(pool);
   const documentProcessor = createScopedPostgresDocumentProcessor(
     pool,
     documentStorage,
-    unavailableOcrAdapter,
+    hostedDocuments.ocrAdapter,
     imageAnalysisAdapter,
     imageEmbeddingAdapter
   );
@@ -272,10 +325,9 @@ export async function startServer(
     const currentRun = processingChain.then(async () => {
       await drainProcessingQueue(processingQueue, documentProcessor);
     });
-    processingChain = currentRun.catch((error: unknown) => {
+    processingChain = currentRun.catch(() => {
       console.error("Falha no processamento documental em segundo plano", {
-        name: error instanceof Error ? error.name : "UnknownError",
-        message: error instanceof Error ? error.message : "Erro desconhecido"
+        code: "document_processing_failed"
       });
     });
     return processingChain;
@@ -285,14 +337,24 @@ export async function startServer(
   const purgeExpiredDocuments = async (): Promise<void> => {
     try {
       await documentRetentionRepository.purgeExpiredDocuments();
-    } catch (error) {
+    } catch {
       console.error("Falha na retenção documental em segundo plano", {
-        name: error instanceof Error ? error.name : "UnknownError"
+        code: "document_retention_failed"
       });
     }
   };
   const app = createApi({
+    operationControl: deniedApiOperationControl,
+    ...(environment.ACCESS_CODE_SECRET === undefined
+      ? {}
+      : {
+          accessCodeAuth: createAccessCodeService(
+            createPostgresAccessCodeStore(pool),
+            environment.ACCESS_CODE_SECRET
+          )
+        }),
     membershipRepository: createPostgresMembershipRepository(pool),
+    conversationStore: createPostgresConversationStore(pool),
     chatRepository: createPostgresChatRepository(pool),
     accountAuth: createPostgresAccountAuth(pool),
     accountSecurity,
@@ -305,6 +367,7 @@ export async function startServer(
     aiProvider,
     legalCopyReader: createPostgresLegalCopyReader(pool),
     ...(setupMessageGateway === undefined ? {} : { setupMessageGateway }),
+    ...(codexDocumentBatchGateway === undefined ? {} : { codexDocumentBatchGateway }),
     documentStorage,
     imageUploadsEnabled: imageAnalysisAdapter !== undefined && imageEmbeddingAdapter !== undefined,
     documentAnalysisReader: createPostgresDocumentAnalysisReader(pool),
@@ -316,7 +379,9 @@ export async function startServer(
         createPostgresScopedRetrievalIndex(pool, undefined, imageEmbeddingAdapter)
       ),
       gateway: answerGateway,
-      persistence: createPostgresAnswerPersistence(pool)
+      persistence: createPostgresAnswerPersistence(pool, chatSessionPool),
+      onValidationFailure: (diagnostic) =>
+        console.error("Falha controlada na validação da resposta", diagnostic)
     }),
     retriever: createScopedTextRetriever(
       createPostgresScopedRetrievalIndex(pool, undefined, imageEmbeddingAdapter)
@@ -349,6 +414,7 @@ export async function startServer(
     }
     clearInterval(documentRetentionTimer);
     await processingChain;
+    await chatSessionPool.end();
     await pool.end();
   });
   await app.listen(listeningOptions);

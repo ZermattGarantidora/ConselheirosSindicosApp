@@ -22,26 +22,27 @@ function normalizeText(value: string): string {
     .trim();
 }
 
-function features(content: string): readonly string[] {
+function* features(content: string): Generator<string> {
   const normalized = normalizeText(content);
   const words = normalized.split(/[^\p{L}\p{N}]+/gu).filter((word) => word.length > 1);
-  const ngrams = [...normalized].flatMap((_, index, characters) => {
-    if (index + 3 > characters.length) {
-      return [];
-    }
-    return [`char:${characters.slice(index, index + 3).join("")}`];
-  });
-
-  return Object.freeze([...words.map((word) => `word:${word}`), ...ngrams]);
+  for (const word of words) yield `word:${word}`;
+  const characters = [...normalized];
+  for (let index = 0; index + 3 <= characters.length; index += 1) {
+    yield `char:${characters[index]}${characters[index + 1]}${characters[index + 2]}`;
+  }
 }
 
 function vectorFor(content: string): readonly number[] {
   const vector = new Array<number>(dimensions).fill(0);
+  const counts = new Map<string, number>();
   for (const feature of features(content)) {
+    counts.set(feature, (counts.get(feature) ?? 0) + 1);
+  }
+  for (const [feature, count] of counts) {
     const digest = createHash("sha256").update(feature).digest();
     const index = digest.readUInt32BE(0) % dimensions;
     const sign = digest[4] !== undefined && digest[4] % 2 === 0 ? 1 : -1;
-    vector[index] = (vector[index] ?? 0) + sign;
+    vector[index] = (vector[index] ?? 0) + sign * count;
   }
 
   const norm = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));

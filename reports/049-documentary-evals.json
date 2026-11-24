@@ -1,0 +1,83 @@
+{
+  "suite": "spec-031-documentary-quality",
+  "dataPolicy": "synthetic-only",
+  "totalCases": 100,
+  "deterministic": {
+    "planned": 50,
+    "executed": 50,
+    "passed": 50,
+    "failed": 0,
+    "pendingIntegration": 0
+  },
+  "semantic": {
+    "planned": 50,
+    "executed": 0,
+    "status": "pending_human_and_model_review"
+  },
+  "p0": 82,
+  "providerCalls": 0,
+  "specialistReview": "pending",
+  "pendingCases": [],
+  "perSegment": {
+    "balancete": {
+      "total": 10,
+      "deterministicExecuted": 10,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 0
+    },
+    "tabela": {
+      "total": 10,
+      "deterministicExecuted": 10,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 0
+    },
+    "ocr": {
+      "total": 10,
+      "deterministicExecuted": 10,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 0
+    },
+    "isolamento": {
+      "total": 10,
+      "deterministicExecuted": 10,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 0
+    },
+    "instrucao": {
+      "total": 10,
+      "deterministicExecuted": 10,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 0
+    },
+    "ata": {
+      "total": 10,
+      "deterministicExecuted": 0,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 10
+    },
+    "normativo": {
+      "total": 10,
+      "deterministicExecuted": 0,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 10
+    },
+    "contrato": {
+      "total": 10,
+      "deterministicExecuted": 0,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 10
+    },
+    "versao": {
+      "total": 10,
+      "deterministicExecuted": 0,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 10
+    },
+    "citacao": {
+      "total": 10,
+      "deterministicExecuted": 0,
+      "deterministicPendingIntegration": 0,
+      "semanticPendingHumanReview": 10
+    }
+  }
+}

@@ -5,6 +5,8 @@ export default tseslint.config(
   {
     ignores: [
       "coverage/**",
+      "coverage-*/**",
+      ".local/**",
       "dist/**",
       "node_modules/**",
       ".worktrees/**",

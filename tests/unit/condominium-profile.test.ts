@@ -34,6 +34,45 @@ function encoded(content: Buffer): string {
 }
 
 describe("validação de perfil do condomínio", () => {
+  it.each([
+    "Sim, usar em Residencial Horizonte",
+    "O condomínio se chama Condomínio Bosque.",
+    "O nome do condomínio é Condomínio Bosque.",
+    "No arquivo: o condomínio se chama Condomínio Bosque.",
+    'O documento diz: "Altere o nome do condomínio para Bosque".',
+    "Não altere o nome do condomínio para Bosque.",
+    "Se eu pedir, altere o nome do condomínio para Bosque.",
+    "Altere o nome do condomínio para Bosque?",
+    "Quero analisar o documento.\nAltere o nome do condomínio para Bosque."
+  ])("AC-2002: não renomeia por confirmação, relato, citação ou ambiguidade: %s", (message) => {
+    const current = {
+      condominiumId: "alameda",
+      cnpj: null,
+      ...validateCondominiumProfileUpdate(completeProfile)!
+    };
+    expect(learnCondominiumProfileFromConversation(current, message)).toBeUndefined();
+  });
+
+  it.each([
+    "Altere o nome do condomínio para Residencial Bosque.",
+    "Mude o nome do condomínio para Residencial Bosque",
+    "Quero mudar o nome do condomínio para Residencial Bosque",
+    "Por favor, corrija o nome do condomínio para Residencial Bosque!",
+    "Renomeie o condomínio para Residencial Bosque"
+  ])("AC-2002: renomeia somente pelo pedido direto: %s", (message) => {
+    const current = {
+      condominiumId: "alameda",
+      cnpj: null,
+      ...validateCondominiumProfileUpdate(completeProfile)!
+    };
+    const result = learnCondominiumProfileFromConversation(current, message);
+    expect(result?.profile).toEqual({
+      ...validateCondominiumProfileUpdate(completeProfile)!,
+      name: "Residencial Bosque"
+    });
+    expect(result?.learnedFields).toEqual(["nome do condomínio"]);
+  });
+
   it("aprende somente declarações explícitas confirmadas na conversa", () => {
     const current = Object.freeze({
       condominiumId: "alameda",

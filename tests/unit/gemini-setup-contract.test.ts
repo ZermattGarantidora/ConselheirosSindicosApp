@@ -11,13 +11,20 @@ const cases: readonly { stage: SetupTurnStage; value: string | number | null }[]
   { stage: "manager_name", value: null }
 ];
 
+const replies: Record<SetupTurnStage, string> = {
+  manager_name: "Quantos condomínios você administra?",
+  condominium_count: "Qual é o nome do primeiro condomínio?",
+  condominium_name: "Quantos apartamentos há nesse condomínio?",
+  unit_count: "Contexto salvo. Envie os documentos relevantes para eu conhecer o condomínio."
+};
+
 describe("contrato de transporte da configuração Gemini", () => {
   it.each(cases)("solicita JSON estrito para $stage/$value", async ({ stage, value }) => {
     const output = {
       intent: value === null ? "question" : "answer",
       field: value === null ? null : stage,
       value,
-      reply: "Qual é a próxima informação que deseja confirmar?"
+      reply: value === null ? "Como prefere que eu te chame?" : replies[stage]
     };
     const fetch = vi.fn<typeof globalThis.fetch>(async (_url, options) => {
       const body = JSON.parse(String(options?.body));

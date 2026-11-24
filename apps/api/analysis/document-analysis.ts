@@ -25,6 +25,21 @@ export type DocumentAnalysisReport = Readonly<{
   title: string;
   rows: readonly DocumentAnalysisRow[];
   limitations: readonly string[];
+  financialReview?: Readonly<{
+    checks: readonly FinancialReviewCheck[];
+    priorityCheckIds: readonly string[];
+  }>;
+}>;
+
+export type FinancialReviewCheck = Readonly<{
+  id: string;
+  title: string;
+  status: "ok" | "atenção" | "não foi possível verificar";
+  detail: string;
+  summary?: string;
+  citations: readonly AnswerCitation[];
+  missingDocuments: readonly string[];
+  nextSteps: readonly string[];
 }>;
 
 export function isDocumentAnalysisRequest(question: string): boolean {

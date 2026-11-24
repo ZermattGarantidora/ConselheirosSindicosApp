@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { AuthorizedCondominiumContext } from "../identity/authorized-condominium-context.js";
 import type { DocumentMediaType, DocumentType } from "./document-model.js";
 import type { PrivateDocumentStorage } from "./private-document-storage.js";
+import { docxMediaType, extractDocxText } from "./extract-docx-text.js";
 
 export const maximumPdfUploadBytes = 25 * 1024 * 1024;
 export const maximumImageUploadBytes = 10 * 1024 * 1024;
@@ -125,13 +126,23 @@ function hasJpegStructure(content: Buffer): boolean {
   return hasFrame && hasScan && content.indexOf(Buffer.from([0xff, 0xd9]), offset) >= offset;
 }
 
-function assertDocumentContent(content: Buffer, mediaType: DocumentMediaType): void {
+export function assertDocumentContent(content: Buffer, mediaType: DocumentMediaType): void {
   const isTooLarge =
     mediaType === "application/pdf"
       ? content.length > maximumPdfUploadBytes
       : content.length > maximumImageUploadBytes;
   if (content.length === 0 || isTooLarge) {
     throw new InvalidDocumentUploadError("O arquivo excede o limite permitido ou está vazio.");
+  }
+  if (mediaType === docxMediaType) {
+    try {
+      extractDocxText(content);
+    } catch {
+      throw new InvalidDocumentUploadError(
+        "Word inválido, protegido ou fora dos limites de leitura segura."
+      );
+    }
+    return;
   }
   const valid =
     mediaType === "application/pdf"

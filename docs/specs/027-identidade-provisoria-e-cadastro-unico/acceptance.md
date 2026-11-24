@@ -1,5 +1,8 @@
 # Critérios de aceitação — Spec 027
 
+> A Spec 068 substitui os critérios de entrada por nome e saída da demonstração por
+> código fornecido, sessão persistente e conexão de aparelhos pelo Perfil (05/11/2026).
+
 ## AC-2707 — Apelido alfanumérico e diagnóstico correto
 
 Quando a pessoa confirma que prefere ser chamada de `teste4`, a interpretação estruturada é aceita,

@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import type { RetrievalEvidence } from "../../retrieval/retrieval-contract.js";
+import { literalSentences } from "../../answers/literal-sentences.js";
+import { lexicalScore } from "../../retrieval/text-retrieval.js";
 
 export type DocumentInstructionScreening = Readonly<{
   safeEvidence: readonly RetrievalEvidence[];
@@ -8,7 +10,7 @@ export type DocumentInstructionScreening = Readonly<{
 }>;
 
 const hostileInstructions = [
-  /\bignore\s+(?:as\s+)?(?:regras|instrucoes|permissoes)\b/u,
+  /\bignore\s+(?:(?:as|o)\s+)?(?:regras|instrucoes|permissoes|sistema)\b/u,
   /\b(?:revele|divulgue|exponha)\b[\s\S]{0,100}\b(?:segredo|senha|token|chave)\b/u,
   /\b(?:apague|exclua|delete)\b[\s\S]{0,100}\bhistorico\s+(?:de\s+|das?\s+)?(?:respostas|conversas?|chat)\b/u,
   /\b(?:alvitra|assistente|modelo|chatgpt|assistant|system)\b[\s\S]{0,100}\b(?:envie|contate|chame|execute|apague|exclua|delete)\b/u,
@@ -24,10 +26,13 @@ export function containsHostileInstruction(content: string): boolean {
 }
 
 /** Preserva somente fatias literais independentes; nunca monta uma nova fonte. */
-function declarativeFragments(item: RetrievalEvidence): readonly RetrievalEvidence[] {
+function declarativeFragments(
+  item: RetrievalEvidence,
+  question: string
+): readonly RetrievalEvidence[] {
   const fragments: RetrievalEvidence[] = [];
-  for (const match of item.content.matchAll(/[^.!?\n]+(?:[.!?]+|$)/gu)) {
-    const content = match[0].trim();
+  for (const match of literalSentences(item.content)) {
+    const content = match.text;
     // Em fonte mista, a recuperação parcial é deliberadamente mais restrita.
     if (
       content.length === 0 ||
@@ -37,7 +42,7 @@ function declarativeFragments(item: RetrievalEvidence): readonly RetrievalEviden
       )
     )
       continue;
-    const relativeStart = match.index + match[0].indexOf(content);
+    const relativeStart = match.start;
     const startOffset = item.startOffset + Array.from(item.content.slice(0, relativeStart)).length;
     const endOffset = startOffset + Array.from(content).length;
     fragments.push(
@@ -52,13 +57,18 @@ function declarativeFragments(item: RetrievalEvidence): readonly RetrievalEviden
   }
   // O id continua sendo o chunk autorizado existente (FK da persistência).
   // Uma única visão literal por chunk evita duplicar sua identidade na resposta.
-  const selected = fragments.sort((left, right) => right.content.length - left.content.length)[0];
+  const selected = fragments.sort(
+    (left, right) =>
+      lexicalScore(question, right.content) - lexicalScore(question, left.content) ||
+      left.startOffset - right.startOffset
+  )[0];
   return Object.freeze(selected === undefined ? [] : [selected]);
 }
 
 /** Documentos recuperados são dados; comandos neles nunca chegam ao gateway. */
 export function screenDocumentInstructions(
-  evidence: readonly RetrievalEvidence[]
+  evidence: readonly RetrievalEvidence[],
+  question = ""
 ): DocumentInstructionScreening {
   const blocked = evidence.filter(
     (item) =>
@@ -68,7 +78,7 @@ export function screenDocumentInstructions(
     containsHostileInstruction(item.documentTitle)
       ? []
       : blocked.includes(item)
-        ? declarativeFragments(item)
+        ? declarativeFragments(item, question)
         : [item]
   );
   const protectedLiterals = blocked

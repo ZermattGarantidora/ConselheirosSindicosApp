@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import type { CondominiumId } from "../core/condominium-scope.js";
-import type { ProcessingJob, ProcessingJobQueue } from "./processing-worker.js";
+import type { ProcessingJob, LeasedProcessingJobQueue } from "./processing-worker.js";
 
 type PoolLike = Pick<Pool, "connect">;
 
@@ -41,7 +41,7 @@ export type PostgresProcessingJobQueueOptions = Readonly<{
 export function createPostgresProcessingJobQueue(
   pool: PoolLike,
   options: PostgresProcessingJobQueueOptions = {}
-): ProcessingJobQueue {
+): LeasedProcessingJobQueue {
   const leaseSeconds = options.leaseSeconds ?? 300;
 
   if (!Number.isInteger(leaseSeconds) || leaseSeconds < 1) {
@@ -62,10 +62,12 @@ export function createPostgresProcessingJobQueue(
             document_version_id: string;
             status: "queued" | "processing";
             attempt_count: number;
+            max_attempts: number;
           }>
         >(
           `
-            SELECT condominium_id, id AS job_id, document_version_id, status, attempt_count
+            SELECT condominium_id, id AS job_id, document_version_id, status, attempt_count,
+              max_attempts
             FROM app.processing_jobs
             WHERE (
               (
@@ -73,7 +75,6 @@ export function createPostgresProcessingJobQueue(
                 OR (
                   status = 'processing'
                   AND lease_expires_at < now()
-                  AND attempt_count < max_attempts
                 )
               )
               AND pg_try_advisory_xact_lock(hashtextextended(id::text, 0))
@@ -90,6 +91,31 @@ export function createPostgresProcessingJobQueue(
         }
 
         await setWorkerContext(client, candidate.condominium_id, candidate.job_id);
+        if (candidate.attempt_count >= candidate.max_attempts) {
+          await client.query(
+            `UPDATE app.processing_jobs
+             SET status = 'failed', finished_at = now(), leased_at = NULL,
+                 lease_expires_at = NULL, error_code = 'worker_attempts_exhausted',
+                 error_metadata = '{}'::jsonb, updated_at = now()
+             WHERE condominium_id = $1 AND id = $2 AND attempt_count = $3
+               AND ((status = 'processing' AND lease_expires_at < now())
+                 OR (status = 'queued' AND available_at <= now()))`,
+            [candidate.condominium_id, candidate.job_id, candidate.attempt_count]
+          );
+          await client.query(
+            `UPDATE app.document_version_states AS states
+             SET processing_status = 'failed', current_processing_job_id = NULL,
+                 updated_at = now()
+             WHERE states.condominium_id = $1 AND states.document_version_id = $2
+               AND states.current_processing_job_id = $3
+               AND states.processing_status IN ('uploaded', 'processing', 'failed')
+               AND EXISTS (SELECT 1 FROM app.processing_jobs AS jobs
+                 WHERE jobs.condominium_id = $1 AND jobs.id = $3 AND jobs.status = 'failed')`,
+            [candidate.condominium_id, candidate.document_version_id, candidate.job_id]
+          );
+          await client.query("COMMIT");
+          return undefined;
+        }
         const result = await client.query<ClaimedJobRow>(
           `
             UPDATE app.processing_jobs AS jobs
@@ -105,6 +131,7 @@ export function createPostgresProcessingJobQueue(
                   $4 = 'queued'
                   AND jobs.status = 'queued'
                   AND jobs.available_at <= now()
+                  AND jobs.attempt_count < jobs.max_attempts
                 )
                 OR (
                   $4 = 'processing'
@@ -130,6 +157,15 @@ export function createPostgresProcessingJobQueue(
           await client.query("COMMIT");
           return undefined;
         }
+        await client.query(
+          `UPDATE app.document_version_states
+           SET processing_status = 'processing', current_processing_job_id = $3,
+               updated_at = now()
+           WHERE condominium_id = $1 AND document_version_id = $2
+             AND processing_status IN ('uploaded', 'processing', 'failed')
+             AND (current_processing_job_id = $3 OR current_processing_job_id IS NULL)`,
+          [candidate.condominium_id, candidate.document_version_id, candidate.job_id]
+        );
         await client.query("COMMIT");
 
         const row = result.rows[0];
@@ -141,6 +177,30 @@ export function createPostgresProcessingJobQueue(
               documentVersionId: row.document_version_id,
               attemptCount: row.attempt_count
             });
+      } catch (error: unknown) {
+        await rollback(client);
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
+    async renewLease(job: ProcessingJob): Promise<boolean> {
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await setWorkerContext(client, job.condominiumId, job.jobId);
+        const renewed = await client.query(
+          `UPDATE app.processing_jobs
+           SET lease_expires_at = clock_timestamp() + ($4 * interval '1 second'),
+               updated_at = now()
+           WHERE condominium_id = $1 AND id = $2 AND attempt_count = $3
+             AND document_version_id = $5 AND status = 'processing'
+             AND lease_expires_at > clock_timestamp()`,
+          [job.condominiumId, job.jobId, job.attemptCount, leaseSeconds, job.documentVersionId]
+        );
+        await client.query("COMMIT");
+        return renewed.rowCount === 1;
       } catch (error: unknown) {
         await rollback(client);
         throw error;
@@ -179,23 +239,30 @@ export function createPostgresProcessingJobQueue(
               AND id = $2
               AND status = 'processing'
               AND attempt_count = $3
+              AND document_version_id = $4
+              AND lease_expires_at > clock_timestamp()
           `,
-          [job.condominiumId, job.jobId, job.attemptCount]
+          [job.condominiumId, job.jobId, job.attemptCount, job.documentVersionId]
         );
 
         if (updated.rowCount === 1) {
           await client.query(
             `
-              UPDATE app.document_version_states
-              SET processing_status = 'failed',
-                  current_processing_job_id = NULL,
+              UPDATE app.document_version_states AS states
+              SET processing_status = CASE WHEN jobs.status = 'failed' THEN 'failed'
+                    ELSE 'processing' END,
+                  current_processing_job_id = CASE WHEN jobs.status = 'failed' THEN NULL
+                    ELSE jobs.id END,
                   updated_at = now()
-              WHERE condominium_id = $1
-                AND document_version_id = $2
-                AND processing_status = 'processing'
+              FROM app.processing_jobs AS jobs
+              WHERE states.condominium_id = $1
+                AND states.document_version_id = $2
+                AND jobs.condominium_id = states.condominium_id AND jobs.id = $3
+                AND jobs.status IN ('queued', 'failed')
+                AND states.processing_status = 'processing'
                 AND (
-                  current_processing_job_id = $3
-                  OR current_processing_job_id IS NULL
+                  states.current_processing_job_id = $3
+                  OR states.current_processing_job_id IS NULL
                 )
             `,
             [job.condominiumId, job.documentVersionId, job.jobId]

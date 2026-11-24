@@ -19,3 +19,10 @@ Dado o projeto Supabase sintético marcado e dois condomínios com dados e vetor
 ## AC-4004 — Remover caminho operacional Neon
 
 Dado que migrations e a suíte RLS passaram contra o projeto Supabase sintético, quando uma pessoa segue README, `.env.example`, `AGENTS.md` e os comandos do `package.json`, então encontra somente o fluxo Supabase para integração sintética. Antes dessa validação, o fluxo Neon continua disponível como contingência. Registros de revisões históricas não são reescritos.
+
+## AC-4005 — Destinos e preparação do piloto
+
+O runbook identifica integração Supabase, piloto Supabase e contingência Neon como destinos
+distintos. Preparar configuração ou passar testes locais não autoriza provisionamento,
+migrations remotas, remoção da contingência ou uso de dados reais. O ensaio da Spec 070 aceita
+somente bancos locais descartáveis e não é executado contra nenhum desses destinos remotos.

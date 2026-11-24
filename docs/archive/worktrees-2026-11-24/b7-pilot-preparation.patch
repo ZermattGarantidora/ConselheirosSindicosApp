@@ -1,0 +1,199 @@
+# Arquivo histórico; não aplicado à implementação atual.
+# Base HEAD: 7bcce1e99ff9ffc5de2665dca92038e83abc7ac0
+diff --git a/docs/quality/traceability.md b/docs/quality/traceability.md
+index 337480e..a989ab8 100644
+--- a/docs/quality/traceability.md
++++ b/docs/quality/traceability.md
+@@ -1,7 +1,7 @@
+ # Matriz de rastreabilidade — Spec 001
+ 
+-**Status:** B1–B6 implementados; CI remoto configurado, 20/20 evals, cobertura unitária acima dos pisos e integração Neon sintética 7/7 aprovada
+-**Atualizado em:** 2026-09-09
++**Status:** B1–B6 implementados; preparação interna de B7 registrada, sem autorização para piloto ou dados reais
++**Atualizado em:** 2026-09-11
+ 
+ Esta matriz liga promessas a critérios de aceitação e evidências de verificação. Os casos usam somente dados sintéticos.
+ 
+@@ -12,6 +12,7 @@ Esta matriz liga promessas a critérios de aceitação e evidências de verifica
+ | Alinhamento da Spec 001  | `spec.md` §0 e gate `validate-spec-vision.ps1` | não altera a visão canônica                                                                                                                     |
+ | Arquitetura e isolamento | ADRs 0001–0009                                 | PostgreSQL/RLS, escopo autorizado e processamento local antes de dados persistidos; Neon e OCR externo somente para integração/corpus sintético |
+ | Dados e riscos iniciais  | `docs/security/data-handling-inicial.md`       | somente corpus sintético; nenhum piloto ou dado real                                                                                            |
++| Entrada do piloto B7 | `docs/release/piloto-controlado.md` | política de dados, ambiente segregado, exportação/purge/revogação verificáveis, segurança e aprovação humana são bloqueios obrigatórios |
+ | Critérios de produto     | `acceptance.md` AC-001–AC-021                  | P0 bloqueia qualquer entrega correspondente                                                                                                     |
+ 
+ | Requisito                                | Critérios de aceitação                                                                                                                                          | Evals                        | Teste determinístico futuro                                                                                                                                                                                                                                                                                                                                                                                                                     |
+diff --git a/docs/specs/001-consulta-documental/tasks.md b/docs/specs/001-consulta-documental/tasks.md
+index 96fcb6f..46e664e 100644
+--- a/docs/specs/001-consulta-documental/tasks.md
++++ b/docs/specs/001-consulta-documental/tasks.md
+@@ -82,11 +82,11 @@ As tarefas devem ser concluídas na ordem das dependências. Marcar uma tarefa c
+ 
+ ## Fase 7 — Preparação do piloto
+ 
+-- [ ] **T701** Executar threat-model review e testes de upload malicioso/prompt injection.
+-- [ ] **T702** Verificar exportação, exclusão, retenção e revogação de acesso.
+-- [ ] **T703** Preparar procedimento de incidente e rollback/forward-fix.
++- [ ] **T701** Executar threat-model review e testes de upload malicioso/prompt injection. A revisão de preparação de 2026-09-11 confirmou os controles sintéticos atuais de assinatura/tamanho e de prompt injection, mas o checklist de `docs/release/piloto-controlado.md` mantém pendentes os casos completos e a execução no ambiente de piloto autorizado.
++- [ ] **T702** Verificar exportação, exclusão, retenção e revogação de acesso. Bloqueada: exportação, purge, retenção, backup e a prova operacional de revogação ainda não são fluxos executáveis; ver critérios de entrada em `docs/release/piloto-controlado.md`.
++- [x] **T703** Preparar procedimento de incidente e rollback/forward-fix. O procedimento de contenção, preservação minimizada de evidências, rollback/forward-fix e reativação condicionada está em `docs/release/piloto-controlado.md`; sua execução depende de ambiente de piloto aprovado.
+ - [ ] **T704** Selecionar documentos anonimizados e ampliar o dataset com revisão humana.
+-- [ ] **T705** Executar revisão completa do diff e checklist de release.
++- [ ] **T705** Executar revisão completa do diff e checklist de release. O checklist e a evidência local de 2026-09-11 estão em `docs/release/piloto-controlado.md`; a execução final exige commit candidato, revisão independente e CI remoto/proteção de branch confirmados.
+ 
+ ## Dependência principal
+ 
+diff --git a/docs/release/piloto-controlado.md b/docs/release/piloto-controlado.md
+new file mode 100644
+index 0000000..d71fcb3
+--- /dev/null
++++ b/docs/release/piloto-controlado.md
+@@ -0,0 +1,96 @@
++# Preparação para piloto controlado
++
++**Status:** preparação interna; não autoriza convite, importação de dados reais ou início do piloto  
++**Atualizado em:** 2026-09-11  
++**Responsáveis pela liberação:** produto, segurança, privacidade e engenharia
++
++## Objetivo e limites
++
++Este roteiro prepara uma validação pequena do núcleo de consulta documental. Ele deriva do briefing
++canônico §§1, 4, 11, 12, 15 e 18: o piloto deve comprovar utilidade e confiança em respostas com
++evidência, preservando isolamento por condomínio, abstenção e confirmação humana. Também respeita o
++sequenciamento de B7 em `docs/product/roadmap-blocos.md` e a política de dados inicial.
++
++Não é uma autorização para dados reais. Não permite convidar participantes, contatar a Zermatt,
++acionar provedores, publicar uma versão, executar mensagens ou qualquer outra ação externa. O ambiente
++local, o Neon de integração e o OCR previsto no ADR 0009 continuam limitados ao corpus sintético.
++
++## Critérios de entrada — todos obrigatórios
++
++| Controle | Evidência necessária | Situação em 2026-09-11 |
++| --- | --- | --- |
++| Política para piloto | Aprovação escrita de base legal, responsáveis, papéis administrativos, retenção de documentos/perguntas/respostas/trilhas/recibos, exportação, exclusão, backups, incidentes e fornecedores | **Bloqueado** — a política inicial proíbe piloto e dados reais |
++| Ambiente separado | ADR aprovado para identidade, storage privado, banco, região, backup/restauração, observabilidade, gestão/rotação de segredos e fornecedores; nunca reutilizar Neon sintético | **Bloqueado** — ADR 0006/0007 não autorizam ambiente de piloto |
++| Exportação e purge | Fluxo implementado, escopado por `condominium_id`, com inventário de objetos, derivados, caches e backups; teste de exportação, purge, contagem zero e recibo minimizado | **Bloqueado** — o schema define o desenho, mas não há fluxo executável |
++| Revogação | Teste de revogação durante sessão, invalidação de cache/URLs/jobs e bloqueio de novas transações no ambiente de piloto | **Parcial** — há teste local de membership; faltam os componentes reais do piloto |
++| Segurança de upload | Casos automatizados de assinatura, tamanho, PDF corrompido, limite de páginas, arquivo malicioso e pressão de fila, executados no ambiente de piloto | **Parcial** — assinatura e tamanho são testados localmente; faltam casos e ambiente completos |
++| Prompt injection e confiança | Evals de injection, grounding, citação, conflito, abstenção e escalonamento no caminho configurado para piloto, sem regressão P0 | **Parcial** — baseline sintética aprovada; falta avaliar a configuração real autorizada |
++| Release e CI | Commit candidato limpo, revisão independente sem P0/P1, `quality` remoto obrigatório verde, proteção de `main` confirmada e checklist local aprovado | **Parcial** — `quality` remoto de `7bcce1e` está verde e os gates locais passam; faltam commit candidato, revisão independente e confirmação da proteção da branch |
++| Dados do piloto | Documentos anonimizados ou autorizados, com revisão humana de procedência, vigência e remoção de dados não necessários; nenhum dado real em fixtures/evals | **Bloqueado** — T704 depende da política aprovada e da seleção humana |
++| Riscos residuais | Registro assinado por responsável, prazo de correção e plano de contingência para cada risco aceito | **Bloqueado** |
++
++Enquanto qualquer linha estiver bloqueada ou parcial, o sistema permanece somente em desenvolvimento
++sintético.
++
++## Evidência local registrada
++
++No commit integrado `7bcce1e`, em 2026-09-11:
++
++- `pnpm run check` foi executado após restaurar as dependências travadas; a execução deve ser repetida
++  no commit candidato do piloto.
++- `pnpm run test:e2e` aprovou 17/17 testes.
++- `pnpm run evals` aprovou 20/20 casos: 14/14 P0 e 6/6 P1.
++- `pnpm run audit:dependencies` não encontrou vulnerabilidades conhecidas de nível alto ou crítico.
++
++Os testes de integração Neon não são uma evidência de piloto: usam banco vazio, marcador de segurança
++e fixtures sintéticas, e fazem `TRUNCATE`. Só podem ser executados com as variáveis e proteções do ADR
++0007.
++
++## Procedimento de incidente e rollback/forward-fix
++
++### Gatilhos de interrupção imediata
++
++Interromper o piloto sem aguardar análise quando houver suspeita de acesso cruzado, acesso após
++revogação, exposição de segredo ou conteúdo confidencial, citação inexistente, execução de instrução
++documental, ação externa sem confirmação ou falha de purge/exportação.
++
++### Contenção
++
++1. Desabilitar a funcionalidade ou o condomínio afetado por flag de release; se o escopo for incerto,
++   interromper upload, consultas e worker do piloto.
++2. Revogar sessões, URLs temporárias e credenciais potencialmente afetadas; pausar jobs pendentes.
++3. Preservar somente evidências técnicas minimizadas: horário, IDs pseudonimizados, versão implantada,
++   hashes e decisões. Não copiar documentos, prompts, respostas ou segredos para tickets e chats.
++4. Registrar responsável, alcance conhecido, decisão de comunicação e necessidade de orientação jurídica
++   ou de proteção de dados conforme a política aprovada.
++
++### Recuperação
++
++1. Classificar o incidente e confirmar o isolamento do impacto por `condominium_id`.
++2. Preferir forward-fix quando a reversão puder deixar schema, dados ou auditoria inconsistentes.
++3. Usar rollback somente para artefato previamente validado, compatível com a migration e com plano de
++   restauração testado; não usar rollback para apagar evidência ou ocultar incidente.
++4. Reexecutar os testes de regressão, isolamento, revogação, citação, abstenção e o checklist de
++   release antes de reativar qualquer flag.
++5. Criar teste/eval sanitizado para a causa e atualizar o registro de risco antes da retomada.
++
++## Checklist de liberação do commit candidato
++
++- [ ] A política e os ADRs de piloto foram aprovados pelos responsáveis.
++- [ ] Não há dados reais em repositório, fixtures, evals, logs ou ambiente de desenvolvimento.
++- [ ] O ambiente de piloto é segregado do Neon sintético e do desenvolvimento.
++- [ ] Exportação, exclusão, retenção, backup/restauração e revogação passaram em exercício documentado.
++- [ ] Todos os casos de upload malicioso, limites, prompt injection, isolamento e canários passam.
++- [ ] `pnpm run check`, `pnpm run test:e2e`, `pnpm run evals` e `pnpm run audit:dependencies` passam no commit candidato.
++- [ ] Testes de integração do ambiente aplicável passam sem reutilizar fixtures ou banco de piloto.
++- [ ] Revisão independente do diff completo não tem P0/P1; CI remoto e proteção da `main` foram conferidos.
++- [ ] Flags têm dono, prazo, alvo mínimo, critérios de parada e plano de rollback/forward-fix testado.
++- [ ] Documentos do piloto foram aprovados por humano, com procedência, vigência e minimização verificadas.
++- [ ] Não existem convites, contatos comerciais ou ações externas pendentes de confirmação humana explícita.
++
++## Métricas mínimas durante um piloto autorizado
++
++Medir por condomínio, com dados minimizados: respostas aprovadas ou corrigidas, citações verificáveis,
++abstenções e conflitos corretos, encaminhamentos de alto risco, tempo até valor, retorno semanal, custo
++por resposta aprovada e solicitações comerciais voluntárias. Nenhuma métrica de conteúdo documental
++serve para prospecção; a oferta da Zermatt permanece separada e opcional.
+diff --git a/docs/reviews/2026-09-11-b7-preparacao-piloto.md b/docs/reviews/2026-09-11-b7-preparacao-piloto.md
+new file mode 100644
+index 0000000..225ebc5
+--- /dev/null
++++ b/docs/reviews/2026-09-11-b7-preparacao-piloto.md
+@@ -0,0 +1,47 @@
++# Registro de revisão — preparação do piloto controlado
++
++- **Status:** aprovado para documentação interna; não aprovado para iniciar piloto
++- **Commit ou diff revisado:** preparação documental não integrada após `7bcce1e`
++- **Revisor independente:** pendente antes de merge
++- **Autor:** Codex
++- **Data:** 2026-09-11
++- **P0 abertos:** 0 no diff documental
++- **P1 abertos:** 0 no diff documental
++
++## Escopo revisado
++
++- Checklist de entrada de B7, sem autorização implícita para dados reais, convites, provedores ou
++  ações externas.
++- Critérios operacionais para segurança de upload, prompt injection, exportação, purge, retenção,
++  revogação, backup e ambiente segregado.
++- Procedimento de contenção e rollback/forward-fix que preserva evidências minimizadas e exige nova
++  verificação antes de reativação.
++- Atualização de rastreabilidade e das tarefas T701–T703 e T705, sem marcar como concluídos controles
++  ainda não implementados ou verificados.
++
++## Evidência verificada
++
++- `git diff --check` — aprovado.
++- `pnpm run check` — aprovado: 233 testes; cobertura de 93,14% statements, 86,70% branches, 97,67%
++  functions e 92,97% lines; spec gate e scanner de segredos aprovados.
++- `pnpm run test:e2e` — aprovado: 17/17.
++- `pnpm run evals` — aprovado: 20/20, incluindo 14/14 P0 e 6/6 P1.
++- `pnpm run audit:dependencies` — aprovado: nenhuma vulnerabilidade conhecida alta ou crítica.
++- API pública do GitHub — o check `quality` do commit `7bcce1e` da `main` foi concluído com sucesso.
++
++## Limites e pendências de liberação
++
++Esta revisão não substitui uma revisão independente antes de merge. O CI remoto `quality` do commit
++integrado foi confirmado verde, mas a proteção obrigatória da `main` não foi verificada diretamente e
++continua requisito para liberar um commit candidato.
++
++Exportação, purge, política de retenção, backup/restauração, ambiente de piloto, testes completos de
++upload malicioso e a seleção humana de documentos continuam pendentes e bloqueiam qualquer piloto ou
++uso de dados reais. O Neon de integração não deve ser usado para essas verificações, pois permanece
++exclusivo de fixtures sintéticas.
++
++## Decisão
++
++O diff é coerente com o briefing, os ADRs 0001–0009 e a política inicial de dados: ele torna os
++bloqueios verificáveis em vez de contorná-los. Pode seguir para revisão independente como alteração de
++documentação; não pode ser interpretado como autorização de piloto.

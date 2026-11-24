@@ -102,7 +102,9 @@ describe("índice PostgreSQL de retrieval", () => {
     expect(retrievalQuery).toContain("version.verified_at AS valid_from");
     expect(retrievalQuery).toContain("SELECT * FROM legislation_chunks");
     expect(retrievalQuery).toContain("dvs.processing_status = 'ready'");
-    expect(retrievalQuery).toContain("dvs.validity_status IN ('confirmed', 'not_applicable')");
+    expect(retrievalQuery).toContain(
+      "dvs.validity_status IN ('confirmed', 'not_applicable', 'pending', 'disputed')"
+    );
     expect(retrievalQuery).toContain("search_vector @@ plainto_tsquery");
     expect(retrievalQuery).toContain("lexical_candidates");
     expect(retrievalQuery).toContain("semantic_candidates");

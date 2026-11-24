@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { describe, expect, it, vi } from "vitest";
 
 import { createPostgresDocumentRetentionRepository } from "../../apps/api/documents/postgres-document-retention-repository.js";
+import type { DocumentPurgeDecision } from "../../apps/api/documents/synthetic-document-recovery-journal.js";
 
 type MockQueryResult = { rows: Array<Record<string, unknown>>; rowCount: number };
 type MockQuery = (sql: string, values?: readonly unknown[]) => Promise<MockQueryResult>;
@@ -18,6 +19,59 @@ const expiredDocuments = [
 ];
 
 describe("retenção de documentos e dados derivados", () => {
+  it.each([false, true])(
+    "AC-7121: prepara todos os documentos antes de purgar; falha na segunda preparação=%s",
+    async (failPreparation) => {
+      const events: string[] = [];
+      const query = vi.fn<MockQuery>(async (sql, values = []) => {
+        if (sql.includes("SELECT condominium_id, id AS document_id"))
+          return { rows: expiredDocuments, rowCount: 2 };
+        if (sql.includes("SELECT archived_at FROM app.documents"))
+          return { rows: [{ archived_at: new Date("2026-01-01T00:00:00.000Z") }], rowCount: 1 };
+        if (sql.includes("SELECT id FROM app.document_versions"))
+          return { rows: [{ id: String(values[1]) }], rowCount: 1 };
+        if (sql.includes("app.purge_expired_document_data")) {
+          events.push(`purge:${String(values[1])}`);
+          return { rows: [{ purged: true }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
+      });
+      const release = vi.fn();
+      const beforePurge = vi.fn(async (decision: DocumentPurgeDecision) => {
+        events.push(`prepare:${decision.documentId}`);
+        expect(decision.archivedAt).toBe("2026-01-01T00:00:00.000Z");
+        expect(decision.documentVersionIds).toEqual([decision.documentId]);
+        if (failPreparation && beforePurge.mock.calls.length === 2)
+          throw new Error("synthetic preparation failed");
+      });
+      const repository = createPostgresDocumentRetentionRepository(
+        { connect: async () => ({ query, release }) as unknown as PoolClient },
+        beforePurge
+      );
+      if (failPreparation)
+        await expect(repository.purgeExpiredDocuments()).rejects.toThrow(
+          "synthetic preparation failed"
+        );
+      else await expect(repository.purgeExpiredDocuments()).resolves.toBe(2);
+      expect(events).toEqual([
+        ...expiredDocuments.map((row) => `prepare:${row.document_id}`),
+        ...(!failPreparation ? expiredDocuments.map((row) => `purge:${row.document_id}`) : [])
+      ]);
+      const calls = query.mock.calls;
+      expect(
+        calls
+          .filter(([sql]) => sql.includes("SELECT set_config('app.condominium_id'"))
+          .map(([, values]) => values)
+      ).toEqual(
+        (failPreparation ? expiredDocuments : [...expiredDocuments, ...expiredDocuments]).map(
+          (row) => [row.condominium_id]
+        )
+      );
+      expect(calls.at(-1)?.[0]).toBe(failPreparation ? "ROLLBACK" : "COMMIT");
+      expect(release).toHaveBeenCalledOnce();
+    }
+  );
+
   it("purga documentos expirados por tenant e limpa recibos vencidos", async () => {
     const query = vi.fn<MockQuery>(async (sql: string, values: readonly unknown[] = []) => {
       void values;
