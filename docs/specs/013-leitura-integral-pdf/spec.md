@@ -2,7 +2,7 @@
 
 **Status:** aprovada para implementação local  
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-09-24
+**Atualizado em:** 2026-11-03
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -12,17 +12,22 @@
 |---|---|---|
 | Problema e hipótese | §§1, 2 e 4 | Impede respostas baseadas em documentos lidos parcialmente. |
 | Público | §3 | Dá ao síndico uma confirmação simples de que o arquivo inteiro foi processado. |
-| Proposta de valor | §§5 e 10 | Fortalece evidência por página, qualidade explícita e confiança. |
-| Prioridades do MVP | §§7, 9, 14 e 21 | Reforça a ingestão de PDFs antes da análise de balancetes antecipada. |
-| Segurança e confiança | §§12, 13 e 19 | Trata PDF como dado não confiável e bloqueia conclusões quando faltam páginas. |
-| Validação e métricas | §§16 e 17 | Mede completude, páginas revisáveis e ausência de publicação parcial. |
+| Proposta de valor | §§5, 6.6 e 8 | Preserva original privado, processamento e memória documental com origem por página. |
+| Prioridades do MVP | §7, Bloco 6; §12 | Verifica envio, processamento e recuperação já autorizados, sem antecipar outro bloco. |
+| Segurança e confiança | §§8, 9 e 10 | Trata PDF como dado não confiável, isola condomínios e confere as fontes recuperadas. |
+| Validação e métricas | §13 | Mede completude e recuperação documental com fontes conferíveis, sem atribuir qualidade semântica ao modelo. |
 
 ### Limites respeitados
 
 - Não introduz contabilidade, auditoria, boletos, movimentação bancária ou ação externa.
 - Não envia documentos reais a OCR externo; a autorização do ADR 0009 continua sintética.
 - Não promete leitura automática de conteúdo manuscrito ou imagem quando não houver OCR autorizado.
-- O módulo financeiro permanece dividido em três partes posteriores no roadmap.
+- Esta ampliação de testes não introduz análise financeira, provedor ou capacidade de produto.
+- A matriz usa somente documentos fictícios; preserva o sequenciamento competitivo e valida a memória documental existente.
+
+Gate competitivo da ampliação de 03/11/2026: mantém o chat e o Bloco 6; melhora evidência e
+isolamento; confere página, documento e versão em consultas; demonstra o resultado por 35 testes
+HTTP determinísticos e reutiliza a stack sem dependência nova.
 
 ### Divergências da visão
 
@@ -66,6 +71,7 @@ conteúdo inteiro pode fundamentar respostas.
 - exibição da completude no catálogo de documentos;
 - rastreabilidade por página, hash e método de extração;
 - testes sintéticos de documento longo, página vazia, PDF misto, OCR incompleto e isolamento.
+- matriz de 35 PDFs A4 preenchidos: 20 com uma página, dez com duas e cinco com oito (80 páginas).
 
 ## 5. Fora do escopo
 
@@ -116,6 +122,20 @@ runtime não pode consultar o resumo de outro condomínio.
 
 PDF inválido, excedente, protegido, truncado ou com contagem inconsistente não deve publicar chunks
 como prontos. O sistema informa uma falha ou revisão recuperável sem fabricar conteúdo.
+
+### RQ-1307 — Documentos com páginas preenchidas
+
+A suíte deve executar 35 casos distintos com PDFs textuais fictícios: 20 de uma página, dez de
+duas páginas e cinco de oito páginas. Cada página A4 deve ter pelo menos 50 linhas não vazias e
+3.000 caracteres não brancos, com parágrafos, listas e tabelas textuais dentro das margens.
+O gabarito textual vem do corpus de entrada, independentemente do extrator.
+
+Cada caso envia o binário por HTTP usando o cliente de upload, persiste e relê o original em
+storage privado local, compara todos os bytes, verifica completude, reconstrói integralmente cada
+página a partir dos chunks e recupera evidências do início, meio e fim de todas as páginas. Confere
+documento, versão, página, offsets e trecho e nega acesso ao arquivo e às evidências em outro
+condomínio. O cenário não depende de provedor de IA e não certifica OCR, PostgreSQL, navegador,
+ambiente publicado ou qualidade de respostas de modelo.
 
 ## 8. Contratos
 

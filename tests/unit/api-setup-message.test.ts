@@ -6,6 +6,75 @@ import type { AnswerGateway, AnswerGatewayInput } from "../../apps/api/answers/a
 import { AnswerGatewayUnavailableError } from "../../apps/api/answers/answer-gateway.js";
 
 describe("API de mensagens de configuração", () => {
+  it.each(["repaired", "invalid_reply", "changed_value"])(
+    "AC-2403a: não registra a conclusão prematura: %s",
+    async (scenario) => {
+      const invalidReply = "Salvei o contexto. Pode enviar os documentos.";
+      const validReply = "Quantos apartamentos há nesse condomínio?";
+      const generate = vi.fn(async (input: AnswerGatewayInput) => {
+        expect(input.task).toBe("setup_turn");
+        return {
+          output: {
+            answer: JSON.stringify({
+              intent: "answer",
+              field: "condominium_name",
+              value:
+                generate.mock.calls.length > 1 && scenario === "changed_value"
+                  ? "Outro Fictício"
+                  : "Residencial Fictício",
+              reply:
+                generate.mock.calls.length === 1 || scenario === "invalid_reply"
+                  ? invalidReply
+                  : validReply
+            })
+          }
+        };
+      });
+      const app = createApi({
+        membershipRepository: createDevelopmentIdentityRepository(),
+        setupMessageGateway: { generate } as unknown as AnswerGateway
+      });
+      const headers = { "x-development-user-id": "sindico-demo" };
+      try {
+        const response = await app.inject({
+          method: "POST",
+          url: "/v1/chat/setup-turn",
+          headers,
+          payload: {
+            stage: "condominium_name",
+            message: "Residencial Fictício",
+            history: [],
+            condominiumCount: 1,
+            condominiumIndex: 1
+          }
+        });
+        expect(generate).toHaveBeenCalledTimes(2);
+        const history = await app.inject({ method: "GET", url: "/v1/chat/setup-history", headers });
+        expect(history.statusCode).toBe(200);
+        expect(history.body).not.toContain(invalidReply);
+        if (scenario === "repaired") {
+          expect(response.statusCode).toBe(200);
+          expect(response.json()).toEqual({
+            intent: "answer",
+            update: { field: "condominium_name", value: "Residencial Fictício" },
+            message: validReply
+          });
+          expect(history.json().entries).toHaveLength(1);
+          expect(
+            history.json().entries[0].messages.map((message: { text: string }) => message.text)
+          ).toEqual(["Residencial Fictício", validReply]);
+        } else {
+          expect(response.statusCode).toBe(502);
+          expect(response.json().code).toBe("setup_interpretation_invalid");
+          expect(history.json().entries).toEqual([]);
+          expect(response.body).not.toContain("Outro Fictício");
+        }
+      } finally {
+        await app.close();
+      }
+    }
+  );
+
   it.each(["nickname", "invalid_output", "provider_unavailable"])(
     "distingue apelido válido, interpretação inválida e provedor indisponível: %s",
     async (scenario) => {

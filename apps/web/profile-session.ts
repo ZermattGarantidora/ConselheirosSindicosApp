@@ -3,10 +3,11 @@ import { developmentIdentityStorageKey } from "./development-identity.js";
 export async function signOut(
   authMode: "development" | "real",
   storage: Pick<Storage, "removeItem"> | undefined,
-  request: typeof fetch = fetch
+  request: typeof fetch = fetch,
+  accessCodeEnabled = false
 ): Promise<void> {
-  if (authMode === "real") {
-    const response = await request("/v1/auth/logout", {
+  if (authMode === "real" || accessCodeEnabled) {
+    const response = await request(accessCodeEnabled ? "/v1/access/logout" : "/v1/auth/logout", {
       method: "POST",
       credentials: "same-origin",
       signal: AbortSignal.timeout(15_000)
@@ -16,6 +17,6 @@ export async function signOut(
   try {
     storage?.removeItem(developmentIdentityStorageKey);
   } catch {
-    // A lembrança é apenas um preenchimento da entrada, nunca uma sessão autenticada.
+    // O identificador da entrada antiga é apenas uma lembrança local.
   }
 }

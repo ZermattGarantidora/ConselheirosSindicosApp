@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "dataPolicy": "synthetic-only",
+  "observedAt": "2026-11-09T12:00:00.000Z",
+  "backupRpoSeconds": null,
+  "metrics": {
+    "queuedJobs": 2,
+    "oldestQueuedSeconds": 900,
+    "completedLastTenMinutes": 0,
+    "failedJobs": 1,
+    "expiredLeases": 1,
+    "originalsMismatch": 0,
+    "healthFailures": 0,
+    "isolationIncidents": 0
+  }
+}

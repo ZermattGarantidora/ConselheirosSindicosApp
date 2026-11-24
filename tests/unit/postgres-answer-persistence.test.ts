@@ -66,6 +66,49 @@ function defaultHandler(sql: string): QueryResponse {
 }
 
 describe("persistência PostgreSQL de respostas", () => {
+  it("Spec 043: guarda consultiva não mantém transação aberta e sempre libera conexão", async () => {
+    const fake = createFakePool((sql) =>
+      sql.includes("pg_try_advisory_lock") ? { rows: [{ acquired: true }] } : defaultHandler(sql)
+    );
+    const persistence = createPostgresAnswerPersistence(fake.pool, fake.pool);
+    const release = await persistence.acquireChatTurn!(managerContext, "chat-synthetic");
+    expect(fake.queries.at(-1)!.sql).toContain("pg_try_advisory_lock");
+    expect(fake.queries.at(-2)!.sql).toBe("COMMIT");
+    expect(fake.queries.some((item) => /SELECT.*content/u.test(item.sql))).toBe(false);
+    expect(fake.client.release).not.toHaveBeenCalled();
+    await release!();
+    expect(fake.queries.at(-1)!.sql).toContain("pg_advisory_unlock");
+    expect(fake.client.release).toHaveBeenCalledOnce();
+  });
+
+  it("Spec 043: recusa concorrência e destrói conexão se lock ou unlock falhar", async () => {
+    const busy = createFakePool((sql) =>
+      sql.includes("pg_try_advisory_lock") ? { rows: [{ acquired: false }] } : defaultHandler(sql)
+    );
+    expect(
+      await createPostgresAnswerPersistence(busy.pool, busy.pool).acquireChatTurn!(
+        managerContext,
+        "chat"
+      )
+    ).toBeUndefined();
+    expect(busy.client.release).toHaveBeenCalledOnce();
+    for (const failAt of ["pg_try_advisory_lock", "pg_advisory_unlock"]) {
+      const fake = createFakePool((sql) => {
+        if (sql.includes(failAt)) throw new Error("db unavailable");
+        return sql.includes("pg_try_advisory_lock")
+          ? { rows: [{ acquired: true }] }
+          : defaultHandler(sql);
+      });
+      const acquire = createPostgresAnswerPersistence(fake.pool, fake.pool).acquireChatTurn!;
+      if (failAt === "pg_try_advisory_lock")
+        await expect(acquire(managerContext, "chat")).rejects.toThrow("db unavailable");
+      else {
+        const release = await acquire(managerContext, "chat");
+        await expect(release!()).rejects.toThrow("db unavailable");
+      }
+      expect(fake.client.release).toHaveBeenCalledWith(true);
+    }
+  });
   it("persiste a interação completa em uma transação escopada", async () => {
     const interaction = await createPersistedInteraction();
     const fake = createFakePool(defaultHandler);
@@ -255,7 +298,11 @@ describe("persistência PostgreSQL de respostas", () => {
     expect(history[0]).toMatchObject({
       questionId: "question-history-1",
       question: "Como registrar uma assembleia?",
-      answer: { answerId: "answer-history-1", condominiumId: "alameda" }
+      answer: {
+        answerId: "answer-history-1",
+        condominiumId: "alameda",
+        userId: managerContext.userId
+      }
     });
     const historyQuery = fake.queries.find(({ sql }) => sql.includes("q.asked_by_user_id = $1"));
     expect(historyQuery?.values).toEqual([

@@ -1,15 +1,55 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { readAccessCookie, accessCookie, type AccessCodeService } from "../identity/access-code.js";
+import { registerAccessCodeRoutes } from "./access-code-routes.js";
+import {
+  integralFinancialCatalog,
+  computeIntegralSum,
+  isIntegralSumQuestion,
+  assertIntegralAnswer
+} from "../analysis/integral-document-sum.js";
+import type { GeneratedAnswer } from "../answers/answer-contract.js";
+import { canJournalCiteDocument } from "./question-document-citations.js";
+import type { ApiOperationControl, ApiOperation } from "./operation-control.js";
+import { OperationBudgetError } from "../security/operation-budget.js";
+import { addJournalReplayProof, type JournalReplayProof } from "./journal-replay-proof.js";
+import { readDocumentUseDecision } from "../../shared/document-use-decision.js";
+import {
+  createInMemoryConversationStore,
+  conversationHash,
+  ConversationStoreError,
+  type ConversationStore
+} from "../answers/conversation-store.js";
+import { registerConversationJournal } from "./conversation-journal.js";
 import { performance } from "node:perf_hooks";
 
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 
 import { createAnswerUseCase, type AnswerUseCase } from "../answers/answer-use-case.js";
+import { journalMemoryEntries } from "../answers/journal-memory.js";
+import { ConversationMemoryError } from "../answers/conversation-memory.js";
 import { createFailedAnswer, type AnswerService } from "../answers/answer-service.js";
 import {
   createLocalSyntheticAnswerGateway,
   type AnswerGateway
 } from "../answers/answer-gateway.js";
 import { generateSetupMessage, isSetupMessageRequest } from "../answers/setup-message.js";
+import { registerDocumentBatchConversationRoute } from "./document-batch-conversation-route.js";
+import type { HostedDocumentBatchGatewayFactory } from "../answers/hosted-document-batch-gateway.js";
+import {
+  questionResearchProgress,
+  registerQuestionResearchProgress
+} from "./question-research-progress.js";
+import type { DocumentExtractionSummary } from "../documents/document-processing.js";
+import {
+  buildDocumentSnapshot,
+  canSummarizeDocument,
+  financialCatalogRevision
+} from "../analysis/document-snapshot.js";
+import {
+  documentConversationState,
+  generateDocumentConversation,
+  type DocumentConversationEvent
+} from "../answers/document-conversation.js";
 import {
   InvalidSetupInterpretationError,
   interpretSetupTurn,
@@ -24,9 +64,13 @@ import { toPublicAnswer } from "../answers/answer-contract.js";
 import {
   analyzeDocumentRequest,
   isDocumentAnalysisRequest,
-  unavailableDocumentAnalysis
+  unavailableDocumentAnalysis,
+  type DocumentAnalysisReport
 } from "../analysis/document-analysis.js";
-import type { DocumentAnalysisReader } from "../analysis/document-analysis-reader.js";
+import type {
+  DocumentAnalysisReader,
+  AnalysisDocument
+} from "../analysis/document-analysis-reader.js";
 import { createCondominiumId } from "../core/condominium-scope.js";
 import {
   AccessDeniedError,
@@ -122,12 +166,48 @@ import {
   type ChatRepository
 } from "../chats/chat-repository.js";
 import { ChatHttpError, registerChatRoutes } from "../chats/chat-routes.js";
+import { registerDocumentDraftRoutes } from "../authoring/document-draft-routes.js";
+import { createDocumentDraftService } from "../authoring/document-drafts.js";
+import {
+  createFinancialReportService,
+  type FinancialReportModel
+} from "../authoring/financial-report.js";
+import { registerFinancialReportRoutes } from "../authoring/financial-report-routes.js";
+import { docxMediaType } from "../documents/extract-docx-text.js";
+import { registerAudioInputRoutes } from "../authoring/audio-input-routes.js";
+import { createAudioInputService } from "../authoring/audio-inputs.js";
+import { createAudioMinutesService } from "../authoring/audio-minutes.js";
+import { registerAudioMinutesRoutes } from "../authoring/audio-minutes-routes.js";
+import type { AudioTranscriber } from "../authoring/audio-transcription.js";
+import type { SemanticMinutesModel } from "../authoring/semantic-minutes-model.js";
+import type { DurableAudioStorage } from "../authoring/postgres-audio-storage.js";
+import {
+  createDocumentImprovementService,
+  type DocumentImprovementAgent
+} from "../authoring/document-improvements.js";
 import type { LegalCopyReader } from "../legislation/verified-legal-library.js";
+import {
+  createDocumentAuthoringService,
+  type DocumentAuthoringModel
+} from "../authoring/document-authoring.js";
+import { registerDocumentAuthoringRoutes } from "../authoring/document-authoring-routes.js";
+import type { AuthoringOperations } from "../authoring/authoring-operations.js";
+import type { AuthoringScope } from "../authoring/authoring-artifacts.js";
 
 export type CreateApiOptions = Readonly<{
+  audioTranscriber?: AudioTranscriber;
+  audioMinutesModel?: SemanticMinutesModel;
+  syntheticDurableAudio?: DurableAudioStorage;
+  documentImprovementAgent?: DocumentImprovementAgent;
+  documentAuthoringModel?: DocumentAuthoringModel;
+  financialReportModel?: FinancialReportModel;
+  syntheticAuthoringOperations?: AuthoringOperations;
+  assertDocumentRecovery?: () => Promise<unknown>;
+  operationControl?: ApiOperationControl;
+  conversationStore?: ConversationStore;
   legalCopyReader?: LegalCopyReader;
   membershipRepository: MembershipRepository;
-  aiProvider?: "openai" | "gemini" | "local";
+  aiProvider?: "openai" | "gemini" | "codex" | "local";
   now?: () => Date;
   version?: string;
   documentStorage?: PrivateDocumentStorage;
@@ -136,6 +216,8 @@ export type CreateApiOptions = Readonly<{
   documentCatalogRepository?: DocumentCatalogRepository;
   answerUseCase?: AnswerUseCase;
   setupMessageGateway?: AnswerGateway;
+  codexDocumentBatchGateway?: AnswerGateway;
+  hostedDocumentBatchGateway?: HostedDocumentBatchGatewayFactory;
   answerService?: AnswerService;
   answerTraceStore?: AnswerTraceStore;
   retriever?: ScopedTextRetriever;
@@ -143,6 +225,7 @@ export type CreateApiOptions = Readonly<{
   developmentMembershipRegistry?: DevelopmentMembershipRegistry;
   developmentDocumentMemory?: DevelopmentDocumentMemory;
   accountAuth?: AccountAuthService;
+  accessCodeAuth?: AccessCodeService;
   accountSecurity?: AccountSecurityService;
   accountActionDelivery?: AccountActionDelivery;
   googleOAuth?: GoogleOAuthClient;
@@ -153,6 +236,8 @@ export type CreateApiOptions = Readonly<{
   processPendingDocuments?: () => Promise<void>;
   tenantWorkLimiter?: TenantWorkLimiter;
   documentAnalysisReader?: DocumentAnalysisReader;
+  /** Somente harness explícito, sem seleção por ambiente/startup. */
+  syntheticOriginalImprovements?: true;
   demoWorkAdmission?: DemoWorkAdmission;
   chatRepository?: ChatRepository;
 }>;
@@ -392,6 +477,17 @@ function accountAuthErrorResponse(
 
 export function createApi(options: CreateApiOptions): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: maximumDocumentUploadBytes });
+  if (options.assertDocumentRecovery)
+    app.addHook("preHandler", async (request, reply) => {
+      if (!(request.routeOptions.url ?? "").startsWith("/v1/condominiums/")) return;
+      try {
+        await options.assertDocumentRecovery!();
+      } catch {
+        return reply
+          .code(503)
+          .send({ message: "O ambiente documental aguarda validação de recuperação." });
+      }
+    });
   const pendingDocumentProcessing = new Set<Promise<void>>();
   app.addHook("onClose", async () => {
     await Promise.allSettled(pendingDocumentProcessing);
@@ -442,6 +538,65 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     });
   const answerTraceStore = options.answerTraceStore ?? createInMemoryAnswerTraceStore();
   const chatRepository = options.chatRepository ?? createInMemoryChatRepository(now);
+  const conversationStore = options.conversationStore ?? createInMemoryConversationStore();
+  const controlled = async <T>(
+    request: FastifyRequest,
+    kind: ApiOperation["kind"],
+    payload: unknown,
+    operation: () => Promise<T>,
+    context?: AuthorizedCondominiumContext
+  ): Promise<T> => {
+    if (!options.operationControl) return operation();
+    const userId = requestUserId(request);
+    if (!userId) throw new OperationBudgetError("denied");
+    const requestKey =
+      request.headers["x-conversation-request-id"] ?? request.headers["idempotency-key"];
+    if (typeof requestKey !== "string") throw new OperationBudgetError("denied");
+    const input: ApiOperation = {
+      kind,
+      requestKey,
+      payload,
+      scope: context
+        ? {
+            kind: "tenant",
+            userId: context.userId,
+            condominiumId: context.condominiumId,
+            membershipRevision: context.membershipRevision
+          }
+        : { kind: "account", userId },
+      revalidate: async () => {
+        if (requestUserId(request) !== userId) return false;
+        if (options.accessCodeAuth) {
+          const current = await options.accessCodeAuth.authenticate(
+            readAccessCookie(request.headers.cookie)
+          );
+          if (current?.userId !== userId) return false;
+        } else if (options.accountAuth) {
+          const token = getAccountSessionCookie(request.headers.cookie);
+          const current = token ? await options.accountAuth.authenticate(token, now()) : undefined;
+          if (current?.userId !== userId) return false;
+        }
+        if (!context) return true;
+        try {
+          const current = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+            userId,
+            condominiumId: context.condominiumId,
+            now: now()
+          });
+          return (
+            current.membershipRevision === context.membershipRevision &&
+            current.roleKey === context.roleKey &&
+            (kind === "upload" ? current.permissions.includes("document:upload") : true)
+          );
+        } catch {
+          return false;
+        }
+      }
+    };
+    if (options.operationControl.replayProof)
+      addJournalReplayProof(request, { operation: options.operationControl.replayProof(input) });
+    return options.operationControl.execute(input, operation);
+  };
   registerChatRoutes(app, {
     repository: chatRepository,
     resolve: async (request, condominiumId) => {
@@ -456,41 +611,279 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     hasLegacy: async (context) =>
       (await answerUseCase.listConversationHistory(context, 1, { chatId: legacyChatId })).length > 0
   });
+  const resolveAuthoringContext = async (request: FastifyRequest, condominiumId: string) => {
+    const userId = requestUserId(request);
+    if (userId === undefined) throw new ChatHttpError(401, "Sessão não autenticada.");
+    return resolveAuthorizedCondominiumContext(options.membershipRepository, {
+      userId,
+      condominiumId: createCondominiumId(condominiumId),
+      now: now()
+    });
+  };
+  const audioInputService: ReturnType<typeof createAudioInputService> = createAudioInputService({
+    store: conversationStore,
+    ...(options.syntheticAuthoringOperations
+      ? {
+          validateDerivedDraft: (
+            context: AuthorizedCondominiumContext,
+            scope: AuthoringScope,
+            id: string
+          ) => documentDraftService.export(context, scope, id)
+        }
+      : {}),
+    ...(options.syntheticAuthoringOperations
+      ? { operations: options.syntheticAuthoringOperations }
+      : {}),
+    storage: documentStorage,
+    chats: chatRepository,
+    now,
+    ...("readOriginal" in documentStorage
+      ? { reader: documentStorage as PrivateDocumentStorage & PrivateDocumentReader }
+      : {}),
+    ...(options.audioTranscriber ? { transcriber: options.audioTranscriber } : {}),
+    ...(options.syntheticDurableAudio ? { durableAudio: options.syntheticDurableAudio } : {})
+  });
+  const documentDraftService = createDocumentDraftService({
+    store: conversationStore,
+    ...(options.syntheticAuthoringOperations
+      ? { operations: options.syntheticAuthoringOperations }
+      : {}),
+    catalog: documentCatalogRepository,
+    now,
+    audioSource: (context, scope, id) => audioInputService.read(context, scope, id),
+    authoringSource: async (context, scope, id) =>
+      (await conversationStore.find(scope, `financial-report:${id}:request`))
+        ? financialReportService.reference(context, scope, id)
+        : documentAuthoringService.reference(context, scope, id),
+    ...(options.documentSourceReader ? { sources: options.documentSourceReader } : {})
+  });
+  const documentAuthoringService: ReturnType<typeof createDocumentAuthoringService> =
+    createDocumentAuthoringService({
+      store: conversationStore,
+      ...(options.syntheticAuthoringOperations
+        ? { operations: options.syntheticAuthoringOperations }
+        : {}),
+      catalog: documentCatalogRepository,
+      drafts: documentDraftService,
+      now,
+      ...(options.documentSourceReader ? { sources: options.documentSourceReader } : {}),
+      ...(options.documentAuthoringModel ? { model: options.documentAuthoringModel } : {}),
+      authorize: async (context, scope) => {
+        const current = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+          userId: context.userId,
+          condominiumId: createCondominiumId(scope.condominiumId),
+          now: now()
+        });
+        if (!(await chatRepository.find(current, scope.chatId))) throw new AccessDeniedError();
+        return current;
+      }
+    });
+  registerDocumentAuthoringRoutes(app, {
+    service: documentAuthoringService,
+    store: conversationStore,
+    chats: chatRepository,
+    resolve: resolveAuthoringContext
+  });
+  const financialAnalysisReader =
+    options.documentAnalysisReader ?? options.developmentDocumentMemory?.analysisReader;
+  const financialReportService = createFinancialReportService({
+    store: conversationStore,
+    catalog: documentCatalogRepository,
+    drafts: documentDraftService,
+    now,
+    ...(options.syntheticAuthoringOperations
+      ? { operations: options.syntheticAuthoringOperations }
+      : {}),
+    ...(financialAnalysisReader ? { reader: financialAnalysisReader } : {}),
+    ...(options.financialReportModel ? { model: options.financialReportModel } : {}),
+    authorize: async (context, scope) => {
+      const current = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+        userId: context.userId,
+        condominiumId: createCondominiumId(scope.condominiumId),
+        now: now()
+      });
+      if (!(await chatRepository.find(current, scope.chatId))) throw new AccessDeniedError();
+      return current;
+    }
+  });
+  registerFinancialReportRoutes(app, {
+    service: financialReportService,
+    chats: chatRepository,
+    resolve: resolveAuthoringContext
+  });
+  const audioMinutesService = createAudioMinutesService({
+    store: conversationStore,
+    ...(options.syntheticAuthoringOperations
+      ? { operations: options.syntheticAuthoringOperations }
+      : {}),
+    audio: audioInputService,
+    drafts: documentDraftService,
+    now,
+    ...(options.audioMinutesModel ? { model: options.audioMinutesModel } : {}),
+    authorize: (context, scope) =>
+      resolveAuthorizedCondominiumContext(options.membershipRepository, {
+        userId: context.userId,
+        condominiumId: createCondominiumId(scope.condominiumId),
+        now: now()
+      })
+  });
+  registerAudioInputRoutes(app, {
+    service: audioInputService,
+    minutesEnabled: audioMinutesService.enabled,
+    resolve: resolveAuthoringContext
+  });
+  registerDocumentDraftRoutes(app, {
+    service: documentDraftService,
+    improvements: createDocumentImprovementService({
+      store: conversationStore,
+      ...(options.syntheticAuthoringOperations
+        ? { operations: options.syntheticAuthoringOperations }
+        : {}),
+      drafts: documentDraftService,
+      now,
+      ...(options.documentImprovementAgent ? { agent: options.documentImprovementAgent } : {}),
+      authorize: async (context, scope) => {
+        const current = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+          userId: context.userId,
+          condominiumId: createCondominiumId(scope.condominiumId),
+          now: now()
+        });
+        if (!(await chatRepository.find(current, scope.chatId))) throw new AccessDeniedError();
+        return current;
+      }
+    }),
+    store: conversationStore,
+    chats: chatRepository,
+    resolve: resolveAuthoringContext
+  });
+  registerAudioMinutesRoutes(app, {
+    service: audioMinutesService,
+    drafts: documentDraftService,
+    durable: conversationStore.durable,
+    resolve: resolveAuthoringContext
+  });
   const tenantWorkLimiter = options.tenantWorkLimiter ?? createInMemoryTenantWorkLimiter();
+  registerDocumentBatchConversationRoute(app, {
+    ...(options.syntheticOriginalImprovements
+      ? {
+          improveOriginal: async (
+            context: AuthorizedCondominiumContext,
+            chatId: string,
+            versions: readonly string[],
+            documents: readonly AnalysisDocument[]
+          ) => {
+            if (!(await chatRepository.find(context, chatId))) throw new AccessDeniedError();
+            const proposal = await documentAuthoringService.original(
+              context,
+              {
+                kind: "chat",
+                userId: context.userId,
+                condominiumId: context.condominiumId,
+                chatId
+              },
+              versions,
+              documents.flatMap((d) =>
+                d.pages.map((p) => ({
+                  version: d.documentVersionId,
+                  page: p.pageNumber,
+                  text: p.extractedText
+                }))
+              )
+            );
+            return proposal
+              ? { status: proposal.status, proposalId: proposal.id }
+              : { status: "disabled" };
+          }
+        }
+      : {}),
+    resolve: async (request, condominiumId) => {
+      const userId = requestUserId(request);
+      return userId === undefined
+        ? undefined
+        : resolveAuthorizedCondominiumContext(options.membershipRepository, {
+            userId,
+            condominiumId: createCondominiumId(condominiumId),
+            now: now()
+          });
+    },
+    catalog: documentCatalogRepository,
+    reader: options.documentAnalysisReader ?? options.developmentDocumentMemory?.analysisReader,
+    codexGateway: options.codexDocumentBatchGateway,
+    ...(options.hostedDocumentBatchGateway === undefined
+      ? {}
+      : { hostedGateway: options.hostedDocumentBatchGateway }),
+    consume: (context) =>
+      tenantWorkLimiter.consume({
+        operation: "document_question",
+        userId: context.userId,
+        condominiumId: context.condominiumId,
+        now: now()
+      })
+  });
   const authenticatedAccounts = new WeakMap<
     FastifyRequest,
     | Readonly<{ userId: ReturnType<typeof createUserId>; email: string; displayName: string }>
     | undefined
   >();
   const accountAuth = options.accountAuth;
+  const accessCodeAuth = options.accessCodeAuth;
   const accountSecurity = options.accountSecurity;
   const mfaEnrollmentAvailable = options.accountActionDelivery?.channel === "external_email";
   const secureCookies = options.secureCookies ?? false;
   const authSessionRestore = options.authSessionRestore ?? true;
   const unauthenticatedMessage =
-    accountAuth === undefined
+    accountAuth === undefined && accessCodeAuth === undefined
       ? "Identidade de desenvolvimento inválida."
       : "Sessão não autenticada.";
 
-  if (accountAuth !== undefined) {
-    app.addHook("preHandler", async (request) => {
+  if (accessCodeAuth !== undefined) {
+    registerAccessCodeRoutes(app, accessCodeAuth, secureCookies, now);
+  }
+  if (accountAuth !== undefined || accessCodeAuth !== undefined) {
+    app.addHook("preHandler", async (request, reply) => {
       const routeUrl = request.routeOptions.url ?? "";
       if (
         routeUrl === "/health" ||
         routeUrl === "/v1/runtime" ||
+        routeUrl.startsWith("/v1/access/") ||
         routeUrl.startsWith("/v1/auth/")
       ) {
         return;
       }
+      if (accessCodeAuth !== undefined) {
+        const deviceToken = readAccessCookie(request.headers.cookie);
+        let credential;
+        try {
+          credential = await accessCodeAuth.authenticate(deviceToken);
+        } catch {
+          return reply
+            .code(503)
+            .send({ message: "O acesso está temporariamente indisponível. Tente novamente." });
+        }
+        authenticatedAccounts.set(
+          request,
+          credential === undefined
+            ? undefined
+            : {
+                userId: credential.userId,
+                email: "",
+                displayName: ""
+              }
+        );
+        if (credential !== undefined)
+          reply.header("set-cookie", accessCookie(deviceToken!, secureCookies));
+        return;
+      }
       const token = getAccountSessionCookie(request.headers.cookie);
       const account =
-        token === undefined ? undefined : await accountAuth.authenticate(token, now());
+        token === undefined ? undefined : await accountAuth!.authenticate(token, now());
       authenticatedAccounts.set(request, account);
     });
   }
 
   function requestUserId(request: FastifyRequest): ReturnType<typeof createUserId> | undefined {
-    if (accountAuth !== undefined) return authenticatedAccounts.get(request)?.userId;
+    if (accountAuth !== undefined || accessCodeAuth !== undefined)
+      return authenticatedAccounts.get(request)?.userId;
     const rawDevelopmentUserId = request.headers["x-development-user-id"];
     const developmentUserId = Array.isArray(rawDevelopmentUserId)
       ? rawDevelopmentUserId[0]
@@ -514,6 +907,311 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     }
   }
 
+  async function readIntegralSet(context: Parameters<typeof integralFinancialCatalog>[0]) {
+    const reader =
+      options.documentAnalysisReader ?? options.developmentDocumentMemory?.analysisReader;
+    if (!reader) throw new Error("Leitura integral indisponível.");
+    const catalog = await listRegisteredDocuments(documentCatalogRepository, context),
+      selected = integralFinancialCatalog(context, catalog);
+    return {
+      catalog,
+      documents:
+        selected.length === 1
+          ? await reader.readAuthorized(
+              context,
+              selected.filter(canSummarizeDocument).map((d) => d.documentVersionId)
+            )
+          : []
+    };
+  }
+  registerConversationJournal(app, {
+    store: conversationStore,
+    sources: options.documentSourceReader,
+    chats: chatRepository,
+    now,
+    user: requestUserId,
+    captureReplay: async (request, scope, response, kind) => {
+      if (scope.kind !== "chat") return;
+      const citations = Array.isArray(response.citations) ? response.citations : [];
+      const ids = new Set<string>(
+        citations
+          .filter(
+            (citation) =>
+              citation?.sourceScope !== "legislation" &&
+              typeof citation?.documentVersionId === "string"
+          )
+          .map((citation) => citation.documentVersionId)
+      );
+      const params = request.params as { documentVersionId?: unknown };
+      if (kind === "document_status" && typeof params.documentVersionId === "string")
+        ids.add(params.documentVersionId);
+      if (!ids.size) return;
+      const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+        userId: scope.userId,
+        condominiumId: createCondominiumId(scope.condominiumId),
+        now: now()
+      });
+      const catalog = await listRegisteredDocuments(documentCatalogRepository, context);
+      const versions = [...ids].sort(),
+        selected = versions.map((id) => catalog.find((row) => row.documentVersionId === id));
+      if (selected.some((row) => !row)) {
+        if (options.documentCatalogRepository) throw new ConversationStoreError(403);
+        return; // A legacy/test source without catalog provenance is never eligible for HTTP replay.
+      }
+      const requestBody = request.body as { question?: unknown };
+      if (
+        kind === "question_answer" &&
+        ["grounded", "conflict"].includes(String(response.answerMode)) &&
+        typeof requestBody.question === "string" &&
+        isIntegralSumQuestion(requestBody.question)
+      ) {
+        const calculation = computeIntegralSum(
+          context,
+          requestBody.question,
+          await readIntegralSet(context)
+        );
+        assertIntegralAnswer(calculation.summary, response as unknown as GeneratedAnswer);
+        addJournalReplayProof(request, {
+          integralSum: { receiptSha256: calculation.summary.receiptSha256 }
+        });
+      }
+      const savedQuestion =
+        kind === "question_answer" &&
+        typeof response.answerId === "string" &&
+        selected.some((row) => row && !canSummarizeDocument(row))
+          ? await answerUseCase.findValidatedAnswer?.(context, response.answerId)
+          : undefined;
+      if (
+        ["grounded", "conflict"].includes(String(response.answerMode)) &&
+        citations.some(
+          (citation) =>
+            citation?.sourceScope !== "legislation" &&
+            !selected.some(
+              (row) =>
+                row !== undefined &&
+                row.documentVersionId === citation.documentVersionId &&
+                canJournalCiteDocument(row, kind, context, response, savedQuestion)
+            )
+        )
+      )
+        throw new ConversationStoreError(403);
+      const sourcePages: NonNullable<JournalReplayProof["sourcePages"]>[number][] = [];
+      for (const citation of citations) {
+        if (citation?.sourceScope === "legislation") continue;
+        if (!options.documentSourceReader) continue;
+        const source = await options.documentSourceReader.getAuthorizedPage(context, citation);
+        if (!source) throw new ConversationStoreError(403);
+        if (
+          !sourcePages.some(
+            (page) =>
+              page.documentId === citation.documentId &&
+              page.documentVersionId === citation.documentVersionId &&
+              page.page === citation.page
+          )
+        )
+          sourcePages.push({
+            documentId: citation.documentId,
+            documentVersionId: citation.documentVersionId,
+            page: citation.page,
+            contentHash: conversationHash(source.content)
+          });
+      }
+      addJournalReplayProof(request, {
+        sourceCatalog: { revision: conversationHash(selected), documentVersionIds: versions },
+        sourcePages
+      });
+    },
+    validateReplay: async (request, scope, metadata, response) => {
+      try {
+        const proof = metadata.replayProof as JournalReplayProof | undefined;
+        if (
+          options.operationControl &&
+          !["setup_creation", "document_summary"].includes(String(metadata.kind))
+        ) {
+          if (!proof?.operation || !options.operationControl.authorizeReplay) return false;
+          const operation = proof.operation;
+          if (operation.scope.userId !== scope.userId) return false;
+          if (
+            !(await options.operationControl.authorizeReplay(operation, async () => {
+              if (operation.scope.kind === "account") return scope.kind === "setup";
+              if (scope.kind !== "chat" || operation.scope.condominiumId !== scope.condominiumId)
+                return false;
+              const current = await resolveAuthorizedCondominiumContext(
+                options.membershipRepository,
+                {
+                  userId: scope.userId,
+                  condominiumId: createCondominiumId(scope.condominiumId),
+                  now: now()
+                }
+              );
+              return (
+                current.membershipRevision === operation.scope.membershipRevision &&
+                (operation.kind !== "upload" || current.permissions.includes("document:upload"))
+              );
+            }))
+          )
+            return false;
+        }
+        if (metadata.kind === "document_summary") {
+          if (scope.kind !== "chat" || !proof?.documents) return false;
+          const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+            userId: scope.userId,
+            condominiumId: createCondominiumId(scope.condominiumId),
+            now: now()
+          });
+          const reader =
+            options.documentAnalysisReader ?? options.developmentDocumentMemory?.analysisReader;
+          const catalog = await listRegisteredDocuments(documentCatalogRepository, context);
+          if (
+            !reader ||
+            financialCatalogRevision(catalog) !== proof.documents.catalogRevision ||
+            conversationHash(
+              await reader.readAuthorized(context, proof.documents.documentVersionIds)
+            ) !== proof.documents.contentRevision
+          )
+            return false;
+          if (options.hostedDocumentBatchGateway) {
+            if (
+              !proof.documents.hosted ||
+              proof.documents.hosted.request.documentVersions.some(
+                (version) => !proof.documents!.documentVersionIds.includes(version.id)
+              ) ||
+              !options.hostedDocumentBatchGateway.revalidateReplay ||
+              !(await options.hostedDocumentBatchGateway.revalidateReplay(
+                context,
+                scope.chatId,
+                proof.documents.hosted
+              ))
+            )
+              return false;
+          } else if (proof.documents.hosted) return false;
+        }
+        if (scope.kind === "chat" && metadata.kind !== "document_summary") {
+          const context = await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+            userId: scope.userId,
+            condominiumId: createCondominiumId(scope.condominiumId),
+            now: now()
+          });
+          const catalog = await listRegisteredDocuments(documentCatalogRepository, context);
+          if (
+            ((metadata.kind === "document_status" &&
+              typeof metadata.documentVersionId === "string") ||
+              (Array.isArray(response.citations) && response.citations.length)) &&
+            (!proof?.sourceCatalog ||
+              conversationHash(
+                proof.sourceCatalog.documentVersionIds.map((id) =>
+                  catalog.find((row) => row.documentVersionId === id)
+                )
+              ) !== proof.sourceCatalog.revision)
+          )
+            return false;
+          if (
+            typeof metadata.documentVersionId === "string" &&
+            !catalog.some((row) => row.documentVersionId === metadata.documentVersionId)
+          )
+            return false;
+          const requestBody = request.body as { question?: unknown };
+          if (
+            metadata.kind === "question_answer" &&
+            ["grounded", "conflict"].includes(String(response.answerMode)) &&
+            typeof requestBody.question === "string" &&
+            isIntegralSumQuestion(requestBody.question)
+          ) {
+            if (!proof?.integralSum) return false;
+            const calculation = computeIntegralSum(
+              context,
+              requestBody.question,
+              await readIntegralSet(context)
+            );
+            if (calculation.summary.receiptSha256 !== proof.integralSum.receiptSha256) return false;
+          }
+          if (Array.isArray(response.citations) && response.citations.length) {
+            const savedQuestion =
+              metadata.kind === "question_answer" &&
+              typeof response.answerId === "string" &&
+              response.citations.some(
+                (c) =>
+                  c?.sourceScope !== "legislation" &&
+                  catalog.some(
+                    (row) =>
+                      row.documentVersionId === c.documentVersionId && !canSummarizeDocument(row)
+                  )
+              )
+                ? await answerUseCase.findValidatedAnswer?.(context, response.answerId)
+                : undefined;
+            for (const citation of response.citations) {
+              if (
+                !citation ||
+                typeof citation.documentId !== "string" ||
+                typeof citation.documentVersionId !== "string" ||
+                !Number.isInteger(citation.page)
+              )
+                return false;
+              const registered = catalog.find(
+                (row) =>
+                  row.documentVersionId === citation.documentVersionId &&
+                  row.documentId === citation.documentId
+              );
+              if (
+                !registered ||
+                (["grounded", "conflict"].includes(String(response.answerMode)) &&
+                  !canJournalCiteDocument(
+                    registered,
+                    String(metadata.kind),
+                    context,
+                    response,
+                    savedQuestion
+                  )) ||
+                !proof?.sourceCatalog?.documentVersionIds.includes(citation.documentVersionId)
+              )
+                return false;
+              const source = options.documentSourceReader
+                ? await options.documentSourceReader.getAuthorizedPage(context, citation)
+                : undefined;
+              if (
+                !source ||
+                !proof?.sourcePages?.some(
+                  (page) =>
+                    page.documentId === citation.documentId &&
+                    page.documentVersionId === citation.documentVersionId &&
+                    page.page === citation.page &&
+                    page.contentHash === conversationHash(source.content)
+                ) ||
+                typeof citation.excerpt !== "string" ||
+                !citation.excerpt ||
+                !Number.isInteger(citation.startOffset) ||
+                !Number.isInteger(citation.endOffset) ||
+                citation.startOffset < 0 ||
+                Array.from(source.content)
+                  .slice(citation.startOffset, citation.endOffset)
+                  .join("") !== citation.excerpt
+              )
+                return false;
+            }
+          }
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    resolve: async (request, condominiumId) => {
+      const userId = requestUserId(request);
+      if (userId === undefined) throw new ConversationStoreError(401);
+      try {
+        return await resolveAuthorizedCondominiumContext(options.membershipRepository, {
+          userId,
+          condominiumId: createCondominiumId(condominiumId),
+          now: now()
+        });
+      } catch {
+        throw new ConversationStoreError(403);
+      }
+    }
+  });
+
+  registerQuestionResearchProgress(app);
+
   const emptyRetrieval = (question: string): ScopedRetrievalResult =>
     Object.freeze({
       pipelineVersion: retrievalPipelineVersion,
@@ -527,6 +1225,9 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
   app.addContentTypeParser("application/pdf", { parseAs: "buffer" }, (_request, body, done) => {
     done(null, body);
   });
+  app.addContentTypeParser(docxMediaType, { parseAs: "buffer" }, (_request, body, done) =>
+    done(null, body)
+  );
   for (const mediaType of ["image/jpeg", "image/png"] as const) {
     app.addContentTypeParser(
       mediaType,
@@ -538,10 +1239,12 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
   }
 
   const runtimeInformation = () => ({
+    historyPersistence: conversationStore.durable ? "durable" : "volatile",
     status: "ok",
     version,
     aiProvider,
     authMode: accountAuth === undefined ? "development" : "real",
+    accessCodeEnabled: accessCodeAuth !== undefined,
     googleAuthEnabled: accountAuth !== undefined && options.googleOAuth !== undefined,
     authSessionRestore: accountAuth !== undefined && authSessionRestore,
     accountSecurityEnabled: accountSecurity !== undefined,
@@ -561,8 +1264,11 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       return reply.code(401).send({ message: unauthenticatedMessage });
     if (!isSetupMessageRequest(request.body))
       return reply.code(400).send({ message: "Etapa de conversa inválida." });
+    const body = request.body;
     try {
-      const message = await generateSetupMessage(options.setupMessageGateway, request.body);
+      const message = await controlled(request, "setup", ["setup-message", body], () =>
+        generateSetupMessage(options.setupMessageGateway, body)
+      );
       return reply.header("cache-control", "no-store").send({ message });
     } catch {
       return reply.code(503).send({ message: "A Alvitra está indisponível no momento." });
@@ -577,8 +1283,11 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       return reply.code(401).send({ message: unauthenticatedMessage });
     if (!isSetupTurnRequest(request.body))
       return reply.code(400).send({ message: "Turno de configuração inválido." });
+    const body = request.body;
     try {
-      const turn = await interpretSetupTurn(options.setupMessageGateway, request.body);
+      const turn = await controlled(request, "setup", ["setup-turn", body], () =>
+        interpretSetupTurn(options.setupMessageGateway, body)
+      );
       return reply.header("cache-control", "no-store").send(turn);
     } catch (error: unknown) {
       if (error instanceof InvalidSetupInterpretationError) {
@@ -1175,10 +1884,15 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
 
       const normalizedCnpj = request.body.cnpj?.replace(/\D/gu, "") ?? "";
       try {
-        const created = await condominiumDirectory.createForUser(userId, {
-          ...request.body,
-          cnpj: normalizedCnpj
-        });
+        const createInput = { ...request.body, cnpj: normalizedCnpj };
+        const operationKey = request.headers["x-conversation-request-id"];
+        const created =
+          typeof operationKey === "string"
+            ? await condominiumDirectory.createForUser(userId, createInput, {
+                requestKey: operationKey,
+                inputHash: conversationHash(request.body)
+              })
+            : await condominiumDirectory.createForUser(userId, createInput);
         return reply.code(201).send({
           condominiumId: created.condominiumId,
           role: created.roleKey,
@@ -1186,6 +1900,8 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           condominium: created
         });
       } catch (error: unknown) {
+        if (error instanceof ConversationStoreError)
+          return reply.code(error.statusCode).send({ message: error.message });
         if (normalizedCnpj !== "") {
           try {
             const existing = await condominiumDirectory.findAuthorizedByCnpj(
@@ -1643,6 +2359,7 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           title: document.title,
           documentType: document.documentType,
           versionNumber: document.versionNumber,
+          ...(document.isFinancialStatement === true ? { isFinancialStatement: true } : {}),
           sizeBytes: document.sizeBytes,
           processingStatus: document.processingStatus,
           validityStatus: document.validityStatus,
@@ -1828,6 +2545,154 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     Params: { condominiumId: string; documentVersionId: string };
     Body: unknown;
   }>(
+    "/v1/condominiums/:condominiumId/documents/:documentVersionId/conversation",
+    async (request, reply) => {
+      const userId = requestUserId(request);
+      if (userId === undefined) return reply.code(401).send({ message: unauthenticatedMessage });
+      const body = request.body as Record<string, unknown> | null;
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        Object.keys(body).some((key) => !["event", "analysisOnly", "message"].includes(key)) ||
+        (body.message !== undefined &&
+          (body.event !== "cancelled" ||
+            typeof body.message !== "string" ||
+            readDocumentUseDecision(body.message) !== "cancel")) ||
+        (body.analysisOnly !== undefined &&
+          (body.analysisOnly !== true || body.event !== "status")) ||
+        typeof body.event !== "string" ||
+        !["received", "status", "confirmed", "cancelled"].includes(body.event)
+      )
+        return reply.code(400).send({ message: "Evento documental inválido." });
+      const event = body.event as DocumentConversationEvent;
+      try {
+        const resolveContext = () =>
+          resolveAuthorizedCondominiumContext(options.membershipRepository, {
+            userId,
+            condominiumId: createCondominiumId(request.params.condominiumId),
+            now: now()
+          });
+        const context = await resolveContext();
+        if (!context.permissions.includes("document:upload"))
+          return reply.code(403).send({ message: "Acesso não autorizado." });
+        const catalog = await listRegisteredDocuments(documentCatalogRepository, context);
+        const readDocument = async (scope: AuthorizedCondominiumContext) =>
+          (await listRegisteredDocuments(documentCatalogRepository, scope)).find(
+            (document) => document.documentVersionId === request.params.documentVersionId
+          );
+        const document = catalog.find(
+          (entry) => entry.documentVersionId === request.params.documentVersionId
+        );
+        if (document === undefined)
+          return reply.code(404).send({ message: "Documento indisponível." });
+        const state = documentConversationState(document, event);
+        if (state === undefined)
+          return reply.code(409).send({ message: "O estado do documento mudou." });
+        const documentRevision = JSON.stringify(document);
+        tenantWorkLimiter.consume({
+          operation: "document_question",
+          userId,
+          condominiumId: context.condominiumId,
+          now: now()
+        });
+        const profile = await options.condominiumProfileRepository?.getProfile({
+          userId,
+          condominiumId: context.condominiumId
+        });
+        const name =
+          profile?.name ?? document.condominiumCheck?.expectedName ?? "condomínio selecionado";
+        const reader =
+          options.documentAnalysisReader ?? options.developmentDocumentMemory?.analysisReader;
+        let snapshot: DocumentAnalysisReport | undefined;
+        if (
+          (event === "status" || event === "confirmed") &&
+          canSummarizeDocument(document) &&
+          context.permissions.includes("document:read")
+        ) {
+          try {
+            if (reader === undefined) throw new Error("Leitura documental indisponível.");
+            snapshot = await buildDocumentSnapshot(reader, context, document, catalog);
+          } catch (error) {
+            const analysisLimitExceeded =
+              error instanceof Error && /excede o limite/iu.test(error.message);
+            snapshot = {
+              status: "unavailable" as const,
+              title: "Raio-X inicial do arquivo",
+              rows: [],
+              limitations: [
+                analysisLimitExceeded
+                  ? "O conjunto excede o limite de conferência: 500 páginas ou dois milhões de caracteres. Delimite o histórico e os documentos de apoio antes de refazer a análise. Nenhum subconjunto foi apresentado como completo."
+                  : "Não foi possível preparar a conferência com segurança. Confira o original ou envie uma versão completa e legível."
+              ]
+            };
+          }
+        }
+        const message =
+          body.analysisOnly === true
+            ? undefined
+            : await controlled(
+                request,
+                "question",
+                ["document-conversation", body, documentRevision, name],
+                () =>
+                  generateDocumentConversation(
+                    options.setupMessageGateway,
+                    document,
+                    event,
+                    name,
+                    snapshot !== undefined
+                  ),
+                context
+              ).catch((error: unknown) => {
+                if (error instanceof OperationBudgetError) throw error;
+                if (snapshot === undefined) throw error;
+                return undefined;
+              });
+        const refreshedContext = await resolveContext();
+        if (
+          !refreshedContext.permissions.includes("document:upload") ||
+          (snapshot !== undefined && !refreshedContext.permissions.includes("document:read")) ||
+          refreshedContext.membershipRevision !== context.membershipRevision
+        )
+          return reply.code(403).send({ message: "Acesso não autorizado." });
+        const refreshed = await readDocument(refreshedContext);
+        const financialCatalogChanged =
+          snapshot?.financialReview !== undefined &&
+          financialCatalogRevision(catalog) !==
+            financialCatalogRevision(
+              await listRegisteredDocuments(documentCatalogRepository, refreshedContext)
+            );
+        if (
+          financialCatalogChanged ||
+          refreshed === undefined ||
+          (event !== "received" &&
+            (documentConversationState(refreshed, event) !== state ||
+              JSON.stringify(refreshed) !== documentRevision))
+        )
+          return reply.code(409).send({ message: "O estado do documento mudou." });
+        return reply
+          .header("cache-control", "private, no-store")
+          .send({ message, ...(snapshot === undefined ? {} : { snapshot }) });
+      } catch (error) {
+        if (error instanceof TenantWorkLimitExceededError)
+          return reply
+            .header("retry-after", String(error.retryAfterSeconds))
+            .code(429)
+            .send({ message: "Aguarde um instante antes de continuar." });
+        if (error instanceof AccessDeniedError || error instanceof DocumentCatalogForbiddenError)
+          return reply.code(403).send({ message: "Acesso não autorizado." });
+        return reply.code(503).send({
+          message:
+            "A Alvitra está indisponível para conversar sobre o anexo agora. Tente novamente."
+        });
+      }
+    }
+  );
+
+  app.post<{
+    Params: { condominiumId: string; documentVersionId: string };
+    Body: unknown;
+  }>(
     "/v1/condominiums/:condominiumId/documents/:documentVersionId/confirm-condominium",
     async (request, reply) => {
       const userId = requestUserId(request);
@@ -1837,7 +2702,10 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         request.body === null ||
         !("confirm" in request.body) ||
         request.body.confirm !== true ||
-        Object.keys(request.body).length !== 1
+        Object.keys(request.body).some((key) => !["confirm", "message"].includes(key)) ||
+        ("message" in request.body &&
+          (typeof request.body.message !== "string" ||
+            readDocumentUseDecision(request.body.message) !== "confirm"))
       )
         return reply
           .code(400)
@@ -1854,10 +2722,21 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           context,
           request.params.documentVersionId
         );
-        if (confirmed !== true)
+        if (confirmed !== true) {
+          // A decisão pode ter sido aplicada antes de uma falha ao gravar o journal/ACK.
+          // Retomar o mesmo consentimento digitado não libera outra versão nem outro contexto.
+          const current =
+            "message" in request.body
+              ? (await listRegisteredDocuments(documentCatalogRepository, context)).find(
+                  (item) => item.documentVersionId === request.params.documentVersionId
+                )
+              : undefined;
+          if (current?.condominiumCheck?.status === "confirmed")
+            return reply.send({ confirmed: true });
           return reply.code(409).send({
             message: "Não há confirmação pendente para esta versão ativa neste condomínio."
           });
+        }
         options.developmentDocumentMemory?.confirmCondominium(
           context.condominiumId,
           request.params.documentVersionId
@@ -1906,11 +2785,15 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       if (
         mediaType !== "application/pdf" &&
         mediaType !== "image/jpeg" &&
-        mediaType !== "image/png"
+        mediaType !== "image/png" &&
+        mediaType !== docxMediaType
       ) {
-        throw new InvalidDocumentUploadError("Envie um PDF, uma imagem JPEG ou PNG.");
+        throw new InvalidDocumentUploadError("Envie um PDF, Word (.docx), uma imagem JPEG ou PNG.");
       }
-      if (mediaType !== "application/pdf" && options.imageUploadsEnabled !== true) {
+      if (
+        (mediaType === "image/jpeg" || mediaType === "image/png") &&
+        options.imageUploadsEnabled !== true
+      ) {
         return reply.code(503).send({
           message:
             "O envio de fotos será liberado quando o processamento seguro estiver configurado."
@@ -1939,17 +2822,34 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         return reply.code(400).send({ message: "O identificador da conversa é inválido." });
       if (chatId !== undefined && (await chatRepository.find(context, chatId)) === undefined)
         return reply.code(404).send({ message: "Conversa indisponível." });
-      const uploaded = await uploadDocument(documentStorage, documentUploadRepository, context, {
-        ...(selectedCondominiumName === undefined ? {} : { selectedCondominiumName }),
-        title: decodeDocumentTitle(request.headers["x-document-title"] ?? ""),
-        documentType: request.headers["x-document-type"] ?? "",
-        ...(request.headers["x-document-id"] === undefined
-          ? {}
-          : { documentId: request.headers["x-document-id"] }),
-        content: request.body,
-        mediaType,
-        validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
-      });
+      const uploaded = await controlled(
+        request,
+        "upload",
+        [
+          "upload",
+          createHash("sha256").update(request.body).digest("hex"),
+          mediaType,
+          selectedCondominiumName,
+          chatId,
+          request.headers["x-document-title"],
+          request.headers["x-document-type"],
+          request.headers["x-document-id"],
+          request.headers["x-document-validity-confirmed"]
+        ],
+        () =>
+          uploadDocument(documentStorage, documentUploadRepository, context, {
+            ...(selectedCondominiumName === undefined ? {} : { selectedCondominiumName }),
+            title: decodeDocumentTitle(request.headers["x-document-title"] ?? ""),
+            documentType: request.headers["x-document-type"] ?? "",
+            ...(request.headers["x-document-id"] === undefined
+              ? {}
+              : { documentId: request.headers["x-document-id"] }),
+            content: request.body,
+            mediaType,
+            validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
+          }),
+        context
+      );
       const memory = options.developmentDocumentMemory;
       if (chatId !== undefined)
         await chatRepository.attachDocument(context, chatId, {
@@ -1967,14 +2867,19 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
               documentVersionId: uploaded.documentVersionId,
               processingStatus: "processing"
             });
+            let extractionSummary: DocumentExtractionSummary | undefined;
             const status = await memory.indexUploaded({
               record: uploaded,
               content: request.body,
-              validityConfirmed: request.headers["x-document-validity-confirmed"] === "true"
+              validityConfirmed: request.headers["x-document-validity-confirmed"] === "true",
+              onExtractionSummary: (summary) => {
+                extractionSummary = summary;
+              }
             });
             await documentCatalogRepository.updateProcessingStatus?.(context, {
               documentVersionId: uploaded.documentVersionId,
               processingStatus: status === "pending_confirmation" ? "ready" : status,
+              ...(extractionSummary === undefined ? {} : { extractionSummary }),
               ...(memory.getCondominiumCheck(context.condominiumId, uploaded.documentVersionId) ===
               undefined
                 ? {}
@@ -2027,6 +2932,11 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
       if (error instanceof DocumentUploadForbiddenError) {
         return reply.code(403).send({ message: "Acesso não autorizado." });
       }
+
+      if (error instanceof OperationBudgetError)
+        return reply
+          .code(error.code === "limit" ? 429 : 503)
+          .send({ message: "Não foi possível autorizar ou retomar esta operação com segurança." });
 
       return reply
         .code(500)
@@ -2109,6 +3019,10 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
     };
     Body: unknown;
   }>("/v1/condominiums/:condominiumId/questions", async (request, reply) => {
+    const progress = questionResearchProgress(
+      reply,
+      request.headers["x-alvitra-progress"] === "web"
+    );
     if (!isAskBody(request.body)) {
       return reply.code(400).send({ message: "A pergunta é obrigatória." });
     }
@@ -2137,15 +3051,88 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         (await chatRepository.find(context, request.body.chatId)) === undefined
       )
         return reply.code(404).send({ message: "Conversa indisponível." });
-      const answer = await answerUseCase.ask(context, {
-        ...(request.body.chatId === undefined ? {} : { chatId: request.body.chatId }),
-        question: request.body.question,
-        requestId: request.id,
-        preferredName: preferredName ?? "",
-        ...(request.headers["idempotency-key"] === undefined
-          ? {}
-          : { idempotencyKey: request.headers["idempotency-key"] })
-      });
+      const activeChatId = request.body.chatId;
+      let registeredProfile;
+      try {
+        registeredProfile = await options.condominiumProfileRepository?.getProfile({
+          userId: context.userId,
+          condominiumId: context.condominiumId
+        });
+      } catch {
+        throw new ConversationMemoryError();
+      }
+      const questionBody = request.body;
+      const answer = await controlled(
+        request,
+        "question",
+        ["question", request.body, preferredName, registeredProfile],
+        () =>
+          answerUseCase.ask(context, {
+            onWebResearchStarted: progress.start,
+            ...(activeChatId
+              ? {
+                  readAuxiliaryHistory: async () =>
+                    journalMemoryEntries(
+                      context,
+                      activeChatId,
+                      (
+                        await conversationStore.list(
+                          {
+                            kind: "chat",
+                            userId: context.userId,
+                            condominiumId: context.condominiumId,
+                            chatId: activeChatId
+                          },
+                          9
+                        )
+                      ).entries
+                    )
+                }
+              : {}),
+            revalidateConversation: async () => {
+              const refreshed = await resolveAuthorizedCondominiumContext(
+                options.membershipRepository,
+                { userId: context.userId, condominiumId: context.condominiumId, now: now() }
+              );
+              if (
+                refreshed.membershipRevision !== context.membershipRevision ||
+                refreshed.roleKey !== context.roleKey
+              )
+                throw new AccessDeniedError();
+              if (
+                activeChatId !== undefined &&
+                (await chatRepository.find(refreshed, activeChatId)) === undefined
+              )
+                throw new ConversationMemoryError(404);
+            },
+            ...(questionBody.chatId === undefined ? {} : { chatId: questionBody.chatId }),
+            question: questionBody.question,
+            requestId: request.id,
+            ...(registeredProfile === undefined
+              ? {}
+              : {
+                  registeredProfile: {
+                    condominiumId: registeredProfile.condominiumId,
+                    name: registeredProfile.name,
+                    unitCount: registeredProfile.unitCount
+                  }
+                }),
+            readIntegralDocuments: async () => {
+              return readIntegralSet(context);
+            },
+            preferredName: preferredName ?? "",
+            ...((request.headers["idempotency-key"] ??
+              request.headers["x-conversation-request-id"]) === undefined
+              ? {}
+              : {
+                  idempotencyKey: String(
+                    request.headers["idempotency-key"] ??
+                      request.headers["x-conversation-request-id"]
+                  )
+                })
+          }),
+        context
+      );
 
       if (context.roleKey === "manager" && options.condominiumProfileRepository !== undefined) {
         const currentProfile = await options.condominiumProfileRepository.getProfile({
@@ -2185,34 +3172,40 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
           documentAnalysis = unavailableDocumentAnalysis();
         }
       }
-      return reply.code(200).send({
+      return progress.send(200, {
         ...toPublicAnswer(answer),
         ...(documentAnalysis === undefined ? {} : { documentAnalysis })
       });
     } catch (error: unknown) {
       if (error instanceof AccessDeniedError) {
-        return reply.code(403).send({ message: "Acesso não autorizado." });
+        return progress.send(403, { message: "Acesso não autorizado." });
       }
+      if (error instanceof ConversationMemoryError) {
+        if (error.statusCode === 409) reply.header("retry-after", "1");
+        return progress.send(error.statusCode, { message: error.message });
+      }
+      if (error instanceof OperationBudgetError)
+        return progress.send(error.code === "limit" ? 429 : 503, {
+          message: "Não foi possível autorizar ou retomar esta operação com segurança."
+        });
       if (error instanceof TenantWorkLimitExceededError) {
-        return reply
-          .header("retry-after", String(error.retryAfterSeconds))
-          .code(429)
-          .send({ message: "Tente novamente em instantes." });
+        reply.header("retry-after", String(error.retryAfterSeconds));
+        return progress.send(429, { message: "Tente novamente em instantes." });
       }
       if (
         error instanceof Error &&
         (error.message.startsWith("A pergunta") ||
           error.message.startsWith("A chave de idempotência"))
       ) {
-        return reply.code(400).send({ message: error.message });
+        return progress.send(400, { message: error.message });
       }
       console.error("Falha ao processar pergunta", {
         name: error instanceof Error ? error.name : "UnknownError",
         message: error instanceof Error ? error.message : "Erro desconhecido"
       });
-      return reply
-        .code(500)
-        .send({ message: "Não foi possível processar a consulta com segurança." });
+      return progress.send(500, {
+        message: "Não foi possível processar a consulta com segurança."
+      });
     }
   });
 
@@ -2318,8 +3311,17 @@ export function createApi(options: CreateApiOptions): FastifyInstance {
         condominiumId: createCondominiumId(request.params.condominiumId),
         now: now()
       });
-      retrieval = await options.retriever.search(context, { query: question });
-      const response = await options.answerService.answer(context, { question, retrieval });
+      const authorizedContext = context;
+      const response = await controlled(
+        request,
+        "question",
+        ["legacy-answer", question],
+        async () => {
+          retrieval = await options.retriever!.search(authorizedContext, { query: question });
+          return options.answerService!.answer(authorizedContext, { question, retrieval });
+        },
+        authorizedContext
+      );
       const trace = await answerTraceStore.record({
         context,
         question,

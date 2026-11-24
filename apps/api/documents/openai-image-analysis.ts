@@ -83,9 +83,12 @@ export function createOpenAiImageAnalysisAdapter(
   return Object.freeze({
     async analyze(input: Parameters<ImageAnalysisAdapter["analyze"]>[0]) {
       try {
+        input.signal?.throwIfAborted();
         const response = await fetchImplementation(responsesUrl, {
           method: "POST",
-          signal: AbortSignal.timeout(timeoutMs),
+          signal: input.signal
+            ? AbortSignal.any([input.signal, AbortSignal.timeout(timeoutMs)])
+            : AbortSignal.timeout(timeoutMs),
           headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({
             model,

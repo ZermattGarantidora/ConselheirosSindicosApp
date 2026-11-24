@@ -12,6 +12,10 @@ export interface ProcessingJobQueue {
   fail(job: ProcessingJob): Promise<void>;
 }
 
+export interface LeasedProcessingJobQueue extends ProcessingJobQueue {
+  renewLease(job: ProcessingJob): Promise<boolean>;
+}
+
 export type ProcessingJobQueueLike = Readonly<{
   claimNext(): Promise<ProcessingJob | undefined>;
   fail?: (job: ProcessingJob) => Promise<void>;
@@ -24,6 +28,7 @@ export interface ScopedDocumentProcessor {
       documentVersionId: string;
       jobId: string;
       attemptCount: number;
+      signal?: AbortSignal;
     }>
   ): Promise<void>;
 }

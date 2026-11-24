@@ -6,7 +6,11 @@ type UploadRequestInput = Readonly<{
   title: string;
   documentType: string;
   chatId?: string;
-  mediaType?: "application/pdf" | "image/jpeg" | "image/png";
+  mediaType?:
+    | "application/pdf"
+    | "image/jpeg"
+    | "image/png"
+    | "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   authMode: "real" | "development";
   developmentUserId?: string;
   signal?: AbortSignal;

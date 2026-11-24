@@ -1,0 +1,16 @@
+# Aceitação — Spec 053
+
+- **AC-5301:** uma unidade corrigida prevalece sobre unidade antiga em retomada; pergunta de aviso/multa usa cláusulas relevantes; pergunta independente e exclusão não herdam tarefas antigas. Projeções derivam apenas de perguntas disponíveis.
+- **AC-5302:** conclusão financeira/contratual/técnica não aceita omissão de tópico explícito/retomado, e aviso/multa não aceita preço como substituto. Abstenção específica ou pedido de esclarecimento pode atender lacuna; coincidência lexical não comprova verdade.
+- **AC-5303:** correção informa modos/claims/citações/especialista e requisito omitido; conserva fontes/modelo e cabe no orçamento. Máximo duas chamadas; revogação impede a próxima geração; segredo, fonte inexistente e conteúdo hostil continuam bloqueados.
+- **AC-5304:** datas, percentuais e jornadas não disparam valor monetário sem suporte; valores monetários reais sem fonte e adulteração continuam recusados. Nenhuma saída é convertida em fato, modo ou interpretação só para passar validação.
+- **AC-5304b:** citação exigida por claim documental é exibida usando somente o ID recuperado e os metadados originais, sem duplicação; ID desconhecido continua bloqueado. A união de citações não corrige classe de claim, vigência, grounding, conteúdo hostil ou modo incompatível. Cobrir claim pendente como fato e abstenção documental como recusas.
+- **AC-5304c:** schema de geração mantém estrutura estável para favorecer reuso, sem IDs ou modos específicos por consulta; combinações de especialista e claims documentais continuam restritas. Autorização dos IDs, modo da tarefa, fonte local confirmada e interpretação de minuta são exigidos pelo validador local e pela projeção de fontes. Testar todas essas recusas no caminho completo, sem confiar no schema remoto. A revisão substitui a restrição remota dinâmica da R2, cujo custo/regressões foram registrados, sem retirar qualquer restrição de domínio.
+- **AC-5304d:** abstenção não aceita afirmações sobre o que termo/ata registraram, inclusive pendências passadas e verbos no passado, sem citação. Definições gerais e declaração de impossibilidade de confirmar permanecem permitidas. Recusas de alteração de valor em conjugação futura não são tratadas como valor confirmado; afirmar o valor falso em outra frase/cláusula continua bloqueado.
+- **AC-5305:** regressões dos casos falhos e controles negativos passam; gates locais e cobertura>=80% executados. A bateria final usa somente Luna/memória, mesmos280/1.010,80/79, concorrência2 e snapshot congelado. Qualidade, falhas, custo, latência e limites comparados com R1, preservando artefatos anteriores e consumo dos smokes.
+
+## Resultado observado da R3
+
+AC-5301 a AC-5304d receberam controles locais positivos e negativos; 1.400 testes passaram, incluindo 30 novos. Os limites de fonte, autorização, memória e duas gerações foram verificados nos artefatos da bateria completa.
+
+AC-5305 foi executado em `2026-10-28-luna-quality-r3`: mesmos 280 cenários/1.010 turnos e 80 alvos, com 79 comparáveis. Resultado: 59 satisfatórias, 13 parciais e 7 falhas. Isso confirma execução e medição, sem declarar resolução completa das falhas semânticas. [Resultados por caso, regressões e custo](observed-results-2026-10-28.md).

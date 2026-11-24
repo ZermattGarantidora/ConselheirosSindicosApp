@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-06",
+  "timezone": "America/Sao_Paulo",
+  "syntheticOnly": true,
+  "sourceCommit": "3b702db6f91dbbeb2ede1a6063053296298d913c",
+  "workingTreeHasPreexistingChanges": true,
+  "canonicalCheck": "passed",
+  "unitAndE2e": { "tests": 2226, "files": 200, "passed": 2226 },
+  "unitOnly": { "tests": 2012, "files": 168, "passed": 2012 },
+  "coverage": {
+    "unitAndE2e": { "statements": 91.92, "branches": 88.73, "functions": 96.35, "lines": 93.52 },
+    "unitOnly": { "statements": 88.29, "branches": 84.12, "functions": 93.32, "lines": 90.03 },
+    "thresholdEach": 80
+  },
+  "integration": { "provider": "neon", "tests": 17, "passed": 17 },
+  "workerSeparated": { "checkGroups": 9, "passed": true },
+  "basicEvals": { "cases": 20, "passed": 20 },
+  "documentaryDeterministic": { "cases": 50, "passed": 50 },
+  "documentarySyntheticContracts": { "cases": 50, "passed": 50 },
+  "conversationSyntheticContracts": {
+    "scenarios": 280,
+    "turns": 1010,
+    "mechanicalFailures": 0,
+    "failedAnswers": 1,
+    "failedCase": "CONV-long-36/30",
+    "validationCode": "task_coverage_missing",
+    "semanticApproved": null
+  },
+  "documentaryRealGateway": {
+    "cases": 50,
+    "completed": 50,
+    "mechanicallyValid": 46,
+    "mechanicallyRejected": 4,
+    "rejectionCode": "answer_body_protocol_json",
+    "rejectedCases": ["SR-06-ATA", "SR-08-NOR", "SR-04-VER", "SR-07-CIT"],
+    "models": { "gpt-6.1-sol": 48, "gpt-6-luna": 2 },
+    "inputTokensObserved": 688453,
+    "outputTokensObserved": 13487,
+    "earlierProcessAttemptsWithoutUsage": 8,
+    "specialistApproved": false,
+    "semanticApproved": null,
+    "httpRepairMeasured": false
+  },
+  "pdf300": { "passed": true, "indexingMs": 2185.1638, "peakRssMiB": 292.49609375 },
+  "dependencyAudit": { "high": 0, "critical": 0, "moderate": 4, "low": 5 },
+  "browser": {
+    "isolated": true,
+    "login": true,
+    "reloadSession": true,
+    "profile": true,
+    "themes": true,
+    "noHorizontalOverflowAt320px": true,
+    "logoutPersistsAfterReload": true,
+    "fullChatJourneyMeasured": false
+  },
+  "productionCodeChanged": false,
+  "deployed": false,
+  "mergeApproved": false,
+  "details": "docs/quality/test-results-2026-11-06.md"
+}

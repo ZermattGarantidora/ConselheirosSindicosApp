@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 
 import type { Pool, PoolClient } from "pg";
 
@@ -13,14 +13,19 @@ import type { PrivateDocumentReader } from "./private-document-storage.js";
 import type { OcrAdapter } from "./ocr-quality.js";
 import type { ImageAnalysisAdapter } from "./image-analysis.js";
 import type { DocumentMediaType } from "./document-model.js";
-import { chunkPage } from "../retrieval/retrieval-contract.js";
-import {
-  createLocalSyntheticEmbeddingAdapter,
-  formatPgVector
-} from "../retrieval/local-embedding.js";
+import { createLocalSyntheticEmbeddingAdapter } from "../retrieval/local-embedding.js";
+import { persistDocumentPages } from "./persist-document-pages.js";
 import type { EmbeddingAdapter } from "../retrieval/retrieval-contract.js";
 
 type PoolLike = Pick<Pool, "connect">;
+
+export type DocumentEmbeddingFactory = (
+  scope: Readonly<{
+    condominiumId: CondominiumId;
+    documentVersionId: string;
+    signal?: AbortSignal;
+  }>
+) => EmbeddingAdapter;
 
 type DocumentProcessingRow = Readonly<{
   condominium_id: string;
@@ -77,7 +82,8 @@ function sha256(content: Buffer): string {
 export function createPostgresDocumentProcessingRepository(
   pool: PoolLike,
   storage: PrivateDocumentReader,
-  embeddingAdapter: EmbeddingAdapter = createLocalSyntheticEmbeddingAdapter()
+  embeddingAdapter:
+    EmbeddingAdapter | DocumentEmbeddingFactory = createLocalSyntheticEmbeddingAdapter()
 ): DocumentProcessingRepository {
   return {
     async loadForProcessing(input): Promise<StoredDocumentForProcessing | undefined> {
@@ -171,6 +177,7 @@ export function createPostgresDocumentProcessingRepository(
               AND id = $3
               AND status = 'processing'
               AND attempt_count = $4
+              AND lease_expires_at > clock_timestamp()
             FOR UPDATE
           `,
           [input.condominiumId, input.documentVersionId, input.jobId, input.attemptCount]
@@ -205,143 +212,15 @@ export function createPostgresDocumentProcessingRepository(
           [input.condominiumId, input.documentVersionId]
         );
 
-        let documentChunkIndex = 0;
-        for (const page of input.outcome.pages) {
-          const documentPageId = randomUUID();
-          await client.query(
-            `
-              INSERT INTO app.document_pages (
-                condominium_id, id, document_version_id, page_index, page_number,
-                extracted_text, extraction_method, quality_score, content_sha256,
-                visual_description, recognized_text, analysis_limitations
-              )
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            `,
-            [
-              input.condominiumId,
-              documentPageId,
-              input.documentVersionId,
-              page.pageIndex,
-              page.pageNumber,
-              page.extractedText,
-              page.extractionMethod,
-              page.qualityScore,
-              page.contentSha256,
-              page.visualDescription ?? null,
-              page.recognizedText ?? null,
-              page.analysisLimitations ?? null
-            ]
-          );
-
-          const chunks =
-            input.outcome.status === "completed"
-              ? chunkPage({
-                  condominiumId: input.condominiumId,
-                  documentVersionId: input.documentVersionId,
-                  documentPageId,
-                  pageNumber: page.pageNumber,
-                  extractedText: page.extractedText
-                })
-              : [];
-          for (const chunk of chunks) {
-            const documentChunkId = randomUUID();
-            await client.query(
-              `
-                INSERT INTO app.document_chunks (
-                  condominium_id, id, document_version_id, document_page_id,
-                  chunk_index, start_offset, end_offset, content, content_sha256,
-                  token_count, search_vector
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                  to_tsvector('portuguese', $8))
-              `,
-              [
-                input.condominiumId,
-                documentChunkId,
-                input.documentVersionId,
-                documentPageId,
-                documentChunkIndex,
-                chunk.startOffset,
-                chunk.endOffset,
-                chunk.content,
-                chunk.contentSha256,
-                chunk.tokenCount
-              ]
-            );
-
-            const multimodalEmbedding = page.multimodalEmbeddings?.find(
-              (candidate) => candidate.contentSha256 === chunk.contentSha256
-            );
-            if (multimodalEmbedding !== undefined) {
-              if (
-                multimodalEmbedding.dimensions !== multimodalEmbedding.values.length ||
-                multimodalEmbedding.values.some((value) => !Number.isFinite(value))
-              ) {
-                throw new Error("O vetor multimodal do chunk é inválido.");
-              }
-              await client.query(
-                `
-                  INSERT INTO app.document_chunk_embeddings (
-                    condominium_id, id, document_chunk_id, embedding_profile,
-                    provider_key, model_key, model_version, pipeline_version,
-                    dimensions, embedding, content_sha256
-                  )
-                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::vector, $11)
-                `,
-                [
-                  input.condominiumId,
-                  randomUUID(),
-                  documentChunkId,
-                  multimodalEmbedding.embeddingProfile,
-                  multimodalEmbedding.providerKey,
-                  multimodalEmbedding.modelKey,
-                  multimodalEmbedding.modelVersion,
-                  multimodalEmbedding.pipelineVersion,
-                  multimodalEmbedding.dimensions,
-                  formatPgVector(multimodalEmbedding.values),
-                  multimodalEmbedding.contentSha256
-                ]
-              );
-            }
-            documentChunkIndex += 1;
-
-            const embedding = await embeddingAdapter.embed({
-              content: chunk.content,
-              contentSha256: chunk.contentSha256
-            });
-            if (
-              embedding.dimensions !== embeddingAdapter.profile.dimensions ||
-              embedding.values.length !== embeddingAdapter.profile.dimensions ||
-              embedding.contentSha256 !== chunk.contentSha256
-            ) {
-              throw new Error("O embedding do chunk não corresponde ao conteúdo indexado.");
-            }
-
-            await client.query(
-              `
-                INSERT INTO app.document_chunk_embeddings (
-                  condominium_id, id, document_chunk_id, embedding_profile,
-                  provider_key, model_key, model_version, pipeline_version,
-                  dimensions, embedding, content_sha256
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::vector, $11)
-              `,
-              [
-                input.condominiumId,
-                randomUUID(),
-                documentChunkId,
-                embedding.embeddingProfile,
-                embedding.providerKey,
-                embedding.modelKey,
-                embedding.modelVersion,
-                embedding.pipelineVersion,
-                embedding.dimensions,
-                formatPgVector(embedding.values),
-                embedding.contentSha256
-              ]
-            );
-          }
-        }
+        const scopedEmbedding =
+          typeof embeddingAdapter === "function"
+            ? embeddingAdapter({
+                condominiumId: input.condominiumId,
+                documentVersionId: input.documentVersionId,
+                ...(input.signal === undefined ? {} : { signal: input.signal })
+              })
+            : embeddingAdapter;
+        await persistDocumentPages(client, input, scopedEmbedding);
 
         const finalStatus = input.outcome.state.processingStatus;
         const summary = input.outcome.extractionSummary;
@@ -421,6 +300,7 @@ export function createPostgresDocumentProcessingRepository(
               AND id = $3
               AND status = 'processing'
               AND attempt_count = $6
+              AND lease_expires_at > clock_timestamp()
           `,
           [
             input.condominiumId,
@@ -435,6 +315,7 @@ export function createPostgresDocumentProcessingRepository(
           throw new Error("O job de processamento não está mais em execução.");
         }
 
+        input.signal?.throwIfAborted();
         await client.query("COMMIT");
       } catch (error: unknown) {
         await rollback(client);
@@ -451,7 +332,9 @@ export function createScopedPostgresDocumentProcessor(
   storage: PrivateDocumentReader,
   ocrAdapter?: OcrAdapter,
   imageAnalysisAdapter?: ImageAnalysisAdapter,
-  imageEmbeddingAdapter?: EmbeddingAdapter
+  imageEmbeddingAdapter?: EmbeddingAdapter,
+  photoOcrAdapter?: OcrAdapter,
+  documentEmbeddingFactory?: DocumentEmbeddingFactory
 ): Readonly<{
   process(
     input: Readonly<{
@@ -459,14 +342,16 @@ export function createScopedPostgresDocumentProcessor(
       documentVersionId: string;
       jobId: string;
       attemptCount: number;
+      signal?: AbortSignal;
     }>
   ): Promise<void>;
 }> {
   const processor = createScopedDocumentProcessor(
-    createPostgresDocumentProcessingRepository(pool, storage),
+    createPostgresDocumentProcessingRepository(pool, storage, documentEmbeddingFactory),
     ocrAdapter,
     imageAnalysisAdapter,
-    imageEmbeddingAdapter
+    imageEmbeddingAdapter,
+    photoOcrAdapter
   );
 
   return Object.freeze({

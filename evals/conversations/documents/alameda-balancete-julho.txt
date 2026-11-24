@@ -1,0 +1,9 @@
+FICTÍCIO — GERADO POR IA — SOMENTE TESTE
+Balancete do Residencial Alameda Sintético. Versão 1. Competência julho de 2026. Regime de caixa.
+Página 1. Resumo em reais.
+Saldo anterior: R$ 12.000,00. Receitas recebidas: R$ 33.000,00. Despesas pagas: R$ 31.000,00. Saldo final: R$ 14.000,00.
+Despesas: portaria R$ 16.000,00; limpeza R$ 4.000,00; água R$ 4.500,00; energia R$ 2.500,00; manutenção R$ 4.000,00.
+
+--- PAGE ---
+Página 2. Notas.
+O saldo final inclui R$ 6.000,00 de reserva vinculada. Disponibilidade ordinária: R$ 8.000,00. Cotas a receber na data de fechamento: R$ 2.200,00; esse valor não integra as receitas recebidas. A quantidade de unidades é 60 e a cota nominal é R$ 550,00. Não há histórico de consumo de água ou nota fiscal de manutenção anexados. Os recebimentos podem incluir competências diferentes; cota nominal multiplicada por unidades não comprova adimplência.

@@ -1,0 +1,36 @@
+{
+  "specification": "069",
+  "syntheticOnly": true,
+  "provider": "neon",
+  "paidAiCalls": 0,
+  "checks": [
+    "upload_202_original_private_without_worker",
+    "worker_killed_after_claim_before_original_read",
+    "ten_synthetic_identities_and_cross_tenant_denial",
+    "upload_journal_survives_api_restart",
+    "300_pages_recovered_complete_with_page_300_evidence",
+    "ten_uploads_two_workers_no_duplicate_pages",
+    "renewal_old_attempt_fenced_and_transient_retry",
+    "exhausted_crashed_job_becomes_terminal",
+    "no_ocr_calls_no_false_complete_pdf"
+  ],
+  "metrics": {
+    "abandonedLeaseExpirySimulated": true,
+    "catalogRequests": 10,
+    "catalogLatencyMs": [
+      442,
+      537,
+      549,
+      528,
+      505,
+      623,
+      650,
+      640,
+      653,
+      739
+    ],
+    "longPdfRecoveryMs": 6326,
+    "longPdfPages": 300
+  },
+  "passed": true
+}

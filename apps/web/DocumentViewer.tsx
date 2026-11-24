@@ -29,7 +29,12 @@ export async function loadDocumentOriginal(
   const blob = await response.blob();
   const allowedTypes =
     document.legalSourceId === undefined
-      ? ["application/pdf", "image/jpeg", "image/png"]
+      ? [
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ]
       : ["application/pdf"];
   if (!allowedTypes.includes(blob.type)) {
     throw new Error("O formato do arquivo não permite visualização segura.");
@@ -119,6 +124,13 @@ export function DocumentViewer({
           {document.legalSourceId === undefined
             ? "Abrindo documento completo..."
             : "Abrindo cópia de consulta..."}
+        </p>
+      ) : original.mediaType ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ? (
+        <p className="interface-status">
+          Original Word preservado para download. As referências da Alvitra usam blocos de leitura,
+          não as páginas do Word.{document.page ? ` Referência atual: bloco ${document.page}.` : ""}{" "}
+          Confira a formatação e eventuais partes não lidas no original.
         </p>
       ) : original.mediaType === "application/pdf" ? (
         <iframe

@@ -38,6 +38,47 @@ function chunk(overrides: Partial<RetrievableChunk> = {}): RetrievableChunk {
 }
 
 describe("índice de retrieval em memória com escopo", () => {
+  it("reutiliza vetor do trecho, revalida permissão e não recupera trecho removido", async () => {
+    const adapter = adapterFor();
+    const chunks = [chunk({ content: "Regra da garagem" })];
+    const index = createInMemoryScopedRetrievalIndex(chunks, adapter);
+    const input = { query: "garagem", limit: 8, minimumQualityScore: 0.7, asOf: new Date() };
+    await index.findAuthorizedCandidates(managerContext, input);
+    await index.findAuthorizedCandidates(managerContext, { ...input, query: "garagem horário" });
+    expect(adapter.embed).toHaveBeenCalledTimes(3);
+    expect(
+      adapter.embed.mock.calls.filter(([call]) => call.content === "Regra da garagem")
+    ).toHaveLength(1);
+    expect(
+      await index.findAuthorizedCandidates({ ...managerContext, condominiumId: bosque }, input)
+    ).toEqual([]);
+    expect(
+      await index.findAuthorizedCandidates({ ...managerContext, permissions: [] }, input)
+    ).toEqual([]);
+    expect(adapter.embed).toHaveBeenCalledTimes(3);
+    chunks.splice(0);
+    expect(await index.findAuthorizedCandidates(managerContext, input)).toEqual([]);
+  });
+
+  it("invalida conteúdo ou hash alterado e permite tentar novamente após falha", async () => {
+    const adapter = adapterFor();
+    const original = { ...chunk({ content: "Regra da garagem" }) };
+    const index = createInMemoryScopedRetrievalIndex([original], adapter);
+    const input = { query: "garagem", limit: 8, minimumQualityScore: 0.7, asOf: new Date() };
+    adapter.embed
+      .mockResolvedValueOnce({ ...adapter.profile, values: [1, 0], contentSha256: "0".repeat(64) })
+      .mockRejectedValueOnce(new Error("indisponível"));
+    await expect(index.findAuthorizedCandidates(managerContext, input)).rejects.toThrow(
+      "indisponível"
+    );
+    await index.findAuthorizedCandidates(managerContext, input);
+    original.content = "Regra da garagem atualizada";
+    await index.findAuthorizedCandidates(managerContext, input);
+    original.contentSha256 = "d".repeat(64);
+    await index.findAuthorizedCandidates(managerContext, input);
+    expect(adapter.embed).toHaveBeenCalledTimes(8);
+  });
+
   it("não calcula embedding sem permissão de leitura", async () => {
     const adapter = adapterFor();
     const index = createInMemoryScopedRetrievalIndex([chunk()], adapter);

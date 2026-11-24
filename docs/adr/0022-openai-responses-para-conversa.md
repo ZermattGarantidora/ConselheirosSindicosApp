@@ -3,6 +3,10 @@
 **Status:** aceito para testes sintéticos; dados reais bloqueados pelos gates do ADR 0012
 **Data:** 2026-10-15
 
+Complementado em 03/11/2026 pelo [ADR 0038](0038-roteamento-runtime-e-cache-de-instrucoes.md):
+as fábricas de ambiente adotam híbrido por padrão e separam o prefixo genérico para cache,
+mantendo `single` reversível, o texto aprovado e os mesmos gates de dados.
+
 ## Contexto
 
 A conversa precisa responder perguntas gerais sem exigir documentos e gerar também as falas de

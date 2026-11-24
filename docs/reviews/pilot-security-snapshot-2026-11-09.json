@@ -1,0 +1,174 @@
+{
+  "kind": "local-working-tree-snapshot-not-release",
+  "recordedAtUtc": "2026-11-09T17:42:56.1829522+00:00",
+  "baseCommit": "3b702db6f91dbbeb2ede1a6063053296298d913c",
+  "independentHumanReview": "pending",
+  "files": [
+    {
+      "path": "apps/api/security/login-attempt-limit.ts",
+      "sha256": "13e5b8751f1756e887ad10ebbd3e7ddcb23e5b1edb1488801951502e95eead1b"
+    },
+    {
+      "path": "apps/api/identity/access-code.ts",
+      "sha256": "919910030e340cc4563f762e7e0a445bbdd82679cc3e814f36b2d4118d3296d0"
+    },
+    {
+      "path": "apps/api/identity/local-access-code-store.ts",
+      "sha256": "bd6f3fec7a5853222ab0cb33a69c0f9ba84536407ea9de9950e0d314068aad8b"
+    },
+    {
+      "path": "apps/api/identity/postgres-access-code-store.ts",
+      "sha256": "db415ab3510b5c06a7c26d23b41830e6e552d3ba0f42fca3b7a5645d0072e9f2"
+    },
+    {
+      "path": "apps/api/app/access-code-routes.ts",
+      "sha256": "22700ac09e343079a53d3c1defd27274c503695aeb06a378491e0a0320e314b1"
+    },
+    {
+      "path": "infrastructure/database/040_access_login_attempt_limits.sql",
+      "sha256": "bd74656d63ed76a7d6c9d4400535715a9371a1edb9bd3aedab978a33594fa0ae"
+    },
+    {
+      "path": "tests/unit/login-attempt-limit.test.ts",
+      "sha256": "932fd6168533062a43eb30c7e91e8eaeb1f783ece4dcec9ba5d2a7c1d02e5b4a"
+    },
+    {
+      "path": "tests/e2e/access-code-abuse.e2e.test.ts",
+      "sha256": "b261a53c33d05b773933dd76d156f1264d08145088fc4fc89ce067dba482f61e"
+    },
+    {
+      "path": "docs/specs/011-piloto-real-controlado/spec.md",
+      "sha256": "22ba80ebdaf07ebd9118573d829800818e7e3e426faaf3bb2f5916a2c70b8ae2"
+    },
+    {
+      "path": "docs/specs/011-piloto-real-controlado/acceptance.md",
+      "sha256": "b31fbb45ae14e1fb6e6484ecf53afc5513bfd28739ccbbfba8c9a4da26c0aea2"
+    },
+    {
+      "path": "docs/specs/068-entrada-por-codigo/spec.md",
+      "sha256": "fce8653dfb2988e32f15cba68e7ce918135f38d75fa226d497dc240f4592dd1e"
+    },
+    {
+      "path": "docs/specs/068-entrada-por-codigo/acceptance.md",
+      "sha256": "3e2d3c11fa401db3844b5ae45384270cbce98fdb0705b7bef2a46ea8fc31dad9"
+    },
+    {
+      "path": "docs/adr/0044-limites-persistentes-de-entrada.md",
+      "sha256": "faf4117d0fd66bcf4475570a1c4c621176a84f8d715f10625edad47921aeadf0"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/README.md",
+      "sha256": "71adf220841978202668f0335ef77b47e31b1a354ef3cc79dafb45b4acf30a5e"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/responsabilidades.md",
+      "sha256": "c1890c6491f899c0d67380da5763cfcff27edcfc7e466d1774726d9fd8fa9166"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/termo-de-participacao.md",
+      "sha256": "804f0d91da07fb41e87500e0fd43a4a06f628a6915c3ff6b2123d7fd4533a8bb"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/autorizacao-documental.md",
+      "sha256": "8a6e8555e9643e62702c722a260bfa5423b46f675ff2b487dc35b47bbb1623cd"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/aviso-de-privacidade.md",
+      "sha256": "50615bffebf049dd5f2f074b0bfef2d22f94740ba07acc669ef441e640012802"
+    },
+    {
+      "path": "docs/security/pilot-2026-11-16/politica-candidata.md",
+      "sha256": "40179e7cda4c128bb24c36019baaa8b2cd0c7b9ec939e5f0279616b0360952a0"
+    },
+    {
+      "path": "docs/quality/pilot-2026-11-16-sessions.md",
+      "sha256": "a4ee420af203eb298d61acf7717a0137c15fcc729970e77f19f640797285daf8"
+    },
+    {
+      "path": "docs/quality/pilot-2026-11-16-release-gates.md",
+      "sha256": "576d3a355d8594d850ecca325e2467224cab23fe21319b7676c611b657344d3a"
+    },
+    {
+      "path": "docs/quality/quality-gates.md",
+      "sha256": "e619f2f339737cc8cd86cdeb538f5b0bf71291fd84fe1470f7e945236d2197cf"
+    },
+    {
+      "path": "docs/quality/traceability.md",
+      "sha256": "e0a62ac43e93b427a46e8da0282f211448319f5efa59eb51ae200b6257da99fb"
+    },
+    {
+      "path": "docs/release/pilot-2026-11-16-security.md",
+      "sha256": "77702bcd7483c137aeebd365d55d994703b5fc0d9a93657e24e77a5a5b87581a"
+    },
+    {
+      "path": "docs/reviews/2026-11-09-pilot-security-local.md",
+      "sha256": "37a693d7d108cae1ec6de4b0901926dcc2e3e748697b8d17ef7098fdef32e58e"
+    },
+    {
+      "path": "docs/reviews/2026-11-09-pilot-infrastructure-ai-review.md",
+      "sha256": "3d045f5a1bfb5f4750491673d7cff8134c80c80b2ed614e70471c27b78d84b45"
+    },
+    {
+      "path": "docs/reviews/pilot-security-tests-2026-11-09.json",
+      "sha256": "bfd687cadfbd2ac79fee879fe213ee7dd64a4c081bf22bfc7cd298c18d23a05a"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "5116af4b04896146652f760807f3a7160b1707a3df5b332be294001b303a15ac"
+    },
+    {
+      "path": "README.md",
+      "sha256": "2d03ad7f0f0a80f0bc647aeb10d7a0579af565e13b4c078a76d59703842cae35"
+    },
+    {
+      "path": "package.json",
+      "sha256": "549ab789f5367c1cf3655a0a99532837995a640744aca7a3f3ba04074db27804"
+    }
+  ],
+  "reviewedInfrastructureFiles": [
+    {
+      "path": "scripts/pilot-preparation.ts",
+      "sha256": "573905bb7b2e12b1092a5af6f19bb156d3111be06dbf12ce99b9367c366b37e8"
+    },
+    {
+      "path": "scripts/pilot-recovery.ts",
+      "sha256": "2aba555fec6b264be7cf39af2e329360d5d3f75aa2fdc230acb4ca967d134f0b"
+    },
+    {
+      "path": "scripts/verify-pilot-preparation.ts",
+      "sha256": "0f4322dba49815f104a29b6763ce99d06cb88ee2423071074b96ee25b001e037"
+    },
+    {
+      "path": "scripts/verify-pilot-recovery.ts",
+      "sha256": "c90d49aa59e3bc0471dee43c5d2b5829a899127f2071f2a59baf54ce5cf86648"
+    },
+    {
+      "path": "tests/unit/pilot-operations.test.ts",
+      "sha256": "672fd00a1a303d96ae4909fca289a14e4a1e276dc85ccb3104c7fc25d22d238d"
+    },
+    {
+      "path": "render.pilot.yaml",
+      "sha256": "b98a41aade0cc887c8ed9bff877cdd2bf9faf7eb1d117cef4e31dfa0174e756e"
+    },
+    {
+      "path": "infrastructure/pilot/vitest.operations.config.ts",
+      "sha256": "8065148840f143ba9c46ac4e3b8f5c1852ea7777704e7f7a851a536d1735c923"
+    },
+    {
+      "path": "infrastructure/pilot/operations-decisions.example.json",
+      "sha256": "d72294831a3863751265722d2c4e1aed409bf59a5987187100ddb354ee9bea94"
+    },
+    {
+      "path": "infrastructure/pilot/operational-observation.sql",
+      "sha256": "93f546e4c85467c4bdbb913d0dbe9b86e7032f5541e5dff616c6ffa467a3f40e"
+    },
+    {
+      "path": "infrastructure/pilot/verify-access.sql",
+      "sha256": "9899e8cb55cf1681e34a6223772a39f79ea9b11ceca94f72740f4de59dcde5d5"
+    },
+    {
+      "path": ".github/workflows/pilot-operations.yml",
+      "sha256": "2f307915b167d7b9acf0898ffccaa161c1ba84a58bbae8ad087037860c8d1611"
+    }
+  ]
+}

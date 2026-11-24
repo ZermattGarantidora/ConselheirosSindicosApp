@@ -56,6 +56,10 @@ Impedir que instruções encontradas em documentos recuperados controlem geraç�
 
 Trecho com pedido de revelar segredo, apagar histórico de respostas ou ignorar regras/permissões não é enviado ao gateway como evidência. Pedidos de contato/ação dirigidos à Alvitra, ao assistente ou ao modelo também são bloqueados. O modo imperativo e a menção a fornecedor, isoladamente, não demonstram ataque: obrigações documentais destinadas às pessoas permanecem evidência, nunca autorização para execução. A triagem por padrões é defesa limitada, não classificador universal; a geração continua sem ferramentas de ação e sujeita aos controles de evidência.
 
+A variante explícita “ignore o sistema” também é uma ordem hostil. A regressão
+`CONV-crosscutting-07` da Spec 041 exige que o comando e seu canário não cheguem ao
+gateway nem sejam reproduzidos em citações, preservando os fatos declarativos elegíveis.
+
 O título documental também é dado não confiável enviado ao gateway e incluído em citações.
 Título com padrão hostil invalida a evidência inteira: não se reaproveita a página com o
 mesmo título nem se fabrica um título sanitizado. Os literais protegidos são coletados tanto

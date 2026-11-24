@@ -150,11 +150,11 @@ describe("gateway de respostas", () => {
     const gateway = createLocalSyntheticAnswerGateway();
     const result = await gateway.generate(
       input("Qual prazo mínimo permitido para locação?", "document_conflict", [
-        evidence("A convenção vigente informa prazo mínimo de noventa dias.", {
+        evidence("A convenção vigente informa prazo mínimo de locação de noventa dias.", {
           id: "convention-chunk",
           documentVersionId: "convention-v2"
         }),
-        evidence("O regimento informa prazo mínimo de trinta dias.", {
+        evidence("O regimento informa prazo mínimo de locação de trinta dias.", {
           id: "rules-chunk",
           documentType: "internal_rules",
           documentVersionId: "rules-v1",
@@ -169,6 +169,7 @@ describe("gateway de respostas", () => {
       "rules-chunk"
     ]);
     expect(result.output.claims?.[0]?.claimType).toBe("interpretation");
+    expect(result.output.answer).not.toContain("convenção vigente");
   });
 
   it.each([

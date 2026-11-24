@@ -52,35 +52,40 @@ export function createMemoryDocumentAnalysisReader(
       }
       const documents = [...groups.values()].map((group): AnalysisDocument => {
         const first = group[0]!;
-        const numbers = [...new Set(group.map((chunk) => chunk.pageNumber))].sort((a, b) => a - b);
-        const pages = numbers.map((pageNumber): StructuredExtractionPage => {
-          const parts = group
-            .filter((chunk) => chunk.pageNumber === pageNumber)
-            .sort((a, b) => a.startOffset - b.startOffset);
-          const characters: string[] = [];
-          for (const part of parts) {
-            const content = Array.from(part.content);
-            if (
-              part.startOffset > characters.length ||
-              part.endOffset !== part.startOffset + content.length
-            ) {
-              throw new Error("A página não tem cobertura textual verificável.");
-            }
-            content.forEach((character, index) => {
-              const offset = part.startOffset + index;
-              if (characters[offset] !== undefined && characters[offset] !== character) {
-                throw new Error("Chunks da página são conflitantes.");
+        const pageGroups = new Map<number, RetrievableChunk[]>();
+        for (const chunk of group) {
+          const parts = pageGroups.get(chunk.pageNumber) ?? [];
+          parts.push(chunk);
+          pageGroups.set(chunk.pageNumber, parts);
+        }
+        const pages = [...pageGroups.entries()]
+          .sort(([a], [b]) => a - b)
+          .map(([pageNumber, parts]): StructuredExtractionPage => {
+            parts.sort((a, b) => a.startOffset - b.startOffset);
+            const characters: string[] = [];
+            for (const part of parts) {
+              const content = Array.from(part.content);
+              if (
+                part.startOffset > characters.length ||
+                part.endOffset !== part.startOffset + content.length
+              ) {
+                throw new Error("A página não tem cobertura textual verificável.");
               }
-              characters[offset] = character;
-            });
-          }
-          return {
-            pageNumber,
-            extractedText: characters.join(""),
-            extractionMethod: parts[0]!.extractionMethod,
-            qualityScore: Math.min(...parts.map((part) => part.qualityScore))
-          };
-        });
+              content.forEach((character, index) => {
+                const offset = part.startOffset + index;
+                if (characters[offset] !== undefined && characters[offset] !== character) {
+                  throw new Error("Chunks da página são conflitantes.");
+                }
+                characters[offset] = character;
+              });
+            }
+            return {
+              pageNumber,
+              extractedText: characters.join(""),
+              extractionMethod: parts[0]!.extractionMethod,
+              qualityScore: Math.min(...parts.map((part) => part.qualityScore))
+            };
+          });
         return {
           condominiumId: context.condominiumId,
           documentId: first.documentId,

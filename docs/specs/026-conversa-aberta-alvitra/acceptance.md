@@ -1,5 +1,14 @@
 # Critérios de aceitação — Spec 026
 
+## AC-2610 — Consultora acessível
+
+**Quando** a resposta inclui limitação, próximo passo ou recomendação de especialista\
+**Então** essas orientações aparecem em parágrafos da conversa, sem prefixos mecânicos
+“Atenção:” ou “Próximo passo:” e sem painel de alerta\
+**E** uma limitação automática interna sobre trechos insuficientes não vira aviso ao síndico\
+**E** conflitos, ressalvas específicas, fontes e validação humana continuam visíveis\
+**E** o tom natural e a explicação de termos técnicos seguem o prompt já aprovado, sem alterá-lo.
+
 **Status:** aprovados para validação sintética
 
 ## AC-2601 — Sem fala pronta
@@ -34,8 +43,9 @@ sem documentos continua em texto e o schema documental permanece separado.
 **Dado** uma pergunta que pode ser orientada em termos gerais, mas cujo detalhe local depende de um documento ausente  
 **Quando** a Alvitra responde e a pessoa não envia o documento  
 **Então** ela oferece desde já a orientação geral e legal fundamentada disponível  
-**E** explica que o documento é necessário para responder sobre o condomínio e pede somente o material pertinente  
-**E** informa que a pessoa pode enviá-lo depois  
+**E** explica que enviar o documento é essencial para responder com precisão sobre o condomínio e pede somente o material pertinente\
+**E** esclarece que, sem ele, fica difícil ajudar sobre o caso local\
+**E** não minimiza a necessidade, não diz “não precisa enviar” nem oferece adiamento espontâneo\
 **E** continua a conversa sem repetir a exigência ou inventar uma conclusão local  
 **E** pode aprofundar a análise quando o documento for enviado depois.
 
@@ -94,3 +104,9 @@ Regressão obrigatória: executar com perfis OpenAI e Gemini separadamente e com
 as duas consultas SQL filtram pelo perfil ativo. Índice apenas de outro perfil não dispara
 embedding de foto. Retorno com perfil divergente, mesmo com 768 dimensões, é recusado antes
 da consulta vetorial. Nenhum teste chama provedor real.
+
+## AC-2610 — Plano pessoal nas conversas locais
+
+Com o opt-in da Spec 042 em demonstração local, boas-vindas, configuração e respostas usam Codex
+autenticado com ChatGPT. Falha não aciona APIs pagas; sem opt-in, AC-2609 permanece. A execução
+efêmera preserva o prompt, as evidências autorizadas e os validadores. Produção recusa esse modo.

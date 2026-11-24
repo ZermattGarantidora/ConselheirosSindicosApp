@@ -81,14 +81,18 @@ describe("gateway OpenAI", () => {
     const body = JSON.parse(String(request?.body)) as Record<string, unknown>;
     expect(body).toMatchObject({ model: "gpt-6.1-sol", store: false, max_output_tokens: 800 });
     expect(body).not.toHaveProperty("text");
-    expect(body.input).toMatchObject([{ role: "developer" }, { role: "user" }]);
+    expect(body.input).toMatchObject([
+      { role: "developer" },
+      { role: "developer" },
+      { role: "user" }
+    ]);
   });
 
   it("reconstrói citações exclusivamente das evidências recebidas", async () => {
     const generated = {
       answer: "A convenção prevê assembleia em maio.",
       answerMode: "grounded",
-      citations: [{ evidenceId: "evidence-1" }, { evidenceId: "other-tenant" }],
+      citations: [{ evidenceId: "evidence-1" }],
       attentionPoints: [],
       suggestedNextStep: null,
       specialist: { required: false, type: null, reason: null },

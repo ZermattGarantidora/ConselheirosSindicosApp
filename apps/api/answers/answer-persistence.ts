@@ -1,4 +1,5 @@
 import type { CondominiumId } from "../core/condominium-scope.js";
+import type { DocumentaryReplayLedger } from "./documentary-replay.js";
 import type { HistoryFilter } from "../chats/chat-repository.js";
 import type { RetrievalEvidence, ScopedRetrievalResult } from "../retrieval/retrieval-contract.js";
 import type { EvidenceSourceScope } from "../retrieval/retrieval-contract.js";
@@ -104,6 +105,9 @@ export type PersistedInteraction = Readonly<{
 }>;
 
 export type ConversationHistoryEntry = Readonly<{
+  documentaryReplayLedger?: DocumentaryReplayLedger | undefined;
+  chatId?: string;
+  memoryReplaySafe?: boolean;
   questionId: string;
   question: string;
   answer: AnswerRecord;
@@ -130,6 +134,10 @@ export type SubmitFeedbackInput = Readonly<{
 }>;
 
 export interface AnswerPersistence {
+  acquireChatTurn?(
+    context: AuthorizedCondominiumContext,
+    chatId: string
+  ): Promise<(() => Promise<void>) | undefined>;
   saveInteraction(input: PersistedInteraction): Promise<void>;
   findAnswerByIdempotencyKey(
     context: AuthorizedCondominiumContext,

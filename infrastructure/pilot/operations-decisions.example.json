@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "pilotDate": "2026-11-16",
+  "state": "prepared-not-activated",
+  "decisions": {
+    "regionReview": null,
+    "providerReview": null,
+    "dataPolicyReview": null,
+    "budgetReview": null,
+    "operationsOwner": null,
+    "supportChannel": null,
+    "secretRecoveryReview": null,
+    "deletionReplayReview": null,
+    "fullRestoreEvidence": null,
+    "candidateRevision": null,
+    "finalReview": null,
+    "rpoMinutes": null,
+    "rtoMinutes": null,
+    "retentionDays": null
+  }
+}

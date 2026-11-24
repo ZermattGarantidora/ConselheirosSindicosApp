@@ -1,0 +1,785 @@
+{
+  "date": "2026-11-11",
+  "recordedAtUtc": "2026-11-11T18:45:38.800Z",
+  "base": "3b702db6f91dbbeb2ede1a6063053296298d913c",
+  "reviewer": "Segurança",
+  "candidate": ".local/pilot-documents-2026-11-11/candidate-source-hashes-2026-11-11-r2.json",
+  "wholeBranchApproval": false,
+  "independentApproval": false,
+  "status": "documentary-delta-reviewed-with-explicit-authorship-and-ui-exclusions",
+  "openReproducedFindings": [],
+  "limits": [
+    "App.tsx: somente contrato de recibo; restante no mapa de Infraestrutura",
+    "Trechos/testes escritos por Segurança excluídos da independência",
+    "Dependências sem diff identificadas separadamente",
+    "Não autoriza merge, ativação, serviço remoto ou dados reais"
+  ],
+  "evidence": [
+    ".local/pilot-security/crossreview-green-replay-1794421374058-26680/results.json",
+    ".local/pilot-security/orphan-purge-green-20261111.json",
+    ".local/pilot-security/multi-purge-lock-green-20261111.json",
+    ".local/pilot-operations/full-review/retention-window03-independent-2026-11-11.json"
+  ],
+  "files": [
+    {
+      "path": "apps/api/answers/answer-gateway.ts",
+      "sha256": "55c20c16bba0f609fc5659794de1db7a83a6391523a370151d03e2532c85eca2",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/answers/document-batch-conversation.ts",
+      "sha256": "682b4b9993993f6f8ce7abeb1f1759802b56d91d8596ba6b832b0efb37319ccf",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/answers/hosted-document-batch-gateway.ts",
+      "sha256": "e897ab2bb8a6442f558e78e6aa98cbdfc511b048328d689f5b8fbe1c1eb817b5",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/answers/openai-answer-gateway.ts",
+      "sha256": "883856840652d2a75767ea7ac562d8dc8dc4c27d441598e1e00900de7c9c18ac",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/app/conversation-journal.ts",
+      "sha256": "22c3007f7bee170407d81573db6c27c875617d9bf71b6be4eb9281b2221142ec",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/app/create-api.ts",
+      "sha256": "6504aa2dd641073fb833d749cf6f11f884d9d2de0a53053c6e156f55c21dbeae",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Excluir bindings de identidade/sessão de Segurança; revisão independente desses trechos cabe a Infraestrutura.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/app/document-batch-conversation-route.ts",
+      "sha256": "e1a1a84f089595193a531cb006924cf012f3b4a3a4deec72c76523656e168567",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/app/journal-replay-proof.ts",
+      "sha256": "bab898f618731a797bbbfccfed95ebcf6438473c0bb26669830752509ab32a2a",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/app/operation-control.ts",
+      "sha256": "0a4e51c9be55e1fb85626eed8dde3b73651cabb2e05847199d2b5a68fe23ff4b",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/app/server.ts",
+      "sha256": "742ef350ce00a947d5d6ef1b1cd920f3370e5bbe933835dd00ce0c64fd7d7e73",
+      "reviewState": "reviewed-with-authorship-exclusions",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Bindings de identidade/sessão de autoria compartilhada não contam como revisão independente; Infraestrutura cobre a fonte completa.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/development-document-memory.ts",
+      "sha256": "b1455686bd5ef9af403bce84555fc73d349db64411c6fa6bd2560a76da15ef26",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/document-processing.ts",
+      "sha256": "16a299c8bd92f29885ba886068acb33c4a7a291ab2942c9998b8fa7b6ab61d25",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/document-recovery-controls.ts",
+      "sha256": "cb71a9d96955778d04c004392116ee5f1e7e6c27908a9175a0a6db7bc160e032",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/hosted-call-ledger.ts",
+      "sha256": "3a310d57e72295bcaa55cdc8ff28f43851700e53ae4eba063c27dd018f49645c",
+      "reviewState": "reviewed-with-authorship-exclusions",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Excluir da independência a comparação de policyRevision escrita por Segurança; Infraestrutura cobre esses trechos.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/hosted-document-embedding.ts",
+      "sha256": "c0feb26603c1bed88a38b76490eb8fcbc157b937a84fd04b70cf51b49bc9c790",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/hosted-document-execution.ts",
+      "sha256": "1400dcc9f7a165be786d7ec3d51abe4f71ccb5d813b662c8683b0e5bb5d51621",
+      "reviewState": "reviewed-with-authorship-exclusions",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Excluir da independência o binding policyRevision da correção escrita por Segurança; Infraestrutura cobre esses trechos.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/hosted-document-processing.ts",
+      "sha256": "7d06cb91ebdd97a5418ee31672a9afbc2a3652dd27747b97314da8314a920871",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/image-analysis.ts",
+      "sha256": "0da0247df5126c5848707687a6faa67bf786d6d65af651eec166ff3f6f30d515",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/ocr-quality.ts",
+      "sha256": "e439de81fa4be94f7ad5291b346083313970c4a46eb94aa3a6b90601f8929d22",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/openai-image-analysis.ts",
+      "sha256": "357c3013ebda902d6fe7cca8dcb7c729ff89dc999d1d0cbd21c9b9441409f9ca",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/openai-ocr.ts",
+      "sha256": "0d516826f0ddc04aac6a015dceb157e68f1b037d27820d7263425a0ef87d953f",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/persist-document-pages.ts",
+      "sha256": "2df8f1375f68dcf3883852da2bc842590934fcf6a05f813dc42d8f270a722fa0",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/photo-document-pdf.ts",
+      "sha256": "c9e5cdb25169b4d64ce89ed2412642acbbefdeced79a12f46283b0eb19420131",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/postgres-document-lifecycle.ts",
+      "sha256": "ded79881220b64ce80899d2b7b0589f341372794b62c9187c944974fb33f7a7d",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/postgres-document-processing-repository.ts",
+      "sha256": "3529bef79749f2b6fe630322561140847745114daf4babdc78af41e622677dbd",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/postgres-document-retention-repository.ts",
+      "sha256": "0b398cae7574821d1a32e462e45d9b38993b285afa318c0696f32616b45b0803",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/postgres-hosted-call-ledger.ts",
+      "sha256": "595de274617366df4ce682d589c513fd2ca3eb0b4e9bb745d5e7b5f5d31d29fc",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/synthetic-document-decisions.ts",
+      "sha256": "0058dfbf69f9d6d53eefe69611726ec8f346607f244153d1e16259745ceb5372",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/synthetic-document-recovery-journal.ts",
+      "sha256": "7fefefc32de3ba229da8ed317846144c799c10326efa1f1e98b83d4aced4019b",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/synthetic-file-hosted-call-ledger.ts",
+      "sha256": "9efc6fd8985860acce4fbe8bd38a7da3b6919f040a908da79ce375d05f67d217",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/documents/upload-document.ts",
+      "sha256": "e93428e4b8afa1fa7cb4a7f4263859dd2e9bf551a31dae36a47b55ecc1de991c",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/worker/processing-worker.ts",
+      "sha256": "97fe8e0551bf492d716261f03780d42326d59e14a084e1e24f170d900e7c55c1",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/api/worker/worker.ts",
+      "sha256": "0f23bfe2d78c8ca96b184dbd69a4508be282713665a078b9e1b9beefcc2d23de",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-diff-against-base-and-required-callers",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/web/App.tsx",
+      "sha256": "4bb59851a35e982bf42763bc4b8f8f52c7f9c7b044d3aba520d8bb7dbf69aa7f",
+      "reviewState": "partial-receipt-function-only",
+      "scope": "conversationFetch-and-imported-success-validators",
+      "authorshipLimit": "Interface completa fica no mapa de revisão de Infraestrutura; esta entrada não a aprova.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "apps/web/document-condominium-confirmation.tsx",
+      "sha256": "9dc759a09fd08930c0b55b70e0d34df0f7a0d69039eeaefb700adcb4f2020553",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "docs/adr/0043-adaptacao-documental-hospedada.md",
+      "sha256": "9723f72a83a732dcb42cbf7996ab268e3ee74771eddfaa73ae1002d797d36bd7",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "docs/specs/071-adaptacao-documental-hospedada/acceptance.md",
+      "sha256": "10bd865c7c4930ba1b5461b79a16a172418f5d5fb17da59a9f42459181e03a1c",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "docs/specs/071-adaptacao-documental-hospedada/spec.md",
+      "sha256": "c023d4df67285ee8453b924724961c3e15297f252450ea5b86b3f7e9076adecb",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "infrastructure/database/039_hosted_document_call_ledger.sql",
+      "sha256": "ab6f46cb83776da3fd2e65217b33d44bb5ae1296def5986af150f6c01896bdf8",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/document-ingestion.e2e.test.ts",
+      "sha256": "40415b2923ccc7d5e495ac2346bea29070836db295246b5bdff888d009a642be",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/document-summary-continuation.e2e.test.ts",
+      "sha256": "f0c7cb1b8887bda20fe8e8ba1a1b25338d03d6cfe5a3e1000abeb23bd667ea55",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/evidence-continuity.e2e.test.ts",
+      "sha256": "9d6f70ab746ba693fd74faf9dbbd452f9f5bbf27954c8c7880927514241e8245",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/full-page-document-ingestion.e2e.test.ts",
+      "sha256": "f0a643d83ef5822916d485cd94c66fea8ca3e98f6af5ca8de70be03358118ccb",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/hosted-worker-budget.e2e.test.ts",
+      "sha256": "c8418312c5a93a32ff1d6aa6920a7f8acd71ad2a22e576a8e0600fec628cc28d",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/journal-policy-replay.e2e.test.ts",
+      "sha256": "306e3cb17a7e39c559125812635061bcf494db1e8f6ada6a356578f40536718c",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/operation-budget-http.e2e.test.ts",
+      "sha256": "291421471f23db68673380db80891043a4de41e93b18b33fc5969d6b45cabe38",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/photo-document-durable.e2e.test.ts",
+      "sha256": "8904972461ef765c4829cc3d4ed043f0963a92b47d4e4f941049c92b0f8a488b",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/e2e/question-source-replay.e2e.test.ts",
+      "sha256": "fb86cf7e803e5e1895178cb5cffb63ecc873d12c39de62ac0feecbb3b4fb3474",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/document-lifecycle-postgres.ts",
+      "sha256": "e317168f38b417577e5ba36b9c98b3932979804bdb1e57764fb99e0c1ea50c66",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/document-lifecycle-restore.ts",
+      "sha256": "9041477a0dc4de93dc5eafc3cfef4a1941108aff572efed77fe1ead2dbebc49a",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/document-lifecycle-worker-process.ts",
+      "sha256": "2e456e6c528420e7d04885df119f23bbe5a14024100753357c8c52a71322b019",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/generate-synthetic-document-photo.ps1",
+      "sha256": "ba5cf1472740bb5f46cc21df8c49037ad8b918064cbdf33f742a57a8ea298fde",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/hosted-call-ledger-process.ts",
+      "sha256": "e25546137ec30055a2ed59008c4cdc9ca62f264867a36f6001af5ce2da5d9f55",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/synthetic-document-page.jpg",
+      "sha256": "db5402eb13037a79e4e6c6baa2183f67cf962f6107f7fb00631a24d35369811e",
+      "reviewState": "synthetic-asset-hash-structure-only",
+      "scope": "generator-manifest-and-maintained-image-conversion-tests",
+      "authorshipLimit": "Não representa leitura visual ou avaliação de OCR real.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/synthetic-document-page.png",
+      "sha256": "b25ee32628f7185dd2ec11a17d2c26c8a89eaca2cfdd0f2da0222b717cb0b96e",
+      "reviewState": "synthetic-asset-hash-structure-only",
+      "scope": "generator-manifest-and-maintained-image-conversion-tests",
+      "authorshipLimit": "Não representa leitura visual ou avaliação de OCR real.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/synthetic-document-photo-manifest.json",
+      "sha256": "e1e7adfb16d56ecc5ed995fe93315599ceb9bd5f4eee43984e87a08d6fafdc85",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/fixtures/synthetic-document-photo.ts",
+      "sha256": "d20654c8af6ef739fe8b7b25742de879434c2ddba1accc176402b5039df67c1f",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/isolated/document-lifecycle-postgres.test.ts",
+      "sha256": "e49df7bb6ec81884b884476d88e97a22bcbccade368a96a0ef055a772a32adb8",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/api-operation-control.test.ts",
+      "sha256": "749e7c821d9d8fa5a4367092b16925c989ab2c76102ab1baedc9e6a751db7b0e",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/conversation-receipt-contract.test.ts",
+      "sha256": "8f9361a6a95b98eaf17c3c4098f1ee0483b3c3e9cbd864aadd8b48046986f154",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/conversation-receipt.test.ts",
+      "sha256": "2f664879afd81d928c252fb31545e56d275744d6342a9ef49d27d5d6d221164c",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/conversation-store.test.ts",
+      "sha256": "7d40d19ceb251ee9a36399dbdd06a01b1daa92953ac8a41a02f218ffa741330e",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/development-document-memory.test.ts",
+      "sha256": "78e93003be88f8fb40ca4252b6a058145a5f2ef944563029b16cb2062fbd34d2",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/document-batch-conversation.test.ts",
+      "sha256": "47c9f9ef9f8657089953ac236bd5e8a83b3d430722b3c3906e6f45c2ad7870a2",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/document-lifecycle-restore.test.ts",
+      "sha256": "a538ceffe3e6ea79be2faed039c1316408ea0b302b7463c0ac738f817f15744c",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/document-processing.test.ts",
+      "sha256": "f889f7211f059d4944e58b8115c86ac2a378ad8b3acba61032bb1147aac3e3f8",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/document-recovery-controls.test.ts",
+      "sha256": "fcc30162336ddcc3f16a0c115f1ecd98930163744f2b0abc0fd5f129a7aa7a3d",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/document-test-env.test.ts",
+      "sha256": "57ac4fd63de08dbc748f44d5dfa748e1e1ebe533da6db8033fdcc311a812f234",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-budget-integration.test.ts",
+      "sha256": "68c7add915d02e7200177ac0061469d6f75fa6d0c1aa7183f44d53899f0ab43b",
+      "reviewState": "self-authored-regression-not-independent",
+      "scope": "test-contract-read-and-executed",
+      "authorshipLimit": "Casos escritos por Segurança; aprovação independente cabe a Infraestrutura.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-call-ledger.test.ts",
+      "sha256": "63b24ef2cf1dba92c6da120c0ab191948b572a34487ce1616bc0b55e75604ce8",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-document-batch.test.ts",
+      "sha256": "9141437b1d94a468d899e35877d9e41d66512519949d1ba9fb55b0446383367c",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-document-embedding.test.ts",
+      "sha256": "d310d0f09da8e55fd2dabd303df593943083b4cb6e02c1fd662529cc0570cf3c",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-document-execution.test.ts",
+      "sha256": "8030c62b6abd7cae234aefc1210cd414970e77af0037be37f3223013570c4278",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-document-processing.test.ts",
+      "sha256": "4323ad894e61ddac32354675b4e09ee4f2f0dbf9f488c131288b3a4858216dd6",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-document-startup.test.ts",
+      "sha256": "937a40e2d0be548c09519b9235a90eead4afa3553c9544e30e4fcb1ae1822b24",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-policy-continuity.test.ts",
+      "sha256": "3fe9e79f6a92f115d1d7ebcae17d7721ad7341ab4f0868718898345cd09752f2",
+      "reviewState": "self-authored-regression-not-independent",
+      "scope": "test-contract-read-and-executed",
+      "authorshipLimit": "Casos escritos por Segurança; aprovação independente cabe a Infraestrutura.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/hosted-transport-preconditions.test.ts",
+      "sha256": "c9aaaf67fc0c652bad8e0cb146b8091650d1efb231a3553f002ff9e550c3dc6e",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/ocr-consistency.test.ts",
+      "sha256": "086f1a5face2a3aadd97431d81aae639ef6e0954d85ab1654da5e66160d36150",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/ocr-quality.test.ts",
+      "sha256": "50ba0ce7a314c623a38c4c787da9e1330fa9caa95b2a16a61620aed36de59552",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/offline-demo-ui.test.ts",
+      "sha256": "024fa13b7e087aff4ced9c90056a31b8d9e2068ae612dbac6358abc9b345ea32",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/openai-answer-gateway.test.ts",
+      "sha256": "e93e4da04229a481a538abd9080120b8bb6d8af3e02e41030949937a63a36b8b",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/openai-ocr.test.ts",
+      "sha256": "4ae97b09e6e21cb48ca23b7a6a766ce665ca2c8cf1acdd0188138a84b0e4a998",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/openai-visual-image.test.ts",
+      "sha256": "0ca356a33c24b52092802f567e07194297f9ef3c71f05ea8925919e7b344e7ae",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/persist-document-pages.test.ts",
+      "sha256": "d20f81c2b31ac14dd5702ed01d3042a99441e25de0c8b75739d772425787df60",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/persistent-worker.test.ts",
+      "sha256": "41c6227e3942d3bc1e5b52e9b6ee2a5a3e1a71c7a3043820a2ee95333086c691",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/photo-document-ocr.test.ts",
+      "sha256": "31d1cd7bfb9cb6002757b10ba78b4a10b7f7e15041e5a55a4ad52428fd00e05d",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/postgres-document-adapters.test.ts",
+      "sha256": "66056bf321730b3cdcc6fc636236d4aadcee3e4a6a736eeeb220c2c0c0bb3bd3",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/postgres-document-lifecycle.test.ts",
+      "sha256": "39fe8ca4be006135ec544f97bb4d5329f96e503e3a9bf9c788f02eb51ec7d2be",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/postgres-document-retention-repository.test.ts",
+      "sha256": "f4cc7147f67e738f0a8288cbf3a90b4bb6d5b578a0ac7d0bf393649d1faed85f",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/postgres-hosted-call-ledger.test.ts",
+      "sha256": "72f5dc170799972eea0180269df03da9808074733754d4c172a690eab72169f5",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/processing-worker.test.ts",
+      "sha256": "1b8f2a3f5a912ec7ff2b7f67b52c70ee07d5776b2635e7f6b5a0dad6cfed0a6f",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/upload-document.test.ts",
+      "sha256": "426ea0d21830d7f6d348b32ee7e154f353776179e43082fdda685a116eb2be03",
+      "reviewState": "unchanged-dependency-against-base",
+      "scope": "verified-empty-diff-against-base-not-new-independent-source-review",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/unit/worker-processing-ownership.test.ts",
+      "sha256": "90b214979eb577f79a95a727c0766b057ac7507991d96971a0dbb2cdd3495cb9",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-current-source-or-diff-and-required-contracts",
+      "authorshipLimit": "Não inferir autoria preexistente nem aprovação do checkout inteiro.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/vitest.pilot-document-lifecycle.config.ts",
+      "sha256": "4fc709954ee9a8fb07eb2c6bdc8446de310b55d12a7117558a9a219c151b0a8c",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    },
+    {
+      "path": "tests/vitest.pilot-documents.config.ts",
+      "sha256": "6fc6519925bc02070ca8efa4e235d0b09992103af760a9b036dd0df4b7c4c574",
+      "reviewState": "reviewed-cross-current-round",
+      "scope": "full-source-and-required-contracts",
+      "authorshipLimit": "Não escrito pela Segurança nesta rodada; não inferir autoria preexistente.",
+      "report": "docs/reviews/2026-11-11-pilot-documents-security-review.md"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import type {
   RegisteredDocument
 } from "./document-catalog.js";
 import type { DocumentProcessingStatus } from "./document-model.js";
+import type { DocumentExtractionSummary } from "./document-processing.js";
 import type { DocumentCondominiumCheck } from "./document-condominium-check.js";
 import type { DocumentUploadRepository, UploadedDocumentRecord } from "./upload-document.js";
 
@@ -109,6 +110,7 @@ export function createDevelopmentDocumentUploadRepository(
         documentVersionId: string;
         processingStatus: DocumentProcessingStatus;
         condominiumCheck?: DocumentCondominiumCheck;
+        extractionSummary?: DocumentExtractionSummary;
       }>
     ) {
       const index = documents.findIndex(
@@ -121,6 +123,7 @@ export function createDevelopmentDocumentUploadRepository(
       documents[index] = Object.freeze({
         ...current,
         processingStatus: input.processingStatus,
+        ...input.extractionSummary,
         ...(input.condominiumCheck === undefined
           ? {}
           : { condominiumCheck: input.condominiumCheck })

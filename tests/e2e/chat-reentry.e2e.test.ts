@@ -21,12 +21,13 @@ import { createSyntheticTextPdf } from "../fixtures/synthetic-pdfs.js";
 import { createCondominiumId } from "../../apps/api/core/condominium-scope.js";
 import { createUserId } from "../../apps/api/identity/authorized-condominium-context.js";
 
-function fixture() {
+function fixture(chatMemoryEnabled = true) {
   const revoked = new Set<string>();
   const repository = createInMemoryChatRepository();
   const persistence = createInMemoryAnswerPersistence();
   const documents = createDevelopmentDocumentUploadRepository();
   const useCase = createAnswerUseCase({
+    chatMemoryEnabled,
     persistence,
     gateway: createLocalSyntheticAnswerGateway(),
     retriever: createScopedTextRetriever(createInMemoryScopedRetrievalIndex([])),
@@ -89,7 +90,8 @@ function fixture() {
 
 describe("novo chat a cada reentrada — Spec 038", () => {
   it("AC-3804: lista e histórico com mais de 100 itens e datas iguais não perdem nem repetem registros", async () => {
-    const f = fixture();
+    // Mantém datas iguais para exercitar o desempate de paginação, separadamente da memória.
+    const f = fixture(false);
     try {
       const context = {
         condominiumId: createCondominiumId("alameda"),
@@ -105,7 +107,10 @@ describe("novo chat a cada reentrada — Spec 038", () => {
         await f.useCase.ask(context, {
           chatId: id,
           question: "Bom dia",
-          requestId: `pagination-${index}`
+          requestId: `pagination-${index}`,
+          revalidateConversation: async () => {
+            expect(await f.repository.find(context, id)).toBeDefined();
+          }
         });
       }
       expect((await openChatSession(f.request, f.scope)).chats).toHaveLength(107);

@@ -5,8 +5,8 @@ import { AnswerMessage } from "../../apps/web/App.js";
 import { analyzeDocumentRequest } from "../../apps/api/analysis/document-analysis.js";
 import { alameda, managerContext } from "./answer-fixtures.js";
 
-describe("relatório operacional na conversa", () => {
-  it("renderiza resultado e fontes calculadas fora da fala e escapa conteúdo documental", () => {
+describe("análise na fala da Alvitra", () => {
+  it("AC-5701: não acrescenta painel nem avisos de cálculo à fala gerada", () => {
     const documents = ["01/2026", "02/2026"].map((period) => ({
       condominiumId: alameda,
       documentId: period,
@@ -31,9 +31,10 @@ describe("relatório operacional na conversa", () => {
         question: "Compare balancetes 2026-01 e 2026-02",
         onSelectCitation: () => {},
         answer: {
-          answer: "Resposta gerada para o contexto.",
+          answer:
+            "A diferença encontrada é R$ 0,00. O trecho <script>valor</script> exige conferência no original.",
           answerMode: "abstained",
-          citations: [],
+          citations: documentAnalysis.rows.flatMap((row) => row.citations),
           attentionPoints: [],
           suggestedNextStep: null,
           specialist: { required: false, type: null, reason: null },
@@ -46,9 +47,11 @@ describe("relatório operacional na conversa", () => {
         }
       })
     );
-    expect(markup).toContain("Resposta gerada para o contexto.");
-    expect(markup).toContain("Conferência documental calculada");
-    expect(markup).toContain("diferença: R$ 0,00");
+    expect(markup).toContain("A diferença encontrada é R$ 0,00.");
+    expect(markup).not.toContain("Conferência documental calculada");
+    expect(markup).not.toContain("Ver conferência documental e cálculos");
+    expect(markup).not.toContain("Informe dois meses");
+    expect(markup).not.toContain("diferença: R$ 0,00");
     expect(markup).toContain("Balancete 01/2026");
     expect(markup).toContain("Balancete 02/2026");
     expect(markup).toContain("&lt;script&gt;");

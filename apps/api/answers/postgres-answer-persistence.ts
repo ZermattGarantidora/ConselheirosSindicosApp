@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { parseDocumentaryReplayLedger } from "./documentary-replay.js";
 import { legacyChatId, type HistoryFilter } from "../chats/chat-repository.js";
 
 import type { Pool, PoolClient } from "pg";
@@ -66,6 +67,9 @@ type ClaimRow = Readonly<{
 
 type ConversationHistoryRow = AnswerRow &
   Readonly<{
+    chat_id?: string;
+    memory_replay_safe?: boolean;
+    documentary_replay_ledger?: string;
     question_content: string;
     question_created_at: Date;
   }>;
@@ -205,8 +209,48 @@ async function loadAnswerDetails(
   return Object.freeze({ citations: citationResult.rows, claims: claimResult.rows });
 }
 
-export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersistence {
+export function createPostgresAnswerPersistence(
+  pool: PoolLike,
+  sessionPool?: PoolLike
+): AnswerPersistence {
   return {
+    async acquireChatTurn(context, chatId) {
+      if (sessionPool === undefined)
+        throw new Error("A guarda exige conexão PostgreSQL de sessão.");
+      const client = await sessionPool.connect();
+      let key: string;
+      try {
+        await client.query("BEGIN");
+        const databaseUserId = await setRuntimeContext(client, context);
+        await client.query("COMMIT");
+        key = BigInt.asIntN(
+          64,
+          BigInt(
+            `0x${sha256(JSON.stringify([context.condominiumId, databaseUserId, chatId])).slice(0, 16)}`
+          )
+        ).toString();
+        const result = await client.query<{ acquired: boolean }>(
+          "SELECT pg_try_advisory_lock($1::bigint) AS acquired",
+          [key]
+        );
+        if (result.rows[0]?.acquired !== true) {
+          client.release();
+          return undefined;
+        }
+      } catch (error) {
+        client.release(true);
+        throw error;
+      }
+      return async () => {
+        try {
+          await client.query("SELECT pg_advisory_unlock($1::bigint)", [key]);
+          client.release();
+        } catch (error) {
+          client.release(true);
+          throw error;
+        }
+      };
+    },
     async saveInteraction(input: PersistedInteraction): Promise<void> {
       const client = await pool.connect();
 
@@ -553,6 +597,18 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
               q.asked_by_user_id,
               q.content AS question_content,
               q.created_at AS question_created_at,
+              q.chat_id,
+              EXISTS (
+                SELECT 1 FROM app.audit_events AS ae
+                WHERE ae.condominium_id = a.condominium_id AND ae.subject_id = a.id
+                  AND ae.event_type = 'answer_created'
+                  AND ae.metadata->>'memoryPolicyVersion' = 'recent-chat-v1'
+                  AND ae.metadata->>'memoryReplaySafe' = 'true'
+              ) AS memory_replay_safe,
+              (SELECT ae.metadata->>'documentaryReplayLedger' FROM app.audit_events ae
+                WHERE ae.condominium_id=a.condominium_id AND ae.subject_id=a.id
+                  AND ae.event_type='answer_created' ORDER BY ae.created_at DESC, ae.id DESC LIMIT 1
+              ) AS documentary_replay_ledger,
               a.direct_answer AS answer,
               a.answer_mode,
               a.attention_points,
@@ -570,9 +626,11 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
             JOIN app.questions AS q
               ON q.condominium_id = a.condominium_id
               AND q.id = a.question_id
-            JOIN app.model_invocations AS mi
-              ON mi.condominium_id = a.condominium_id
-              AND mi.answer_id = a.id
+            JOIN LATERAL (
+              SELECT prompt_version, pipeline_version FROM app.model_invocations
+              WHERE condominium_id = a.condominium_id AND answer_id = a.id
+              ORDER BY created_at DESC, id DESC LIMIT 1
+            ) AS mi ON true
             WHERE a.condominium_id = app.current_condominium_id()
               AND q.asked_by_user_id = $1
               AND ($3::uuid IS NULL OR q.chat_id = $3 OR ($3::uuid = '${legacyChatId}'::uuid AND q.chat_id IS NULL))
@@ -590,12 +648,20 @@ export function createPostgresAnswerPersistence(pool: PoolLike): AnswerPersisten
         );
         const history: ConversationHistoryEntry[] = [];
         for (const row of [...historyResult.rows].reverse()) {
+          if (row.asked_by_user_id !== databaseUserId)
+            throw new Error("O histórico retornou uma identidade divergente.");
           const details = await loadAnswerDetails(client, context.condominiumId, row.answer_id);
           history.push(
             Object.freeze({
               questionId: row.question_id,
+              ...(row.chat_id == null ? {} : { chatId: row.chat_id }),
+              memoryReplaySafe: row.memory_replay_safe === true,
+              documentaryReplayLedger: parseDocumentaryReplayLedger(row.documentary_replay_ledger),
               question: row.question_content,
-              answer: mapAnswer(row, details.citations, details.claims),
+              answer: Object.freeze({
+                ...mapAnswer(row, details.citations, details.claims),
+                userId: context.userId
+              }),
               createdAt: new Date(row.question_created_at)
             })
           );

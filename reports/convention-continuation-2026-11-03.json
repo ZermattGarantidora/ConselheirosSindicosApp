@@ -1,0 +1,534 @@
+{
+  "date": "2026-11-03",
+  "timezone": "America/Sao_Paulo",
+  "kind": "focused_technical_smoke",
+  "dataPolicy": "synthetic-only",
+  "realDocumentTransmitted": false,
+  "scenario": "full-eight-page-pdf-summary-then-brief-acceptance",
+  "initialSummary": "validated-deterministic-gateway",
+  "limitations": [
+    "Uma continuação por modelo e etapa, sem estimativa de acurácia geral.",
+    "Comentário inicial produzido por gateway determinístico validado; a geração real avaliada é a continuação.",
+    "Revisão técnica pelo próprio agente; não é revisão humana independente.",
+    "As fontes completas do workspace não foram congeladas; os arquivos alterados tiveram hash conferido antes e depois de cada etapa."
+  ],
+  "stages": [
+    {
+      "name": "retrieval_reference_only",
+      "result": "Os dois modelos receberam fontes, mas ainda pediram esclarecimento.",
+      "dataPolicy": "synthetic-only",
+      "scenario": "full-eight-page-pdf-summary-then-brief-acceptance",
+      "initialSummary": "validated-deterministic-gateway",
+      "sourceHashes": [
+        {
+          "path": "apps/api/answers/conversation-memory.ts",
+          "sha256": "01ba30000b2ec4c5de9f9bd4dd8f62faa38f2bd508cdd4359fee23e0df7c179a"
+        },
+        {
+          "path": "apps/api/answers/answer-use-case.ts",
+          "sha256": "1879e28814800740650177d35a79440a2dafa8e6e67d104c446a5ec91ca58aba"
+        },
+        {
+          "path": "apps/api/answers/document-availability.ts",
+          "sha256": "d5da862df538d195089d469a724a68dc6431ca36e287f4544fffe922454014db"
+        },
+        {
+          "path": "tests/fixtures/convention-continuation.ts",
+          "sha256": "9b5f617f9ef953adbb88dd5d2e3986708867ce56102847114f917ed547636ee3"
+        }
+      ],
+      "pdfSha256": "30dc7233c3a75a3116e4e6e42b1255dd52e94a0903d1710948592088f54ebe85",
+      "results": [
+        {
+          "model": "gpt-6-luna",
+          "reasoningEffort": "high",
+          "status": 200,
+          "response": {
+            "answer": "Claro. O que você precisa resolver no condomínio?",
+            "answerMode": "abstained",
+            "citations": [],
+            "attentionPoints": [
+              "Os trechos encontrados não sustentam uma resposta documental segura. A orientação abaixo é geral e não confirma uma regra do condomínio."
+            ],
+            "suggestedNextStep": null,
+            "specialist": {
+              "required": true,
+              "type": "advogado",
+              "reason": "Estou perguntando sobre a necessidade antes de avaliar se há risco ou necessidade de especialista."
+            },
+            "answerId": "2e70b097-c054-45c7-a451-1e4f03b12d9d",
+            "questionId": "8a7d29ee-3c43-4bfc-8f4a-0a5c1dc3b817",
+            "condominiumId": "alameda",
+            "riskClass": "low",
+            "createdAt": "2026-11-04T00:19:58.293Z"
+          },
+          "invocations": [
+            {
+              "telemetry": {
+                "providerKey": "codex",
+                "modelKey": "gpt-6-luna",
+                "modelVersion": "codex-exec-v2",
+                "promptVersion": "answer-prompt-v27",
+                "pipelineVersion": "answer-pipeline-v1",
+                "taskType": "grounded_answer",
+                "riskClass": "low",
+                "routingReason": "Plano ChatGPT pelo Codex em demonstração pessoal local",
+                "status": "completed",
+                "inputTokens": 15108,
+                "outputTokens": 145,
+                "cachedInputTokens": 0,
+                "latencyMs": 5725,
+                "estimatedCostMicrounits": 0,
+                "costCurrency": "BRL",
+                "inputHash": "28d95aa08ec8e88b5471c88e638e5c91d8f4f890022e7182311415ac27e6061f",
+                "outputHash": "5c50fb1de5f2f689044a15c62dcb38bc7de4c9b740442c2abeaa9aabc5552d66",
+                "errorCode": null
+              },
+              "evidencePages": [
+                8,
+                1,
+                4,
+                7,
+                3,
+                8,
+                1,
+                3
+              ],
+              "output": {
+                "answer": "Claro. O que você precisa resolver no condomínio?",
+                "answerMode": "abstained",
+                "citations": [],
+                "attentionPoints": [],
+                "suggestedNextStep": null,
+                "specialist": {
+                  "required": true,
+                  "type": "advogado",
+                  "reason": "Estou perguntando sobre a necessidade antes de avaliar se há risco ou necessidade de especialista."
+                },
+                "claims": []
+              }
+            }
+          ],
+          "diagnostics": [
+            {
+              "code": "codex_completed",
+              "stage": "completed",
+              "latencyMs": 5730
+            }
+          ],
+          "latencyMs": 7222
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "low",
+          "status": 200,
+          "response": {
+            "answer": "Claro. Você quer ajuda para entender a convenção enviada ou para resolver alguma situação específica do condomínio?",
+            "answerMode": "abstained",
+            "citations": [],
+            "attentionPoints": [
+              "Os trechos encontrados não sustentam uma resposta documental segura. A orientação abaixo é geral e não confirma uma regra do condomínio."
+            ],
+            "suggestedNextStep": null,
+            "specialist": {
+              "required": false,
+              "type": null,
+              "reason": null
+            },
+            "answerId": "a42b4688-fc25-4b98-afcb-e5fbfe18318b",
+            "questionId": "ed2c963d-6c11-43c4-ba52-51f3139a0d7b",
+            "condominiumId": "alameda",
+            "riskClass": "low",
+            "createdAt": "2026-11-04T00:20:09.959Z"
+          },
+          "invocations": [
+            {
+              "telemetry": {
+                "providerKey": "codex",
+                "modelKey": "gpt-6.1-sol",
+                "modelVersion": "codex-exec-v2",
+                "promptVersion": "answer-prompt-v27",
+                "pipelineVersion": "answer-pipeline-v1",
+                "taskType": "grounded_answer",
+                "riskClass": "low",
+                "routingReason": "Plano ChatGPT pelo Codex em demonstração pessoal local",
+                "status": "completed",
+                "inputTokens": 15927,
+                "outputTokens": 90,
+                "cachedInputTokens": 0,
+                "latencyMs": 4931,
+                "estimatedCostMicrounits": 0,
+                "costCurrency": "BRL",
+                "inputHash": "37a6436d44b6c6b9883d3f7754497cdc68fef0ad730c50384156520234e472ac",
+                "outputHash": "a491ad4673882004f94ef0d8c3a56efe8e6da560d22887e83c7e1646cb8cdafd",
+                "errorCode": null
+              },
+              "evidencePages": [
+                8,
+                1,
+                4,
+                7,
+                3,
+                8,
+                1,
+                3
+              ],
+              "output": {
+                "answer": "Claro. Você quer ajuda para entender a convenção enviada ou para resolver alguma situação do condomínio?",
+                "answerMode": "grounded",
+                "citations": [],
+                "attentionPoints": [],
+                "suggestedNextStep": null,
+                "specialist": {
+                  "required": false,
+                  "type": null,
+                  "reason": null
+                },
+                "claims": []
+              }
+            },
+            {
+              "telemetry": {
+                "providerKey": "codex",
+                "modelKey": "gpt-6.1-sol",
+                "modelVersion": "codex-exec-v2",
+                "promptVersion": "answer-prompt-v27",
+                "pipelineVersion": "answer-pipeline-v1",
+                "taskType": "grounded_answer",
+                "riskClass": "low",
+                "routingReason": "Plano ChatGPT pelo Codex em demonstração pessoal local",
+                "status": "completed",
+                "inputTokens": 16323,
+                "outputTokens": 116,
+                "cachedInputTokens": 0,
+                "latencyMs": 6277,
+                "estimatedCostMicrounits": 0,
+                "costCurrency": "BRL",
+                "inputHash": "da020a79eb3de73d6f959896432d2a3c256c01c9a4d2804c11a9389d7de36f75",
+                "outputHash": "7985a08c32db6396a3becbdef0e00c4f20f1463f76be85fe0d3e473f7e100d0d",
+                "errorCode": null
+              },
+              "evidencePages": [
+                8,
+                1,
+                4,
+                7,
+                3,
+                8,
+                1,
+                3
+              ],
+              "output": {
+                "answer": "Claro. Você quer ajuda para entender a convenção enviada ou para resolver alguma situação específica do condomínio?",
+                "answerMode": "abstained",
+                "citations": [],
+                "attentionPoints": [],
+                "suggestedNextStep": null,
+                "specialist": {
+                  "required": false,
+                  "type": null,
+                  "reason": null
+                },
+                "claims": []
+              }
+            }
+          ],
+          "diagnostics": [
+            {
+              "code": "codex_completed",
+              "stage": "completed",
+              "latencyMs": 4937
+            },
+            {
+              "code": "codex_completed",
+              "stage": "completed",
+              "latencyMs": 6279
+            }
+          ],
+          "latencyMs": 11625
+        }
+      ]
+    },
+    {
+      "name": "retrieval_reference_and_accepted_offer",
+      "dataPolicy": "synthetic-only",
+      "scenario": "full-eight-page-pdf-summary-then-brief-acceptance",
+      "initialSummary": "validated-deterministic-gateway",
+      "sourceHashes": [
+        {
+          "path": "apps/api/answers/conversation-memory.ts",
+          "sha256": "7b4e568a12d8dd5936c50305b291a1c734be2b19a4f614e27360ad25ccc0b04c"
+        },
+        {
+          "path": "apps/api/answers/answer-use-case.ts",
+          "sha256": "72337fe8d2b3ea122d76fd0465423684f87a6ba026b0290176da72a69c7c13bf"
+        },
+        {
+          "path": "apps/api/answers/answer-task-context.ts",
+          "sha256": "80c17e545baf1570fd27991b7f0ce738182fff4ab0b9e21ad4690df32d4d79ca"
+        },
+        {
+          "path": "apps/api/answers/document-availability.ts",
+          "sha256": "d5da862df538d195089d469a724a68dc6431ca36e287f4544fffe922454014db"
+        },
+        {
+          "path": "tests/fixtures/convention-continuation.ts",
+          "sha256": "9b5f617f9ef953adbb88dd5d2e3986708867ce56102847114f917ed547636ee3"
+        }
+      ],
+      "pdfSha256": "30dc7233c3a75a3116e4e6e42b1255dd52e94a0903d1710948592088f54ebe85",
+      "results": [
+        {
+          "model": "gpt-6-luna",
+          "reasoningEffort": "high",
+          "status": 200,
+          "response": {
+            "answer": "Posso ajudar a organizar a conferência da convenção. O documento marca seis assinaturas como pendentes e diz que a aprovação em assembleia e o registro ainda precisam ser conferidos. [cite] Podemos montar uma lista curta para verificar o original, localizar as assinaturas e confirmar a ata e o registro. Quer começar por essa lista?",
+            "answerMode": "grounded",
+            "citations": [
+              {
+                "id": "a7001fd2-baf9-4dc3-8689-06dc6f2f7d50",
+                "evidenceId": "1ddc38ae-be05-4e89-b032-4a43de189dc6:8:0",
+                "documentId": "47b15c16-3d46-4fbb-8b5e-c90880f2ad5e",
+                "documentVersionId": "1ddc38ae-be05-4e89-b032-4a43de189dc6",
+                "title": "Convenção fictícia do Condomínio Alameda.pdf",
+                "page": 8,
+                "excerpt": "FICTÍCIO - SOMENTE TESTE - SEM DADOS REAIS\nCONVENÇÃO DO CONDOMÍNIO ALAMEDA | PÁGINA 8 DE 8\nFORMALIZAÇÃO E SUBSCRIÇÕES\nArtigo 71. O controle conserva a versão e a origem de cada registro.\nA administração registra decisões e mantém o suporte documental disponível.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não dispensa revisão humana.\nAnexo de subscrições: seis coletas pendentes; nenhuma subscrição confirmada.\nAprovação assemblear e registro: pendentes de conferência documental.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não dispensa revisão humana.\nArtigo 73. O controle conserva a versão e a origem de cada registro.\nA administração registra decisões e mantém o suporte documental disponível.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não ",
+                "sourceScope": "condominium",
+                "startOffset": 0,
+                "endOffset": 1199
+              }
+            ],
+            "attentionPoints": [],
+            "suggestedNextStep": null,
+            "specialist": {
+              "required": false,
+              "type": null,
+              "reason": null
+            },
+            "answerId": "268eea8c-1c3b-4fb3-b188-1ebcaec9b5ba",
+            "questionId": "454cd625-cb36-4038-baec-ef8c312bd731",
+            "condominiumId": "alameda",
+            "riskClass": "low",
+            "createdAt": "2026-11-04T00:23:49.028Z"
+          },
+          "invocations": [
+            {
+              "telemetry": {
+                "providerKey": "codex",
+                "modelKey": "gpt-6-luna",
+                "modelVersion": "codex-exec-v2",
+                "promptVersion": "answer-prompt-v27",
+                "pipelineVersion": "answer-pipeline-v1",
+                "taskType": "grounded_answer",
+                "riskClass": "low",
+                "routingReason": "Plano ChatGPT pelo Codex em demonstração pessoal local",
+                "status": "completed",
+                "inputTokens": 15218,
+                "outputTokens": 679,
+                "cachedInputTokens": 0,
+                "latencyMs": 15046,
+                "estimatedCostMicrounits": 0,
+                "costCurrency": "BRL",
+                "inputHash": "581caa9c446ddf5e5f3ab897124c3e46d6fb50c0749957189aa5c122a33be810",
+                "outputHash": "ae80e3d1ebb02e6bb3fe695e49e1330f6c058a085a0a504ede37bb0368ab9c21",
+                "errorCode": null
+              },
+              "evidencePages": [
+                8,
+                1,
+                4,
+                7,
+                3,
+                8,
+                1,
+                3
+              ],
+              "output": {
+                "answer": "Posso ajudar a organizar a conferência da convenção. O documento marca seis assinaturas como pendentes e diz que a aprovação em assembleia e o registro ainda precisam ser conferidos. [cite] Podemos montar uma lista curta para verificar o original, localizar as assinaturas e confirmar a ata e o registro. Quer começar por essa lista?",
+                "answerMode": "grounded",
+                "citations": [
+                  {
+                    "evidenceId": "1ddc38ae-be05-4e89-b032-4a43de189dc6:8:0",
+                    "documentId": "47b15c16-3d46-4fbb-8b5e-c90880f2ad5e",
+                    "documentVersionId": "1ddc38ae-be05-4e89-b032-4a43de189dc6",
+                    "title": "Convenção fictícia do Condomínio Alameda.pdf",
+                    "page": 8,
+                    "excerpt": "FICTÍCIO - SOMENTE TESTE - SEM DADOS REAIS\nCONVENÇÃO DO CONDOMÍNIO ALAMEDA | PÁGINA 8 DE 8\nFORMALIZAÇÃO E SUBSCRIÇÕES\nArtigo 71. O controle conserva a versão e a origem de cada registro.\nA administração registra decisões e mantém o suporte documental disponível.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não dispensa revisão humana.\nAnexo de subscrições: seis coletas pendentes; nenhuma subscrição confirmada.\nAprovação assemblear e registro: pendentes de conferência documental.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não dispensa revisão humana.\nArtigo 73. O controle conserva a versão e a origem de cada registro.\nA administração registra decisões e mantém o suporte documental disponível.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não ",
+                    "sourceScope": "condominium",
+                    "startOffset": 0,
+                    "endOffset": 1199
+                  }
+                ],
+                "attentionPoints": [],
+                "suggestedNextStep": null,
+                "specialist": {
+                  "required": false,
+                  "type": null,
+                  "reason": null
+                },
+                "claims": [
+                  {
+                    "statement": "A convenção indica seis assinaturas pendentes e aprovação em assembleia e registro pendentes de conferência documental.",
+                    "claimType": "condominium_fact",
+                    "evidenceRequired": true,
+                    "citationEvidenceIds": [
+                      "1ddc38ae-be05-4e89-b032-4a43de189dc6:8:0"
+                    ]
+                  },
+                  {
+                    "statement": "Organizar uma lista para conferir o original, as assinaturas, a ata e o registro pode ajudar a esclarecer a situação documental.",
+                    "claimType": "recommendation",
+                    "evidenceRequired": false,
+                    "citationEvidenceIds": []
+                  }
+                ]
+              }
+            }
+          ],
+          "diagnostics": [
+            {
+              "code": "codex_completed",
+              "stage": "completed",
+              "latencyMs": 15049
+            }
+          ],
+          "latencyMs": 16304
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "low",
+          "status": 200,
+          "response": {
+            "answer": "Vamos organizar a conferência. O arquivo está identificado como fictício e registra assinaturas, aprovação em assembleia e registro como pendentes de conferência — isso não comprova a situação real do condomínio.\n\nPara organizar a checagem:\n\n- Compare a versão e a data com o original mantido pela administração.\n- Confira as assinaturas e o documento que comprove a aprovação.\n- Verifique o comprovante de registro e anote o que continuar sem confirmação.\n\nVocê está testando esse arquivo ou quer organizar a conferência da convenção real?",
+            "answerMode": "grounded",
+            "citations": [
+              {
+                "id": "20ca14de-7b5c-4c9c-b802-7606ebf7ba31",
+                "evidenceId": "e67e502f-7f95-4e3b-97a6-cbff0e7a0c73:8:0",
+                "documentId": "cb1d9f01-08dc-47db-8acf-3c9a0522ac8d",
+                "documentVersionId": "e67e502f-7f95-4e3b-97a6-cbff0e7a0c73",
+                "title": "Convenção fictícia do Condomínio Alameda.pdf",
+                "page": 8,
+                "excerpt": "FICTÍCIO - SOMENTE TESTE - SEM DADOS REAIS\nCONVENÇÃO DO CONDOMÍNIO ALAMEDA | PÁGINA 8 DE 8\nFORMALIZAÇÃO E SUBSCRIÇÕES\nArtigo 71. O controle conserva a versão e a origem de cada registro.\nA administração registra decisões e mantém o suporte documental disponível.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não dispensa revisão humana.\nAnexo de subscrições: seis coletas pendentes; nenhuma subscrição confirmada.\nAprovação assemblear e registro: pendentes de conferência documental.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não dispensa revisão humana.\nArtigo 73. O controle conserva a versão e a origem de cada registro.\nA administração registra decisões e mantém o suporte documental disponível.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não ",
+                "sourceScope": "condominium",
+                "startOffset": 0,
+                "endOffset": 1199
+              }
+            ],
+            "attentionPoints": [],
+            "suggestedNextStep": null,
+            "specialist": {
+              "required": false,
+              "type": null,
+              "reason": null
+            },
+            "answerId": "43b29a28-571a-4c39-b1ac-44c77a4028fe",
+            "questionId": "862ba189-c7f5-48a8-8152-83164c8a47dd",
+            "condominiumId": "alameda",
+            "riskClass": "low",
+            "createdAt": "2026-11-04T00:24:01.309Z"
+          },
+          "invocations": [
+            {
+              "telemetry": {
+                "providerKey": "codex",
+                "modelKey": "gpt-6.1-sol",
+                "modelVersion": "codex-exec-v2",
+                "promptVersion": "answer-prompt-v27",
+                "pipelineVersion": "answer-pipeline-v1",
+                "taskType": "grounded_answer",
+                "riskClass": "low",
+                "routingReason": "Plano ChatGPT pelo Codex em demonstração pessoal local",
+                "status": "completed",
+                "inputTokens": 16069,
+                "outputTokens": 422,
+                "cachedInputTokens": 0,
+                "latencyMs": 11850,
+                "estimatedCostMicrounits": 0,
+                "costCurrency": "BRL",
+                "inputHash": "279c5e9fc81bd5a0297c0bbeabecae5b92781635d020aad6e3cf1a46c09b0fa2",
+                "outputHash": "09190eda3d1268cdab945f963122017feb79196f3e40cc89f15769d2e86cd586",
+                "errorCode": null
+              },
+              "evidencePages": [
+                8,
+                1,
+                4,
+                7,
+                3,
+                8,
+                1,
+                3
+              ],
+              "output": {
+                "answer": "Vamos organizar a conferência. O arquivo está identificado como fictício e registra assinaturas, aprovação em assembleia e registro como pendentes de conferência — isso não comprova a situação real do condomínio.\n\nPara organizar a checagem:\n\n- Compare a versão e a data com o original mantido pela administração.\n- Confira as assinaturas e o documento que comprove a aprovação.\n- Verifique o comprovante de registro e anote o que continuar sem confirmação.\n\nVocê está testando esse arquivo ou quer organizar a conferência da convenção real?",
+                "answerMode": "grounded",
+                "citations": [
+                  {
+                    "evidenceId": "e67e502f-7f95-4e3b-97a6-cbff0e7a0c73:8:0",
+                    "documentId": "cb1d9f01-08dc-47db-8acf-3c9a0522ac8d",
+                    "documentVersionId": "e67e502f-7f95-4e3b-97a6-cbff0e7a0c73",
+                    "title": "Convenção fictícia do Condomínio Alameda.pdf",
+                    "page": 8,
+                    "excerpt": "FICTÍCIO - SOMENTE TESTE - SEM DADOS REAIS\nCONVENÇÃO DO CONDOMÍNIO ALAMEDA | PÁGINA 8 DE 8\nFORMALIZAÇÃO E SUBSCRIÇÕES\nArtigo 71. O controle conserva a versão e a origem de cada registro.\nA administração registra decisões e mantém o suporte documental disponível.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não dispensa revisão humana.\nAnexo de subscrições: seis coletas pendentes; nenhuma subscrição confirmada.\nAprovação assemblear e registro: pendentes de conferência documental.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não dispensa revisão humana.\nArtigo 73. O controle conserva a versão e a origem de cada registro.\nA administração registra decisões e mantém o suporte documental disponível.\nAs alterações são anotadas com data e motivo, preservando a condição anterior.\nDivergências seguem à assembleia e continuam identificadas no controle.\nA consulta ao original antecede decisões e não ",
+                    "sourceScope": "condominium",
+                    "startOffset": 0,
+                    "endOffset": 1199
+                  }
+                ],
+                "attentionPoints": [],
+                "suggestedNextStep": null,
+                "specialist": {
+                  "required": false,
+                  "type": null,
+                  "reason": null
+                },
+                "claims": [
+                  {
+                    "statement": "O arquivo está identificado como fictício e registra assinaturas, aprovação assemblear e registro como pendentes de conferência.",
+                    "claimType": "condominium_fact",
+                    "evidenceRequired": true,
+                    "citationEvidenceIds": [
+                      "e67e502f-7f95-4e3b-97a6-cbff0e7a0c73:8:0"
+                    ]
+                  },
+                  {
+                    "statement": "Para organizar a conferência, compare a versão com o original e confira os documentos de assinatura, aprovação e registro.",
+                    "claimType": "recommendation",
+                    "evidenceRequired": false,
+                    "citationEvidenceIds": []
+                  }
+                ]
+              }
+            }
+          ],
+          "diagnostics": [
+            {
+              "code": "codex_completed",
+              "stage": "completed",
+              "latencyMs": 11854
+            }
+          ],
+          "latencyMs": 12270
+        }
+      ],
+      "technicalReview": [
+        {
+          "model": "gpt-6-luna",
+          "targetAvailabilityDefect": "resolved_in_sample",
+          "grounding": "supported_by_current_page_8",
+          "clarity": "partial",
+          "note": "Retoma a coleta e sugere verificações; conserva marcador literal [cite] e repete uma oferta de começar a lista."
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "targetAvailabilityDefect": "resolved_in_sample",
+          "grounding": "supported_by_current_page_8",
+          "clarity": "satisfactory",
+          "note": "Entrega lista para conferir versão, assinaturas, aprovação e registro; distingue o cenário fictício da situação real."
+        }
+      ]
+    }
+  ]
+}

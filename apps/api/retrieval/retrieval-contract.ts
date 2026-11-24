@@ -84,6 +84,12 @@ export type ScopedRetrievalResult = Readonly<{
   selectedCount: number;
   evidence: readonly RetrievalEvidence[];
   sufficiency: EvidenceSufficiency;
+  diagnostics?: Readonly<{
+    relevantCount: number;
+    lowQualityCount: number;
+    pendingValidityCount: number;
+    temporallyExcludedCount: number;
+  }>;
 }>;
 
 export interface ScopedRetrievalIndex {

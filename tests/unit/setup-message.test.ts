@@ -2,11 +2,44 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   generateSetupMessage,
-  isSetupMessageRequest
+  isSetupMessageRequest,
+  type SetupMessageRequest
 } from "../../apps/api/answers/setup-message.js";
 import type { AnswerGateway, AnswerGatewayInput } from "../../apps/api/answers/answer-gateway.js";
 
 describe("mensagens geradas da configuração conversacional", () => {
+  it.each([
+    ["welcome", undefined],
+    ["returning", "Ana"],
+    ["returning", "Carlos"],
+    ["returning", "Alex"],
+    ["new_conversation", "Ana"],
+    ["new_conversation", "Carlos"],
+    ["new_conversation", "Alex"]
+  ] as const)("AC-2402/2407: acolhimento sem gênero em %s, nome %s", async (stage, managerName) => {
+    const generatedMessage = managerName
+      ? `Olá, ${managerName}! Que bom ter você aqui.`
+      : "Olá! Como prefere que eu chame você?";
+    const generate = vi.fn(async (input: AnswerGatewayInput) => {
+      expect(input.question).toContain("use linguagem sem marcação de gênero");
+      expect(input.question).toContain("inclusive ao perguntar como ela prefere que você a chame");
+      expect(input.question).toContain("Não use 'bem-vindo', 'bem-vinda', variantes com espaço");
+      expect(input.question).toContain("nem deduza gênero pelo nome");
+      expect(input.question).toContain("sem exigir uma frase fixa");
+      expect(input.evidence).toEqual([]);
+      return { output: { answer: generatedMessage } };
+    });
+    const request: SetupMessageRequest = {
+      stage,
+      ...(managerName === undefined ? {} : { managerName })
+    };
+
+    await expect(
+      generateSetupMessage({ generate } as unknown as AnswerGateway, request)
+    ).resolves.toBe(generatedMessage);
+    expect(generate).toHaveBeenCalledOnce();
+  });
+
   it("AC-2601 e AC-2704: pede a próxima fala ao modelo com a etapa e o nome", async () => {
     const generate = vi.fn(async (input: AnswerGatewayInput) => {
       expect(input.evidence).toEqual([]);
@@ -48,17 +81,22 @@ describe("mensagens geradas da configuração conversacional", () => {
     ).resolves.toBe("Olá, Ana. Como posso ajudar você agora?");
   });
 
-  it("AC-2404: conclui sem exigir envio imediato e sem chamar documentos de opcionais", async () => {
+  it("AC-2404: explica que os documentos são essenciais e que sem eles fica difícil ajudar", async () => {
     const generate = vi.fn(async (input: AnswerGatewayInput) => {
-      expect(input.question).toContain("não precisa enviar documentos agora");
-      expect(input.question).toContain("necessários para você conhecer o condomínio");
-      expect(input.question).toContain("pode enviá-los aos poucos, depois");
-      expect(input.question).toContain("nunca chame os documentos de opcionais");
+      expect(input.question).toContain("enviar os documentos relevantes é essencial");
+      expect(input.question).toContain("sem eles, fica difícil oferecer essa ajuda");
+      expect(input.question).toContain("Convide a pessoa a enviar o material pela conversa");
+      expect(input.question).toContain(
+        "sem minimizar sua importância, oferecer adiamento espontâneo"
+      );
+      expect(input.question).toContain("A orientação geral permanece disponível");
+      expect(input.question).not.toContain("não precisa enviar");
+      expect(input.question).not.toContain("pode enviá-los aos poucos, depois");
       expect(input.question).not.toContain("documentos são opcionais");
       return {
         output: {
           answer:
-            "Você pode enviar os documentos depois; eles são necessários para eu conhecer o condomínio."
+            "Ana, enviar os documentos é essencial para eu conhecer o condomínio. Sem eles, fica difícil ajudar com precisão. Envie o material pela conversa."
         }
       };
     });
@@ -68,7 +106,7 @@ describe("mensagens geradas da configuração conversacional", () => {
         stage: "complete",
         managerName: "Ana"
       })
-    ).resolves.toContain("necessários");
+    ).resolves.toContain("Sem eles, fica difícil ajudar com precisão");
     expect(generate).toHaveBeenCalledOnce();
   });
 

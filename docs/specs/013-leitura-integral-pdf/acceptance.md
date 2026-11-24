@@ -1,7 +1,7 @@
 # Critérios de aceitação — Spec 013
 
 **Status:** aprovada para implementação local  
-**Atualizado em:** 2026-09-24
+**Atualizado em:** 2026-11-03
 
 ## AC-1301 — Ler todas as páginas textuais (P0)
 
@@ -59,3 +59,19 @@
 **Quando** não há OCR local autorizado  
 **Então** a versão fica em revisão  
 **E** nenhum provedor externo recebe o arquivo silenciosamente.
+
+## AC-1309 — Matriz de páginas preenchidas (P0)
+
+**Dado** um corpus fictício com exatamente 20 PDFs de uma página, dez de duas e cinco de oito
+**E** todas as 80 páginas A4 contêm ao menos 50 linhas não vazias e 3.000 caracteres não brancos,
+com textos, listas e tabelas dentro das margens
+**Quando** cada um dos 35 casos envia o PDF por HTTP pelo cliente de upload
+**Então** o arquivo original recuperado do storage privado local é idêntico byte a byte
+**E** o catálogo informa todas as páginas processadas e pesquisáveis, sem páginas ilegíveis
+**E** o texto de cada página reconstruído dos chunks corresponde integralmente ao corpus de entrada
+**E** consultas sobre informações do início, meio e fim de cada página recuperam a fonte correta,
+com documento, versão, página, offsets e trecho verificáveis
+**E** outro condomínio não acessa o original nem recupera suas evidências.
+
+O teste usa extração e recuperação locais. Não atribui aprovação semântica a um modelo e não
+substitui os gates de OCR, PostgreSQL, navegador ou ambiente publicado.

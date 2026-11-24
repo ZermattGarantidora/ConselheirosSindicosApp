@@ -1,5 +1,9 @@
 # Spec 027 — Identidade provisória e cadastro único no modo de demonstração
 
+> A Spec 068, autorizada em 05/11/2026, substitui a entrada por nome de usuário e a
+> lembrança local por código fornecido pela equipe, sessão persistente e código em Perfil.
+> As demais regras conversacionais e de autorização desta spec permanecem aplicáveis.
+
 **Status:** implementada e aguardando validação do usuário
 **Responsável:** produto e engenharia
 **Atualizado em:** 2026-10-20

@@ -1,4 +1,5 @@
 import type { CondominiumId } from "../core/condominium-scope.js";
+import type { DocumentMediaType } from "./document-model.js";
 
 export const minimumOcrQualityScore = 0.85;
 
@@ -16,7 +17,14 @@ export type OcrResult =
 
 export interface OcrAdapter {
   recognize(
-    input: Readonly<{ condominiumId: CondominiumId; documentVersionId: string; content: Buffer }>
+    input: Readonly<{
+      condominiumId: CondominiumId;
+      documentVersionId: string;
+      content: Buffer;
+      expectedPageCount?: number;
+      signal?: AbortSignal;
+      mediaType?: DocumentMediaType;
+    }>
   ): Promise<OcrResult>;
 }
 

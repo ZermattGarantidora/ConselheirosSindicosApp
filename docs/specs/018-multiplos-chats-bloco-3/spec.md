@@ -1,5 +1,8 @@
 # Spec 018 — Múltiplos chats e barra lateral, Bloco 3 da reestruturação
 
+> A Spec 044 substitui a organização visual: a lateral esquerda lista condomínios e abre seus chats.
+> As restrições históricas abaixo sobre seleção de condomínio não se aplicam à composição atual.
+
 **Status:** implementada e aguardando aprovação do usuário  
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-20

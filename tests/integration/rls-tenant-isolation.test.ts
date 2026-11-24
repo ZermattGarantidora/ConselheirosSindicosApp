@@ -1,6 +1,30 @@
 import { createHash, randomUUID } from "node:crypto";
+import { createAccessCodeService } from "../../apps/api/identity/access-code.js";
+import { createPostgresAccessCodeStore } from "../../apps/api/identity/postgres-access-code-store.js";
+import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { createPostgresConversationStore } from "../../apps/api/answers/postgres-conversation-store.js";
+import {
+  conversationHash,
+  type ConversationWrite
+} from "../../apps/api/answers/conversation-store.js";
+import {
+  backupSyntheticHistory,
+  restoreSyntheticHistory
+} from "../../scripts/conversation-history-backup.js";
 import { createPostgresChatRepository } from "../../apps/api/chats/postgres-chat-repository.js";
+import { createPostgresCondominiumDirectory } from "../../apps/api/identity/postgres-condominium-directory.js";
+import { createPostgresAnswerPersistence } from "../../apps/api/answers/postgres-answer-persistence.js";
+import { chatSessionConnectionString } from "../../apps/api/answers/chat-session-connection.js";
+import { createAnswerUseCase } from "../../apps/api/answers/answer-use-case.js";
+import { createLocalSyntheticAnswerGateway } from "../../apps/api/answers/answer-gateway.js";
+import { evaluateEvidenceSufficiency } from "../../apps/api/retrieval/retrieval-ranking.js";
 import { Pool, type PoolClient } from "pg";
+import {
+  parseLocalIntegrationUrl,
+  assertLocalIntegrationTarget
+} from "../../scripts/local-integration-guard.js";
 import { createPostgresDocumentAnalysisReader } from "../../apps/api/analysis/document-analysis-reader.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -21,6 +45,7 @@ import { processOne } from "../../apps/api/worker/processing-worker.js";
 import type { AuthorizedCondominiumContext } from "../../apps/api/identity/authorized-condominium-context.js";
 import { createPostgresMembershipRepository } from "../../apps/api/identity/postgres-identity-repository.js";
 import { createSyntheticPdf, createSyntheticTextPdf } from "../fixtures/synthetic-pdfs.js";
+import { createLongPdfDocument, renderFullPagePdf } from "../fixtures/full-page-documents.js";
 import { importOfficialLegalPdf } from "../../scripts/import-brazilian-constitution.js";
 import { createPostgresLegalCopyReader } from "../../apps/api/legislation/postgres-legal-copy-reader.js";
 import { createPostgresDocumentSourceReader } from "../../apps/api/documents/document-source.js";
@@ -38,18 +63,27 @@ import {
 
 const supabaseIntegrationUrl = process.env.SUPABASE_INTEGRATION_DATABASE_URL;
 const neonIntegrationUrl = process.env.NEON_INTEGRATION_DATABASE_URL;
+const localIntegrationUrl = process.env.LOCAL_INTEGRATION_DATABASE_URL;
 
-if (supabaseIntegrationUrl !== undefined && neonIntegrationUrl !== undefined) {
+if (
+  [supabaseIntegrationUrl, neonIntegrationUrl, localIntegrationUrl].filter(
+    (value) => value !== undefined
+  ).length > 1
+) {
   throw new Error("Defina somente um destino de integração sintética por execução.");
 }
 
-const databaseUrl = supabaseIntegrationUrl ?? neonIntegrationUrl;
+const databaseUrl = localIntegrationUrl ?? supabaseIntegrationUrl ?? neonIntegrationUrl;
 const assertIntegrationTarget =
-  supabaseIntegrationUrl === undefined
-    ? assertNeonIntegrationTarget
-    : assertSupabaseIntegrationTarget;
+  localIntegrationUrl !== undefined
+    ? (client: PoolClient) => assertLocalIntegrationTarget(client, "rls")
+    : supabaseIntegrationUrl === undefined
+      ? assertNeonIntegrationTarget
+      : assertSupabaseIntegrationTarget;
 
-if (supabaseIntegrationUrl !== undefined) {
+if (localIntegrationUrl !== undefined) {
+  parseLocalIntegrationUrl(localIntegrationUrl, process.env.LOCAL_INTEGRATION_CONFIRMATION, "rls");
+} else if (supabaseIntegrationUrl !== undefined) {
   parseSupabaseIntegrationUrl(supabaseIntegrationUrl);
   requireSyntheticIntegrationConfirmation(process.env.SUPABASE_INTEGRATION_CONFIRMATION);
 } else {
@@ -126,6 +160,248 @@ async function processQueuedJob(
 }
 
 describe("RLS de isolamento por condomínio", () => {
+  it("AC-6808: códigos e aparelhos persistem, respeitam bloqueio/MFA e não concedem provisionamento ao runtime", async () => {
+    const secret = "d".repeat(64); // Segredo exclusivamente sintético.
+    const operator = createAccessCodeService(createPostgresAccessCodeStore(pool), secret);
+    const code = await operator.provision(userId);
+    const runtime = <T>(
+      operation: (service: ReturnType<typeof createAccessCodeService>) => Promise<T>
+    ) =>
+      asRuntime(undefined, (client) =>
+        operation(createAccessCodeService(createPostgresAccessCodeStore(client), secret))
+      );
+    const session = (await runtime((service) => service.login(code)))!;
+    expect(session.userId).toBe(userId);
+    expect(await runtime((service) => service.authenticate(session.token))).toMatchObject({
+      userId
+    });
+    await expect(runtime((service) => service.provision(userId))).rejects.toMatchObject({
+      code: "42501"
+    });
+    await expect(
+      asRuntime(undefined, (client) => client.query("SELECT * FROM app.access_codes"))
+    ).rejects.toMatchObject({ code: "42501" });
+    await expect(
+      asRuntime(undefined, (client) => client.query("SELECT * FROM app.device_sessions"))
+    ).rejects.toMatchObject({ code: "42501" });
+    await pool.query("UPDATE app.users SET status='blocked' WHERE id=$1", [userId]);
+    expect(await runtime((service) => service.authenticate(session.token))).toBeUndefined();
+    expect(await runtime((service) => service.login(code))).toBeUndefined();
+    await pool.query("UPDATE app.users SET status='active',mfa_enabled_at=now() WHERE id=$1", [
+      userId
+    ]);
+    expect(await runtime((service) => service.login(code))).toBeUndefined();
+    await expect(operator.provision(userId)).rejects.toThrow();
+    await pool.query("UPDATE app.users SET mfa_enabled_at=NULL WHERE id=$1", [userId]);
+    const changed = await operator.provision(userId);
+    expect(await runtime((service) => service.login(code))).toBeUndefined();
+    expect(await runtime((service) => service.authenticate(session.token))).toBeUndefined();
+    const newSession = (await runtime((service) => service.login(changed)))!;
+    await runtime((service) => service.logout(newSession.token));
+    expect(await runtime((service) => service.authenticate(newSession.token))).toBeUndefined();
+  });
+  it("AC-5810: backfill da atualização conserva mensagens legadas sem geração retroativa", async () => {
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId(alamedaId),
+      userId: userId as AuthorizedCondominiumContext["userId"],
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+    const persistence = createPostgresAnswerPersistence(pool);
+    const answer = await createAnswerUseCase({
+      persistence,
+      gateway: createLocalSyntheticAnswerGateway(),
+      retriever: {
+        search: async () => ({
+          pipelineVersion: "hybrid-v1",
+          queryHash: "a".repeat(64),
+          candidateCount: 0,
+          selectedCount: 0,
+          evidence: [],
+          sufficiency: evaluateEvidenceSufficiency([])
+        })
+      }
+    }).ask(context, { question: "Olá", requestId: randomUUID() });
+    const migration = await readFile(
+      "infrastructure/database/034_conversation_history.sql",
+      "utf8"
+    );
+    const start = migration.indexOf("-- Backfill executado");
+    const end = migration.lastIndexOf("COMMIT;");
+    if (start < 0 || end < start) throw new Error("Backfill da migração não encontrado.");
+    await pool.query(migration.slice(start, end));
+    const page = await createPostgresConversationStore(pool).list({
+      kind: "chat",
+      userId: context.userId,
+      condominiumId: alamedaId,
+      chatId: "00000000-0000-4000-8000-000000000000"
+    });
+    expect(page.entries).toHaveLength(1);
+    expect(page.entries[0]!.messages.map((message) => message.text)).toEqual([
+      "Olá",
+      answer.answer
+    ]);
+    expect(page.entries[0]!.messages[1]!.id).toBe(answer.answerId);
+    expect(page.entries[0]!.metadata).toMatchObject({
+      origin: "legacy_backfill",
+      memoryReplaySafe: false
+    });
+  });
+  it("AC-5809: cadastro e recibo são atômicos e retentativas concorrentes não duplicam condomínio", async () => {
+    const directory = createPostgresCondominiumDirectory(pool);
+    const owner = "sindico-sintetico" as AuthorizedCondominiumContext["userId"];
+    const input = { name: "Cadastro FICTÍCIO recuperável", unitCount: 17 };
+    const operation = { requestKey: randomUUID(), inputHash: conversationHash(input) };
+    const [first, repeated] = await Promise.all([
+      directory.createForUser(owner, input, operation),
+      directory.createForUser(owner, input, operation)
+    ]);
+    expect(repeated).toEqual(first);
+    expect(
+      (await directory.listAuthorized(owner)).filter(
+        (item) => item.condominiumId === first.condominiumId
+      )
+    ).toHaveLength(1);
+    await expect(
+      directory.createForUser(
+        owner,
+        { ...input, unitCount: 19 },
+        { ...operation, inputHash: conversationHash({ ...input, unitCount: 19 }) }
+      )
+    ).rejects.toMatchObject({ statusCode: 409 });
+    await pool.query(
+      "UPDATE app.memberships SET status='revoked',revoked_at=now() WHERE condominium_id=$1",
+      [first.condominiumId]
+    );
+    await expect(directory.createForUser(owner, input, operation)).rejects.toMatchObject({
+      statusCode: 403
+    });
+  }, 30_000);
+  it("AC-5801/5803/5809: journal conserva ambos os lados após processo novo e backup/restauração isolada", async () => {
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId(alamedaId),
+      userId: userId as AuthorizedCondominiumContext["userId"],
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+    const chatId = randomUUID();
+    await createPostgresChatRepository(pool).create(context, {
+      id: chatId,
+      title: "Histórico FICTÍCIO"
+    });
+    const store = createPostgresConversationStore(pool);
+    const session = await store.beginSetup(context.userId);
+    const setupScope = { kind: "setup" as const, userId: context.userId, setupSessionId: session };
+    const scope = {
+      kind: "chat" as const,
+      userId: context.userId,
+      condominiumId: alamedaId,
+      chatId
+    };
+    const write = (
+      kind: "setup" | "document_status" | "question_answer",
+      key: string
+    ): ConversationWrite => ({
+      id: randomUUID(),
+      requestKey: key,
+      inputHash: conversationHash(key),
+      createdAt: "2026-10-30T12:00:00.000Z",
+      messages: [
+        { id: randomUUID(), role: "user", kind, text: `FICTÍCIO pergunta ${key}` },
+        { id: randomUUID(), role: "assistant", kind, text: `FICTÍCIO resposta original ${key}` }
+      ],
+      response: { message: `FICTÍCIO resposta original ${key}` },
+      metadata: { source: "server", kind }
+    });
+    await store.append(setupScope, write("setup", "cadastro"));
+    await store.bindSetup(context.userId, session, scope);
+    await store.append(scope, write("document_status", "documento"));
+    const last = write("question_answer", "pergunta");
+    await store.append(scope, last);
+    expect((await store.append(scope, { ...last, id: randomUUID() })).id).toBe(last.id);
+    await expect(store.append(scope, { ...last, inputHash: "a".repeat(64) })).rejects.toMatchObject(
+      { statusCode: 409 }
+    );
+    const before = await store.list(scope);
+    const recent = await store.list(scope, 1);
+    expect(
+      (await store.list(scope, 2, recent.nextCursor!)).entries.map((entry) => entry.id)
+    ).toEqual(before.entries.slice(0, 2).map((entry) => entry.id));
+    await expect(store.list({ ...scope, condominiumId: bosqueId })).rejects.toMatchObject({
+      statusCode: 404
+    });
+    await expect(
+      store.list({ ...scope, userId: randomUUID() as typeof context.userId })
+    ).rejects.toMatchObject({ statusCode: 404 });
+    if (neonIntegrationUrl || localIntegrationUrl) {
+      const restarted = await promisify(execFile)(
+        process.execPath,
+        [
+          "scripts/run-tsx.mjs",
+          "tests/fixtures/conversation-history-restart.ts",
+          userId,
+          alamedaId,
+          chatId
+        ],
+        { timeout: 30_000, maxBuffer: 1_000_000, windowsHide: true }
+      );
+      expect(JSON.parse(restarted.stdout)).toEqual(before);
+    }
+    const backup = JSON.parse(
+      JSON.stringify(
+        await backupSyntheticHistory(
+          pool,
+          localIntegrationUrl ? "local" : supabaseIntegrationUrl ? "supabase" : "neon"
+        )
+      )
+    );
+    const schema = `history_restore_${randomUUID().replaceAll("-", "")}`;
+    try {
+      await expect(
+        restoreSyntheticHistory(pool, { ...backup, sha256: "0".repeat(64) }, schema)
+      ).rejects.toThrow("inválido");
+      await expect(restoreSyntheticHistory(pool, backup, "app")).rejects.toThrow("inválido");
+      await restoreSyntheticHistory(
+        pool,
+        backup,
+        schema,
+        localIntegrationUrl ? "local" : supabaseIntegrationUrl ? "supabase" : "neon"
+      );
+      const restored = createPostgresConversationStore(pool, schema);
+      expect(await restored.list(scope)).toEqual(before);
+      await expect(restored.list({ ...scope, condominiumId: bosqueId })).rejects.toMatchObject({
+        statusCode: 404
+      });
+      const next = await restored.append(scope, write("document_status", "depois"));
+      expect(next.sequence).toBeGreaterThan(before.entries.at(-1)!.sequence);
+      expect((await store.list(scope)).entries).toHaveLength(3);
+      const nextSession = await store.beginSetup(context.userId);
+      const nextScope = {
+        kind: "setup" as const,
+        userId: context.userId,
+        setupSessionId: nextSession
+      };
+      const firstWrites = Array.from({ length: 3 }, (_, index) =>
+        store.append(nextScope, write("setup", `antes-${index}`))
+      );
+      const binding = store.bindSetup(context.userId, nextSession, scope);
+      const lateWrites = Array.from({ length: 9 }, (_, index) =>
+        store.append(nextScope, write("setup", `concorrente-${index}`))
+      );
+      const outcomes = await Promise.allSettled([...firstWrites, ...lateWrites]);
+      await binding;
+      const confirmed = outcomes.filter((outcome) => outcome.status === "fulfilled");
+      for (const outcome of outcomes)
+        if (outcome.status === "rejected")
+          expect(outcome.reason).toMatchObject({ statusCode: 404 });
+      expect((await store.list(scope)).entries).toHaveLength(3 + confirmed.length);
+    } finally {
+      if (/^history_restore_[a-f0-9]{32}$/.test(schema))
+        await pool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    }
+  }, 60_000);
   beforeAll(async () => {
     const client = await pool.connect();
 
@@ -148,6 +424,69 @@ describe("RLS de isolamento por condomínio", () => {
 
   afterAll(async () => {
     await pool.end();
+  });
+
+  it("AC-4301/4305/4306: memória recente persiste e lock impede concorrência entre clientes", async () => {
+    const sessionPool = new Pool({
+      connectionString: chatSessionConnectionString(databaseUrl!),
+      max: 3,
+      connectionTimeoutMillis: 5_000
+    });
+    try {
+      const context: AuthorizedCondominiumContext = {
+        condominiumId: createCondominiumId(alamedaId),
+        userId: userId as AuthorizedCondominiumContext["userId"],
+        roleKey: "manager",
+        membershipRevision: "v1",
+        permissions: ["document:read", "document:upload"]
+      };
+      const chats = createPostgresChatRepository(pool);
+      const chatId = randomUUID();
+      await chats.create(context, { id: chatId, title: "Memória sintética" });
+      const persistence = createPostgresAnswerPersistence(pool, sessionPool);
+      const useCase = createAnswerUseCase({
+        persistence,
+        gateway: createLocalSyntheticAnswerGateway(),
+        retriever: {
+          search: async () => ({
+            pipelineVersion: "hybrid-v1",
+            queryHash: "a".repeat(64),
+            candidateCount: 0,
+            selectedCount: 0,
+            evidence: [],
+            sufficiency: evaluateEvidenceSufficiency([])
+          })
+        }
+      });
+      await useCase.ask(context, {
+        chatId,
+        question: "Olá",
+        requestId: randomUUID(),
+        revalidateConversation: async () => {
+          expect(await chats.find(context, chatId)).toBeDefined();
+        }
+      });
+      const restored = createPostgresAnswerPersistence(pool, sessionPool);
+      const history = await restored.listConversationHistory(context, 8, { chatId });
+      expect(history).toHaveLength(1);
+      expect(history[0]).toMatchObject({ chatId, question: "Olá", memoryReplaySafe: true });
+      expect(await restored.listConversationHistory(context, 8, { chatId: randomUUID() })).toEqual(
+        []
+      );
+      const release = await persistence.acquireChatTurn!(context, chatId);
+      try {
+        const concurrentRelease = await restored.acquireChatTurn!(context, chatId);
+        if (concurrentRelease !== undefined) await concurrentRelease();
+        expect(concurrentRelease).toBeUndefined();
+      } finally {
+        await release!();
+      }
+      const reacquired = await restored.acquireChatTurn!(context, chatId);
+      expect(reacquired).toBeTypeOf("function");
+      await reacquired!();
+    } finally {
+      await sessionPool.end();
+    }
   });
 
   it("AC-3903/3904/3906: legislação sintética respeita conferência, cópia histórica e revogação sob RLS", async () => {
@@ -533,6 +872,80 @@ describe("RLS de isolamento por condomínio", () => {
       }
     ]);
   });
+
+  it("AC-6704: persiste e relê 300 páginas preenchidas sob RLS", async () => {
+    const document = createLongPdfDocument();
+    const context: AuthorizedCondominiumContext = {
+      condominiumId: createCondominiumId(alamedaId),
+      userId: userId as AuthorizedCondominiumContext["userId"],
+      roleKey: "manager",
+      membershipRevision: "v1",
+      permissions: ["document:read", "document:upload"]
+    };
+    const storage = createPostgresPrivateDocumentStorage(pool);
+    const content = renderFullPagePdf(document);
+    const uploaded = await uploadDocument(
+      storage,
+      createPostgresDocumentUploadRepository(pool),
+      context,
+      {
+        title: document.title,
+        documentType: "other",
+        content,
+        validityConfirmed: true
+      }
+    );
+    expect(
+      await processQueuedJob(
+        createPostgresProcessingJobQueue(pool),
+        createScopedDocumentProcessor(
+          createPostgresDocumentProcessingRepository(pool, storage),
+          unavailableOcrAdapter
+        )
+      )
+    ).toBe("processed");
+    const reader = createPostgresDocumentAnalysisReader(pool);
+    const [indexed] = await reader.readAuthorized(context, [uploaded.documentVersionId]);
+    expect(indexed?.pages).toHaveLength(300);
+    for (const [index, page] of document.pages.entries()) {
+      expect(indexed!.pages[index]).toMatchObject({
+        pageNumber: index + 1,
+        extractedText: page.expectedText
+      });
+    }
+    const counts = await pool.query<{
+      total: string;
+      indexes: string;
+      first: number;
+      last: number;
+    }>(
+      `SELECT count(*)::text AS total, count(DISTINCT chunk_index)::text AS indexes,
+       min(chunk_index) AS first, max(chunk_index) AS last FROM app.document_chunks
+       WHERE condominium_id = $1 AND document_version_id = $2`,
+      [alamedaId, uploaded.documentVersionId]
+    );
+    expect(Number(counts.rows[0]!.total)).toBeGreaterThan(1000);
+    expect(counts.rows[0]!.total).toBe(counts.rows[0]!.indexes);
+    expect(counts.rows[0]!.first).toBe(0);
+    expect(counts.rows[0]!.last).toBe(Number(counts.rows[0]!.total) - 1);
+    const search = { query: "R0300", limit: 50, minimumQualityScore: 0.7, asOf: new Date() };
+    const index = createPostgresScopedRetrievalIndex(pool);
+    const candidates = await index.findAuthorizedCandidates(context, search);
+    expect(
+      candidates.some(
+        (item) => item.documentVersionId === uploaded.documentVersionId && item.pageNumber === 300
+      )
+    ).toBe(true);
+    const other = { ...context, condominiumId: createCondominiumId(bosqueId) };
+    expect(await reader.readAuthorized(other, [uploaded.documentVersionId])).toEqual([]);
+    expect(await index.findAuthorizedCandidates(other, search)).toEqual([]);
+    expect(
+      await storage.readOriginal({
+        condominiumId: context.condominiumId,
+        objectId: uploaded.storageObjectId
+      })
+    ).toEqual(content);
+  }, 120_000);
 
   it("usa a API persistente e cria a segunda versão do mesmo documento", async () => {
     const app = createApi({

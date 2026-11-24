@@ -5,7 +5,12 @@ import {
 } from "./document-condominium-check.js";
 
 import type { CondominiumId } from "../core/condominium-scope.js";
-import { identifyDocumentType, type DocumentIdentification } from "./document-identification.js";
+import {
+  identifyDocumentPages,
+  identifyDocumentType,
+  identifyFinancialStatement,
+  type DocumentIdentification
+} from "./document-identification.js";
 import {
   createDocumentVersion,
   type DocumentExtractionMethod,
@@ -31,6 +36,7 @@ import type { GeneratedEmbedding } from "../retrieval/retrieval-contract.js";
 import { chunkPage } from "../retrieval/retrieval-contract.js";
 import { extractStructuredDocument } from "./structured/extract-structured-document.js";
 import type { StructuredDocumentExtraction } from "./structured/structured-document-contract.js";
+import { docxMediaType, extractDocxText } from "./extract-docx-text.js";
 
 export type ProcessedDocumentPage = Readonly<
   DocumentPage & {
@@ -46,6 +52,7 @@ export type ProcessedDocumentPage = Readonly<
 >;
 
 export type DocumentExtractionSummary = Readonly<{
+  isFinancialStatement?: boolean;
   expectedPageCount: number;
   processedPageCount: number;
   searchablePageCount: number;
@@ -68,7 +75,14 @@ export type DocumentProcessingInput = Readonly<{
   ocrNumericVerifications?: readonly OcrNumericVerification[];
   imageAnalysisAdapter?: ImageAnalysisAdapter;
   imageEmbeddingAdapter?: EmbeddingAdapter;
+  photoOcrAdapter?: OcrAdapter;
+  signal?: AbortSignal;
 }>;
+
+export type DocumentProcessingAdapters = Pick<
+  DocumentProcessingInput,
+  "ocrAdapter" | "photoOcrAdapter" | "imageAnalysisAdapter" | "imageEmbeddingAdapter"
+>;
 
 export type DocumentProcessingOutcome = Readonly<{ condominiumCheck?: DocumentCondominiumCheck }> &
   Readonly<
@@ -100,7 +114,8 @@ export type DocumentProcessingOutcome = Readonly<{ condominiumCheck?: DocumentCo
           | "ocr_numeric_unverified"
           | "ocr_numeric_discrepancy"
           | "image_analysis_unavailable"
-          | "image_analysis_failed";
+          | "image_analysis_failed"
+          | "docx_incomplete";
         extractionSummary: DocumentExtractionSummary;
         documentIdentification?: DocumentIdentification;
         structuredExtraction?: StructuredDocumentExtraction;
@@ -233,7 +248,7 @@ function failedPdfResult(
 }
 
 function identifyPages(pages: readonly ProcessedDocumentPage[]): DocumentIdentification {
-  return identifyDocumentType(pages.map((page) => page.extractedText).join("\n"));
+  return identifyDocumentPages(pages);
 }
 
 function createExtractionSummary(
@@ -273,7 +288,8 @@ function createExtractionSummary(
     extractionCompleteness: expectedPageCount === 0 ? 0 : searchablePageCount / expectedPageCount,
     extractionMethod:
       methods.size === 0 ? null : methods.size === 1 ? (pages[0]?.extractionMethod ?? null) : "ocr",
-    ocrQualityScore
+    ocrQualityScore,
+    ...(identifyFinancialStatement(pages) ? { isFinancialStatement: true } : {})
   });
 }
 
@@ -302,8 +318,52 @@ export async function processDocumentVersion(
 async function processDocumentContent(
   input: DocumentProcessingInput
 ): Promise<DocumentProcessingOutcome> {
-  const processingState = transitionDocumentProcessing(input.currentState, "processing");
+  // A durable queue may already have marked the version processing when claiming or reclaiming it.
+  const processingState =
+    input.currentState.processingStatus === "processing"
+      ? input.currentState
+      : transitionDocumentProcessing(input.currentState, "processing");
   const mediaType = input.mediaType ?? "application/pdf";
+  if (mediaType === docxMediaType) {
+    try {
+      const extracted = extractDocxText(input.content);
+      const pages = extracted.blocks.map((block, index) =>
+        createProcessedPage({
+          condominiumId: input.condominiumId,
+          documentVersionId: input.documentVersionId,
+          pageIndex: index,
+          pageNumber: index + 1,
+          extractedText: block.text,
+          extractionMethod: "docx_text",
+          qualityScore: extracted.complete ? 1 : 0,
+          analysisLimitations: [
+            "Blocos de leitura Alvitra; não são páginas do Word. Formatação original não reproduzida.",
+            ...extracted.limitations
+          ].join(" ")
+        })
+      );
+      const common = {
+        pages,
+        extractionSummary: createExtractionSummary(pages.length, pages, null),
+        documentIdentification: identifyPages(pages),
+        structuredExtraction: buildStructuredExtraction(input, pages)
+      };
+      if (!extracted.complete)
+        return {
+          status: "needs_review",
+          state: transitionDocumentProcessing(processingState, "needs_review"),
+          reason: "docx_incomplete",
+          ...common
+        };
+      return {
+        status: "completed",
+        state: transitionDocumentProcessing(processingState, "ready"),
+        ...common
+      };
+    } catch {
+      return failedPdfResult(input, processingState);
+    }
+  }
   if (mediaType !== "application/pdf") {
     return processImageVersion(input, processingState, mediaType);
   }
@@ -337,17 +397,35 @@ async function processDocumentContent(
     ocrResult = await ocrAdapter.recognize({
       condominiumId: input.condominiumId,
       documentVersionId: input.documentVersionId,
-      content: input.content
+      content: input.content,
+      expectedPageCount: extractedPages.length,
+      ...(input.signal === undefined ? {} : { signal: input.signal })
     });
   } catch {
     ocrResult = Object.freeze({ status: "unavailable", reason: "failed" });
   }
 
-  const decision = assessOcrResult(ocrResult, extractedPages.length);
+  return ocrOutcome(
+    input,
+    processingState,
+    ocrResult,
+    extractedPages.length,
+    createPdfPages(input.condominiumId, input.documentVersionId, extractedPages)
+  );
+}
+
+function ocrOutcome(
+  input: DocumentProcessingInput,
+  processingState: DocumentVersionState,
+  ocrResult: OcrResult,
+  expectedPageCount: number,
+  fallbackPages: readonly ProcessedDocumentPage[]
+): DocumentProcessingOutcome {
+  const decision = assessOcrResult(ocrResult, expectedPageCount);
   const ocrPages =
-    ocrResult.status === "completed" && hasExpectedOcrPages(ocrResult.pages, extractedPages.length)
+    ocrResult.status === "completed" && hasExpectedOcrPages(ocrResult.pages, expectedPageCount)
       ? createOcrPages(input.condominiumId, input.documentVersionId, ocrResult.pages)
-      : createPdfPages(input.condominiumId, input.documentVersionId, extractedPages);
+      : fallbackPages;
   if (decision.processingStatus === "ready") {
     const structuredExtraction = buildStructuredExtraction(input, ocrPages);
     const consistency = assessOcrFinancialConsistency({
@@ -383,7 +461,7 @@ async function processDocumentContent(
             ? ("ocr_numeric_discrepancy" as const)
             : ("ocr_numeric_unverified" as const),
         extractionSummary: createExtractionSummary(
-          extractedPages.length,
+          expectedPageCount,
           ocrPages,
           decision.ocrQualityScore
         ),
@@ -400,7 +478,7 @@ async function processDocumentContent(
       ),
       pages: ocrPages,
       extractionSummary: createExtractionSummary(
-        extractedPages.length,
+        expectedPageCount,
         ocrPages,
         decision.ocrQualityScore
       ),
@@ -421,11 +499,11 @@ async function processDocumentContent(
       decision.reason === "unavailable"
         ? ("ocr_unavailable" as const)
         : ocrResult.status === "completed" &&
-            !hasExpectedOcrPages(ocrResult.pages, extractedPages.length)
+            !hasExpectedOcrPages(ocrResult.pages, expectedPageCount)
           ? ("ocr_invalid" as const)
           : ("ocr_low_quality" as const),
     extractionSummary: createExtractionSummary(
-      extractedPages.length,
+      expectedPageCount,
       ocrPages,
       decision.ocrQualityScore
     ),
@@ -471,6 +549,32 @@ async function processImageVersion(
   processingState: DocumentVersionState,
   mediaType: Extract<DocumentMediaType, "image/jpeg" | "image/png">
 ): Promise<DocumentProcessingOutcome> {
+  if (input.photoOcrAdapter) {
+    let result: OcrResult;
+    try {
+      result = await input.photoOcrAdapter.recognize({
+        condominiumId: input.condominiumId,
+        documentVersionId: input.documentVersionId,
+        content: input.content,
+        mediaType,
+        expectedPageCount: 1,
+        ...(input.signal === undefined ? {} : { signal: input.signal })
+      });
+    } catch {
+      result = { status: "unavailable", reason: "failed" };
+    }
+    return ocrOutcome(input, processingState, result, 1, [
+      createProcessedPage({
+        condominiumId: input.condominiumId,
+        documentVersionId: input.documentVersionId,
+        pageIndex: 0,
+        pageNumber: 1,
+        extractedText: "",
+        extractionMethod: "ocr",
+        qualityScore: 0
+      })
+    ]);
+  }
   const analyzer = input.imageAnalysisAdapter;
   const embedder = input.imageEmbeddingAdapter;
   if (analyzer === undefined || embedder === undefined) {
@@ -481,7 +585,8 @@ async function processImageVersion(
       condominiumId: input.condominiumId,
       documentVersionId: input.documentVersionId,
       content: input.content,
-      mediaType
+      mediaType,
+      ...(input.signal === undefined ? {} : { signal: input.signal })
     });
     const extractedText = [
       "Observação visual gerada por IA (não é texto literal da imagem):",
@@ -557,6 +662,7 @@ export type SavedDocumentProcessingResult = Readonly<{
   jobId: string;
   attemptCount: number;
   outcome: DocumentProcessingOutcome;
+  signal?: AbortSignal;
 }>;
 
 export interface DocumentProcessingRepository {
@@ -573,7 +679,8 @@ export function createScopedDocumentProcessor(
   repository: DocumentProcessingRepository,
   ocrAdapter: OcrAdapter = unavailableOcrAdapter,
   imageAnalysisAdapter?: ImageAnalysisAdapter,
-  imageEmbeddingAdapter?: EmbeddingAdapter
+  imageEmbeddingAdapter?: EmbeddingAdapter,
+  photoOcrAdapter?: OcrAdapter
 ): Readonly<{
   process(
     input: Readonly<{
@@ -581,11 +688,13 @@ export function createScopedDocumentProcessor(
       documentVersionId: string;
       jobId: string;
       attemptCount: number;
+      signal?: AbortSignal;
     }>
   ): Promise<void>;
 }> {
   return Object.freeze({
     async process(input) {
+      input.signal?.throwIfAborted();
       const stored = await repository.loadForProcessing(input);
 
       if (stored === undefined) {
@@ -599,6 +708,7 @@ export function createScopedDocumentProcessor(
         throw new Error("A versão documental não pertence ao condomínio do job.");
       }
 
+      input.signal?.throwIfAborted();
       const outcome = await processDocumentVersion({
         condominiumId: input.condominiumId,
         documentId: stored.documentId,
@@ -610,17 +720,21 @@ export function createScopedDocumentProcessor(
           : { selectedCondominiumName: stored.selectedCondominiumName }),
         ...(stored.mediaType === undefined ? {} : { mediaType: stored.mediaType }),
         currentState: stored.state,
+        ...(input.signal === undefined ? {} : { signal: input.signal }),
         ocrAdapter,
         ...(imageAnalysisAdapter === undefined ? {} : { imageAnalysisAdapter }),
-        ...(imageEmbeddingAdapter === undefined ? {} : { imageEmbeddingAdapter })
+        ...(imageEmbeddingAdapter === undefined ? {} : { imageEmbeddingAdapter }),
+        ...(photoOcrAdapter === undefined ? {} : { photoOcrAdapter })
       });
 
+      input.signal?.throwIfAborted();
       await repository.saveProcessingResult({
         condominiumId: input.condominiumId,
         documentVersionId: input.documentVersionId,
         jobId: input.jobId,
         attemptCount: input.attemptCount,
-        outcome
+        outcome,
+        ...(input.signal === undefined ? {} : { signal: input.signal })
       });
     }
   });

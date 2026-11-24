@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import { createApi } from "../../apps/api/app/create-api.js";
 import { createAnswerService } from "../../apps/api/answers/answer-service.js";
 import { createLocalExtractiveGateway } from "../../apps/api/answers/local-extractive-gateway.js";
-import { startServer } from "../../apps/api/app/server.js";
+import {
+  startSyntheticServer as startServer,
+  syntheticAccessHeaders
+} from "../fixtures/synthetic-access.js";
 import { createDevelopmentIdentityRepository } from "../../apps/api/identity/development-identity-repository.js";
 import { createSyntheticElectionMinutesPdf } from "../fixtures/synthetic-pdfs.js";
 import { expectDocumentReady } from "../fixtures/wait-for-document.js";
@@ -15,7 +18,7 @@ describe("consulta documental", () => {
     const response = await app.inject({
       method: "POST",
       url: "/v1/condominiums/alameda/answers",
-      headers: { "x-development-user-id": "sindico-demo" },
+      headers: await syntheticAccessHeaders(app),
       payload: { question: "A locação por temporada é permitida?" }
     });
 
@@ -50,7 +53,7 @@ describe("consulta documental", () => {
 
   it("AC-004, AC-010 e AC-030: consulta um PDF enviado ao condomínio criado no modo de teste", async () => {
     const app = await startServer(0, { DEMO_MODE: "true", DEMO_SEED_DOCUMENTS: "true" });
-    const headers = { "x-development-user-id": "sindico-demo" } as const;
+    const headers = await syntheticAccessHeaders(app);
     const condominiumId = "teste-upload-consulta";
 
     const created = await app.inject({
@@ -93,13 +96,14 @@ describe("consulta documental", () => {
     });
     expect(uploaded.statusCode).toBe(202);
     expect(uploaded.json().processingStatus).toBe("uploaded");
-    await expectDocumentReady(app, uploaded.json().documentVersionId, condominiumId);
-    const answer = await app.inject({
-      method: "POST",
+    await expectDocumentReady(app, uploaded.json().documentVersionId, condominiumId, headers);
+    const question = {
+      method: "POST" as const,
       url: `/v1/condominiums/${condominiumId}/questions`,
-      headers,
+      headers: { ...headers, "x-conversation-request-id": "synthetic-upload-question" },
       payload: { question: "Quem foi eleita síndica e qual é o período do mandato?" }
-    });
+    };
+    const answer = await app.inject(question);
 
     expect(created.statusCode).toBe(201);
     expect(uploaded.statusCode).toBe(202);
@@ -115,6 +119,55 @@ describe("consulta documental", () => {
         }
       ]
     });
+    const replay = await app.inject(question);
+    expect(replay.statusCode).toBe(200);
+    expect(replay.body).toBe(answer.body);
+    const citation = answer.json().citations[0];
+    const sourceUrl = `/v1/condominiums/${condominiumId}/documents/${citation.documentId}/versions/${citation.documentVersionId}/pages/${citation.page}`;
+    const source = await app.inject({
+      method: "GET",
+      url: sourceUrl,
+      headers
+    });
+    expect(source.statusCode).toBe(200);
+    expect(source.json().content).toContain(citation.excerpt);
+    const denied = await app.inject({
+      method: "GET",
+      url: `/v1/condominiums/bosque/documents/${citation.documentId}/versions/${citation.documentVersionId}/pages/${citation.page}`,
+      headers
+    });
+    expect(denied.statusCode).toBe(404);
+    expect(denied.body).not.toContain("Marina Vieira");
+    const archived = await app.inject({
+      method: "DELETE",
+      url: `/v1/condominiums/${condominiumId}/documents/${citation.documentId}`,
+      headers
+    });
+    expect(archived.statusCode).toBe(204);
+    const removed = await app.inject({ method: "GET", url: sourceUrl, headers });
+    expect(removed.statusCode).toBe(404);
+    expect(removed.body).not.toContain("Marina Vieira");
+    expect((await app.inject(question)).statusCode).toBe(403);
+    const history = await app.inject({
+      method: "GET",
+      url: `/v1/condominiums/${condominiumId}/chats/00000000-0000-4000-8000-000000000000/messages`,
+      headers
+    });
+    expect(history.statusCode).toBe(200);
+    expect(history.body).toContain(citation.excerpt);
+    expect(history.body).toContain('"sourceRemoved":true');
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url: `/v1/condominiums/${condominiumId}/documents/${citation.documentId}/restore`,
+          headers
+        })
+      ).statusCode
+    ).toBe(204);
+    const restored = await app.inject({ method: "GET", url: sourceUrl, headers });
+    expect(restored.statusCode).toBe(200);
+    expect(restored.body).toBe(source.body);
     await app.close();
   });
 
@@ -124,7 +177,7 @@ describe("consulta documental", () => {
     const response = await app.inject({
       method: "POST",
       url: "/v1/condominiums/alameda/answers",
-      headers: { "x-development-user-id": "sindico-demo" },
+      headers: await syntheticAccessHeaders(app),
       payload: { question: "Meteorito" }
     });
 
@@ -140,7 +193,7 @@ describe("consulta documental", () => {
     const response = await app.inject({
       method: "POST",
       url: "/v1/condominiums/bosque/answers",
-      headers: { "x-development-user-id": "morador-alameda-demo" },
+      headers: await syntheticAccessHeaders(app, "morador-alameda-demo"),
       payload: { question: "Qual é a regra sobre visitantes?" }
     });
 
@@ -155,12 +208,12 @@ describe("consulta documental", () => {
     const source = await app.inject({
       method: "GET",
       url: "/v1/condominiums/alameda/documents/alameda-convencao/versions/alameda-convencao-v1/pages/3",
-      headers: { "x-development-user-id": "sindico-demo" }
+      headers: await syntheticAccessHeaders(app)
     });
     const crossTenant = await app.inject({
       method: "GET",
       url: "/v1/condominiums/bosque/documents/alameda-convencao/versions/alameda-convencao-v1/pages/3",
-      headers: { "x-development-user-id": "sindico-demo" }
+      headers: await syntheticAccessHeaders(app)
     });
 
     expect(source.statusCode).toBe(200);
@@ -180,7 +233,7 @@ describe("consulta documental", () => {
     const invalid = await app.inject({
       method: "POST",
       url: "/v1/condominiums/alameda/answers",
-      headers: { "x-development-user-id": "sindico-demo" },
+      headers: await syntheticAccessHeaders(app),
       payload: { question: " " }
     });
 
@@ -200,7 +253,7 @@ describe("consulta documental", () => {
     const response = await app.inject({
       method: "POST",
       url: "/v1/condominiums/alameda/answers",
-      headers: { "x-development-user-id": "sindico-demo" },
+      headers: await syntheticAccessHeaders(app),
       payload: { question: "Quando vence o contrato?" }
     });
 

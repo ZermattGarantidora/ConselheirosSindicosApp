@@ -13,6 +13,7 @@ export interface ImageAnalysisAdapter {
       documentVersionId: string;
       content: Buffer;
       mediaType: Extract<DocumentMediaType, "image/jpeg" | "image/png">;
+      signal?: AbortSignal;
     }>
   ): Promise<ImageAnalysisResult>;
 }

@@ -14,7 +14,7 @@ export type FinancialSource = Readonly<{
   excerpt: string;
   startOffset: number;
   endOffset: number;
-  extractionMethod: "pdf_text" | "ocr" | "image_vision";
+  extractionMethod: "pdf_text" | "ocr" | "image_vision" | "docx_text";
   uncertainty: "none" | "review_required";
 }>;
 
@@ -83,7 +83,7 @@ function validateAmount(amount: FinancialAmount): void {
     amount.source.startOffset < 0 ||
     !Number.isInteger(amount.source.endOffset) ||
     amount.source.endOffset <= amount.source.startOffset ||
-    !["pdf_text", "ocr", "image_vision"].includes(amount.source.extractionMethod) ||
+    !["pdf_text", "ocr", "image_vision", "docx_text"].includes(amount.source.extractionMethod) ||
     !["none", "review_required"].includes(amount.source.uncertainty)
   ) {
     throw new Error("Todo valor financeiro precisa de fonte verificável.");

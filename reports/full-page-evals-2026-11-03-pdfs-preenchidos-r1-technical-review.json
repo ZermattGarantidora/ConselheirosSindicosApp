@@ -1,0 +1,1504 @@
+{
+  "sourceFingerprint": "9483004a6761e2fad04ad6e6010d3fe1c5e7459235677e0d2a4d2b8e548bca7a",
+  "reviewer": "gpt-6.1-sol-assistant",
+  "reviewKind": "ai_technical_review",
+  "specialistApproval": null,
+  "records": [
+    {
+      "key": "luna-high-pdf-1p-02-p1",
+      "caseId": "pdf-1p-02-p1",
+      "model": "luna-high",
+      "responseSha256": "ad3655b2d33bffa1f0d70414da7a20458839c43b50d3106ba4931971d14b4ee9",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.143Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-01-p1",
+      "caseId": "pdf-1p-01-p1",
+      "model": "sol61-low",
+      "responseSha256": "c0acf84c2b47fd0d15c9395d83d4e4683888ec3f62bf4084e42de058f56fb1b8",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.144Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-02-p1",
+      "caseId": "pdf-1p-02-p1",
+      "model": "sol61-low",
+      "responseSha256": "4cdfb78a4fd10cf24ccf7c864474596a1e89d8ae4842df532d949111cc57f29e",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.144Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-01-p1",
+      "caseId": "pdf-1p-01-p1",
+      "model": "luna-high",
+      "responseSha256": "47572f49849004be377f6b592fb9e7178c9b8f80999f181732578396bcc8d77a",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.144Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-03-p1",
+      "caseId": "pdf-1p-03-p1",
+      "model": "sol61-low",
+      "responseSha256": "e5b6d35f22004d8be3b181f87630d233f4dea66e9e7093c34435b2a693cef1af",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.144Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-04-p1",
+      "caseId": "pdf-1p-04-p1",
+      "model": "sol61-low",
+      "responseSha256": "3c635338fb98bc0390257da7e5a839ae8bc97a7ec565342b3f3f4da1a1169b1c",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.144Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-03-p1",
+      "caseId": "pdf-1p-03-p1",
+      "model": "luna-high",
+      "responseSha256": "75a3d6738d8c007f72b617ad20c8b7131fd398c3a167b89d962d914530bd3d8c",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.144Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-04-p1",
+      "caseId": "pdf-1p-04-p1",
+      "model": "luna-high",
+      "responseSha256": "d3849b4d252254503d113c001088406993e44da3bcfb9300bd936646a37dde92",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.144Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-05-p1",
+      "caseId": "pdf-1p-05-p1",
+      "model": "sol61-low",
+      "responseSha256": "05ce93b333dc12bb76d8f9d728a6103c44f5e1016a56415cdca35e84403c8069",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.144Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-05-p1",
+      "caseId": "pdf-1p-05-p1",
+      "model": "luna-high",
+      "responseSha256": "5da0c731b462bc75f2719d95e9e2a950ef0b99257b5b437101b9601b94de2d97",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-06-p1",
+      "caseId": "pdf-1p-06-p1",
+      "model": "sol61-low",
+      "responseSha256": "36403e14ee18d007ebfa5366a3e8661d4ff88e552fd746babcfaec066d600604",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-06-p1",
+      "caseId": "pdf-1p-06-p1",
+      "model": "luna-high",
+      "responseSha256": "69508f2322818bbdc9b6833b8959ba0666d59d7adc5083377f7e0710512ff4ef",
+      "verdict": "partial",
+      "reason": "Fatos e pendencias corretos, mas expoe identificadores internos de chunks na resposta ao usuario.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-08-p1",
+      "caseId": "pdf-1p-08-p1",
+      "model": "sol61-low",
+      "responseSha256": "7e5b55101ad9451b0a96673e9d378a65fe6e5457bf7fab4b21fde6a7fb31d4c5",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-08-p1",
+      "caseId": "pdf-1p-08-p1",
+      "model": "luna-high",
+      "responseSha256": "001e6a1da678337a085e3cfddd492a6b6c1c35a59fc75598a18c9f742cd70703",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-07-p1",
+      "caseId": "pdf-1p-07-p1",
+      "model": "sol61-low",
+      "responseSha256": "cd887929fef3c2c6459ad94a05b438892c4a0a9afb30ea284f32dc2631b863a7",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-07-p1",
+      "caseId": "pdf-1p-07-p1",
+      "model": "luna-high",
+      "responseSha256": "831f64b7839a7f08268ef022136492a259ed6884da602c61678b01a40d6ed3c4",
+      "verdict": "partial",
+      "reason": "Fatos e pendencias corretos, mas expoe identificadores internos de chunks na resposta ao usuario.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-09-p1",
+      "caseId": "pdf-1p-09-p1",
+      "model": "luna-high",
+      "responseSha256": "6ad763f1f9319c8b7ea90ac422efc3111642e53ab060c373097d158a46163b1e",
+      "verdict": "satisfactory",
+      "reason": "Conteudo correto; as duas vistorias foram expressas por elipse. O check literal de pendencia gerou falso negativo.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-09-p1",
+      "caseId": "pdf-1p-09-p1",
+      "model": "sol61-low",
+      "responseSha256": "b5ec4cb6e232e201bc1ab3476a2c297546c4cd8b9ead91226ce5203937504da2",
+      "verdict": "satisfactory",
+      "reason": "Conteudo correto; as duas vistorias foram expressas por elipse. O check literal de pendencia gerou falso negativo.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-10-p1",
+      "caseId": "pdf-1p-10-p1",
+      "model": "sol61-low",
+      "responseSha256": "2acce26143dd83e948aaa29a47dd7f65cbe701756bc7bf04b4235f0fb46920b0",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; distingue recebimento de aprovacao e encerramento. Fontes da pagina corretas e contrato verificado.",
+      "reviewedAt": "2026-11-03T23:35:36.145Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-10-p1",
+      "caseId": "pdf-1p-10-p1",
+      "model": "luna-high",
+      "responseSha256": "60cef39a6d7e046eaa03020bfd3669699977842a23b38e63ef1d85d9c576eb42",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.655Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-11-p1",
+      "caseId": "pdf-1p-11-p1",
+      "model": "luna-high",
+      "responseSha256": "aabbca534150caffca71b1c8a0e154551d5f242f9d05c4a194598a9ce4349808",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.658Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-11-p1",
+      "caseId": "pdf-1p-11-p1",
+      "model": "sol61-low",
+      "responseSha256": "68e65d8d58239e84b2549c34a914843c264a1e329f7aa774cb2a9ba8b48d89ce",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.658Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-12-p1",
+      "caseId": "pdf-1p-12-p1",
+      "model": "sol61-low",
+      "responseSha256": "5da5853245081eb9abe258c9240cd21b9b36e2a37041e1411ea0b22eb64c546b",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.658Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-12-p1",
+      "caseId": "pdf-1p-12-p1",
+      "model": "luna-high",
+      "responseSha256": "71af40d223a236a240e346c0aa17de2768e0ebe34d851c9b60753d33510fa37b",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.658Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-13-p1",
+      "caseId": "pdf-1p-13-p1",
+      "model": "luna-high",
+      "responseSha256": "9ed829c55e62cb863de6a568359ee8a3f9a993704cce27dcb4cc8f25fb59e165",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.658Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-13-p1",
+      "caseId": "pdf-1p-13-p1",
+      "model": "sol61-low",
+      "responseSha256": "07e665bd4b5e80bd9e7b0221274c2eb2cfbe7be6857c6d2ba7f96ac99db8626c",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.659Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-14-p1",
+      "caseId": "pdf-1p-14-p1",
+      "model": "sol61-low",
+      "responseSha256": "a32af92b92e2048a31906051c5281bc09f41c39739766d977eb93f12352f5ff9",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.659Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-14-p1",
+      "caseId": "pdf-1p-14-p1",
+      "model": "luna-high",
+      "responseSha256": "6d40e87f6931bb8a98f438c30e062f7db9cce8949617b79e403e685f4c3b9f0f",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.659Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-15-p1",
+      "caseId": "pdf-1p-15-p1",
+      "model": "sol61-low",
+      "responseSha256": "bcbcf7595ebb877389976c5ce604af650670a3cf27af781305913abde79d2106",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.659Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-15-p1",
+      "caseId": "pdf-1p-15-p1",
+      "model": "luna-high",
+      "responseSha256": "debe918ef6d71479204af9636ef3c61756a053ceaef04a2f282bd3f310c79694",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.659Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-16-p1",
+      "caseId": "pdf-1p-16-p1",
+      "model": "sol61-low",
+      "responseSha256": "1972bd8106d5bba90771a5519bb547e09bed4d2dd6e7bfcdb452d9ed51e73399",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.659Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-16-p1",
+      "caseId": "pdf-1p-16-p1",
+      "model": "luna-high",
+      "responseSha256": "726dc3343ce7d65156dd2854cdf1fead50f49b5e68546529c6f4c110fa69de06",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.659Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-18-p1",
+      "caseId": "pdf-1p-18-p1",
+      "model": "sol61-low",
+      "responseSha256": "0ac99990c2879c47bff8a286936c634c501b9a31bdb71302f576b3a03516261e",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; explica que recebimento nao aprova tecnicamente nem encerra pendencias. Leitura do texto completo sem acrescimo documental indevido; fontes da pagina e contrato verificados.",
+      "reviewedAt": "2026-11-03T23:36:18.659Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-17-p1",
+      "caseId": "pdf-1p-17-p1",
+      "model": "sol61-low",
+      "responseSha256": "a4e065526573a6bee7e2adcfe7ec381357171c11ec958cf17c97cb8ab1884a73",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.067Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-17-p1",
+      "caseId": "pdf-1p-17-p1",
+      "model": "luna-high",
+      "responseSha256": "8697945737d9ca61d6b8499445b3cf3d5004e456ce40e726c436a6cccc07f4a5",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.072Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-18-p1",
+      "caseId": "pdf-1p-18-p1",
+      "model": "luna-high",
+      "responseSha256": "b761de617b02608e0a757f9d54207124cfc4c31de80b79731eb288d352ef9555",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.072Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-20-p1",
+      "caseId": "pdf-1p-20-p1",
+      "model": "sol61-low",
+      "responseSha256": "6eb88fa8a0e204d93d73a56d41c018fa2b2b6e103947e1ffd0b007b7a80413fd",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.072Z"
+    },
+    {
+      "key": "sol61-low-pdf-1p-19-p1",
+      "caseId": "pdf-1p-19-p1",
+      "model": "sol61-low",
+      "responseSha256": "6d72aec1511206541274f229d5e91a20483e69fb70be431fafa8b5b4deb6db71",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.072Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-19-p1",
+      "caseId": "pdf-1p-19-p1",
+      "model": "luna-high",
+      "responseSha256": "455dd76723bf81267b2b0d3186a6e07812a6457e4791c47094f8a4fa199f6dc6",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.072Z"
+    },
+    {
+      "key": "luna-high-pdf-1p-20-p1",
+      "caseId": "pdf-1p-20-p1",
+      "model": "luna-high",
+      "responseSha256": "d76e2ce78f33305dad957c3fae8a151ec046e367edd4946fdf8efadfd1d4d191",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.072Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-01-p1",
+      "caseId": "pdf-2p-01-p1",
+      "model": "luna-high",
+      "responseSha256": "121b8d0cdb8e38a9987b79f5d62ef19e2a13716f19223ab30a83de4ff1b9357c",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.072Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-01-p1",
+      "caseId": "pdf-2p-01-p1",
+      "model": "sol61-low",
+      "responseSha256": "cf1176bc91880bdaab42cd445c77bc7ba78aa9bb863044552ef591d5a80f4563",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.073Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-01-p2",
+      "caseId": "pdf-2p-01-p2",
+      "model": "sol61-low",
+      "responseSha256": "73386047e9d3f1a4e5b83f6fd15c6042dad6e11fdc01d2e695492f764678de55",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.073Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-01-p2",
+      "caseId": "pdf-2p-01-p2",
+      "model": "luna-high",
+      "responseSha256": "41a81036f1806f8d3e2f46a4a0d0a060854119e843e97d94c830f0debffaf668",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.073Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-02-p1",
+      "caseId": "pdf-2p-02-p1",
+      "model": "sol61-low",
+      "responseSha256": "91036462cdfa2b29bbcbdfaa9b8b8bac9ba74674082287487a8ee03d8a3aea95",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.073Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-02-p2",
+      "caseId": "pdf-2p-02-p2",
+      "model": "sol61-low",
+      "responseSha256": "441a3c6a09eeb483a4bc1d30722ace71da85132b60f0e447cafd9e501ed3a02a",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.074Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-02-p1",
+      "caseId": "pdf-2p-02-p1",
+      "model": "luna-high",
+      "responseSha256": "d725792f269cd3206c72ddc9156a4465e8a96a58d3c2eb5a8280463ac9381153",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos; nega aprovacao ou encerramento automatico por recebimento. Resposta coerente com a pagina-alvo e com os limites do documento; fontes verificadas.",
+      "reviewedAt": "2026-11-03T23:37:17.074Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-02-p2",
+      "caseId": "pdf-2p-02-p2",
+      "model": "luna-high",
+      "responseSha256": "9b3d4857025273e7b13867d29e503b4db20c28434c47c559d1e033d311b439f2",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.544Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-03-p1",
+      "caseId": "pdf-2p-03-p1",
+      "model": "sol61-low",
+      "responseSha256": "11ac43d55abc00a420b6d53018bac8ce8030557317a8209044b6c9a8e03df358",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.547Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-03-p1",
+      "caseId": "pdf-2p-03-p1",
+      "model": "luna-high",
+      "responseSha256": "97ad7761fbb2ad34bee1c5f54f44bf9e2f3d1a71235742b72d3a9212d75f711b",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-03-p2",
+      "caseId": "pdf-2p-03-p2",
+      "model": "sol61-low",
+      "responseSha256": "61673f4d5d0b9306f3dae62ff3373581cbe036d9031f40de96285c240f318734",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-03-p2",
+      "caseId": "pdf-2p-03-p2",
+      "model": "luna-high",
+      "responseSha256": "fe37e764f7017955b5154bd8a657bc0c8f1046e7006073efc309c6636ba3a0f5",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-04-p1",
+      "caseId": "pdf-2p-04-p1",
+      "model": "sol61-low",
+      "responseSha256": "d717b7d1ab66d10437790d26d91939b0dc251c8a99c1a203a72288669a119d07",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-04-p1",
+      "caseId": "pdf-2p-04-p1",
+      "model": "luna-high",
+      "responseSha256": "4a75ac682b74a90a1ba1c615af04e96d902c350c9e8001da0b9909f6fbcabb98",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-04-p2",
+      "caseId": "pdf-2p-04-p2",
+      "model": "sol61-low",
+      "responseSha256": "a12161eb16d1d2ff48b96996a9731ffb3895bf6d84260510e8a0aa35680df562",
+      "verdict": "failed",
+      "reason": "Abstencao apos duas geracoes recusadas por task_coverage_missing; nao entrega os fatos apesar de presentes nas fontes enviadas. Candidatas rejeitadas nao foram preservadas; nao atribuir causa exclusiva ao modelo.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-05-p1",
+      "caseId": "pdf-2p-05-p1",
+      "model": "luna-high",
+      "responseSha256": "bd6b562736bc296dabef38e2dc1db37478b8a322ddc4e4b09b5a38ecaeec30ed",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos corretos e duas pendencias apresentadas com elipse; falso negativo lexical no check automatico. Qualificacao e fontes corretas.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-05-p1",
+      "caseId": "pdf-2p-05-p1",
+      "model": "sol61-low",
+      "responseSha256": "e1090a7c1e646c648055a94bbc63886d261e8756263f8b789d27ae830e69ad75",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos corretos e duas pendencias apresentadas com elipse; falso negativo lexical no check automatico. Qualificacao e fontes corretas.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-04-p2",
+      "caseId": "pdf-2p-04-p2",
+      "model": "luna-high",
+      "responseSha256": "5b93c476048491ef8ad1f8552e0e80d8b14408aa24a76ddb49a8931b3050e4af",
+      "verdict": "failed",
+      "reason": "Abstencao apos duas geracoes recusadas por task_coverage_missing; nao entrega os fatos apesar de presentes nas fontes enviadas. Candidatas rejeitadas nao foram preservadas; nao atribuir causa exclusiva ao modelo.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-06-p1",
+      "caseId": "pdf-2p-06-p1",
+      "model": "luna-high",
+      "responseSha256": "7db2fea0a7d8645cff4225929f6ee006ff39303264120a16608c1118a54c667a",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.548Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-06-p1",
+      "caseId": "pdf-2p-06-p1",
+      "model": "sol61-low",
+      "responseSha256": "f1bbed30d75282ef0be2d19c9cebc693f04b04e4423bf1af4be7f5ea2232b9e3",
+      "verdict": "satisfactory",
+      "reason": "Fatos e pendencias corretos, fontes na pagina-alvo e limite entre recebimento, aprovacao e encerramento explicado sem conclusao indevida.",
+      "reviewedAt": "2026-11-03T23:39:28.549Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-05-p2",
+      "caseId": "pdf-2p-05-p2",
+      "model": "sol61-low",
+      "responseSha256": "73fe4897a718a8f65dbf8b80f7135ee696a289906379a63c8488b6e7fa078347",
+      "verdict": "failed",
+      "reason": "Abstencao apos duas tentativas e task_coverage_missing apesar dos tres fatos presentes no contexto. Falha de atendimento, sem concluir que houve erro factual ou atribuir causa exclusiva ao modelo.",
+      "reviewedAt": "2026-11-03T23:40:07.206Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-06-p2",
+      "caseId": "pdf-2p-06-p2",
+      "model": "sol61-low",
+      "responseSha256": "baec63035f1bca77cd6c1a5dc090df4448a0a63f29cfde874c51e4327c1fc3f2",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.207Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-05-p2",
+      "caseId": "pdf-2p-05-p2",
+      "model": "luna-high",
+      "responseSha256": "515134bbd6c5c7b92178fb91b3fd7b12823c91c80a5a71289631289cb137d1af",
+      "verdict": "failed",
+      "reason": "Abstencao apos duas tentativas e task_coverage_missing apesar dos tres fatos presentes no contexto. Falha de atendimento, sem concluir que houve erro factual ou atribuir causa exclusiva ao modelo.",
+      "reviewedAt": "2026-11-03T23:40:07.207Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-06-p2",
+      "caseId": "pdf-2p-06-p2",
+      "model": "luna-high",
+      "responseSha256": "467673799bac96863057fbcb45140d228af0132a9a22861316f55315452122ea",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.207Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-07-p1",
+      "caseId": "pdf-2p-07-p1",
+      "model": "luna-high",
+      "responseSha256": "79f5ec03da25da9eae6e2e9b450cbbef52b40a23fa7d2d560f653bd7aefbb429",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.207Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-07-p1",
+      "caseId": "pdf-2p-07-p1",
+      "model": "sol61-low",
+      "responseSha256": "5bbdf10083484676f1d89e1009445f880e73d9a6f943bce3e31981d93a16ab02",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.207Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-07-p2",
+      "caseId": "pdf-2p-07-p2",
+      "model": "sol61-low",
+      "responseSha256": "bb18091b65d7348a1e628ed2520461b601c8c3f204647dd2bbb03c86d1f0da59",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.207Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-07-p2",
+      "caseId": "pdf-2p-07-p2",
+      "model": "luna-high",
+      "responseSha256": "6f9a647f03ae947e8ac5dbb97f8d6b5c7c57e16fd478a52163e21bdd17221dde",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.207Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-08-p1",
+      "caseId": "pdf-2p-08-p1",
+      "model": "sol61-low",
+      "responseSha256": "031925864976fb8dbc72938b32b2fe3f47ed9be9770b74d2719781a613cff8fd",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.207Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-08-p1",
+      "caseId": "pdf-2p-08-p1",
+      "model": "luna-high",
+      "responseSha256": "84502d35d55fc842dffa671982b7a268229cdd31d085a7286c4aa9a9c57524d5",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.208Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-08-p2",
+      "caseId": "pdf-2p-08-p2",
+      "model": "sol61-low",
+      "responseSha256": "6585a6e496f4ba002ecc8a0514c21f5523c8ae2dfa8fbd54e5b4b9b991fe0035",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.208Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-08-p2",
+      "caseId": "pdf-2p-08-p2",
+      "model": "luna-high",
+      "responseSha256": "8bd1ea2d23bc0121414efc8ddad6db61cb2b1461ee4284a66cce067e387bb9a8",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.208Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-09-p1",
+      "caseId": "pdf-2p-09-p1",
+      "model": "luna-high",
+      "responseSha256": "4638f041fec1a9bed9749db63e6e964cbd4e9ffd8f8779ac92291547c728a017",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.208Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-09-p1",
+      "caseId": "pdf-2p-09-p1",
+      "model": "sol61-low",
+      "responseSha256": "db6204c5d214dd856ab1be41a34244ea4140ce1e1970317a2a349faacff946d7",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.208Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-09-p2",
+      "caseId": "pdf-2p-09-p2",
+      "model": "sol61-low",
+      "responseSha256": "aa3bcaa3400b43b2789c02ca7cf6a11c7adbe0e8e021fa212ad96e52c0ce3c35",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos, duas pendencias e qualificacao corretos; fontes da pagina-alvo verificadas e nenhuma conclusao documental indevida no texto.",
+      "reviewedAt": "2026-11-03T23:40:07.208Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-09-p2",
+      "caseId": "pdf-2p-09-p2",
+      "model": "luna-high",
+      "responseSha256": "abedf7e36f8023d762cf4bcd27fe6656ac0b609143fcfffc1847509fd4e2f7d0",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e negacao de aprovacao automatica corretos; sem omissao relevante ou acrescimo indevido, com fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:40:48.884Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-10-p1",
+      "caseId": "pdf-2p-10-p1",
+      "model": "luna-high",
+      "responseSha256": "3a42240b48c353ca45c562322d5e9f9ea1ebe43a77a6ed82215188ce0ef08d4d",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e negacao de aprovacao automatica corretos; sem omissao relevante ou acrescimo indevido, com fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-10-p1",
+      "caseId": "pdf-2p-10-p1",
+      "model": "sol61-low",
+      "responseSha256": "e561cce89698c5897cc19a397f78454039af2a4f9006bd246027a8c44e8ed8f2",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e negacao de aprovacao automatica corretos; sem omissao relevante ou acrescimo indevido, com fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-01-p1",
+      "caseId": "pdf-8p-01-p1",
+      "model": "luna-high",
+      "responseSha256": "6210d7764cfec5a64f4493b4ab9b2f6ca736bf607b8fea9b270d37d06a8b02bd",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e negacao de aprovacao automatica corretos; sem omissao relevante ou acrescimo indevido, com fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-01-p1",
+      "caseId": "pdf-8p-01-p1",
+      "model": "sol61-low",
+      "responseSha256": "3ffdd79d8fed04bd4716806837f7b0bc7a5705f98086a7e131c4064028b0af98",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e negacao de aprovacao automatica corretos; sem omissao relevante ou acrescimo indevido, com fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "sol61-low-pdf-2p-10-p2",
+      "caseId": "pdf-2p-10-p2",
+      "model": "sol61-low",
+      "responseSha256": "5211886461973005b082ddb2369a31b9d451f905c1389787c8634101a51ded33",
+      "verdict": "failed",
+      "reason": "Sem resposta utilizavel: abstencao apos task_coverage_missing e duas tentativas, com os tres fatos disponiveis no contexto. Nao ha candidatas rejeitadas para atribuir causa exclusiva.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-01-p2",
+      "caseId": "pdf-8p-01-p2",
+      "model": "sol61-low",
+      "responseSha256": "fa94e33c870e7148214db1b5c87d0cd7c4da0e4089b896296cc84ca9d81ba4b8",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e negacao de aprovacao automatica corretos; sem omissao relevante ou acrescimo indevido, com fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-01-p2",
+      "caseId": "pdf-8p-01-p2",
+      "model": "luna-high",
+      "responseSha256": "03d3e8b35e3aeb211c62b25cb89007a515f289415b6e588f6edba6d85edb9da6",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e negacao de aprovacao automatica corretos; sem omissao relevante ou acrescimo indevido, com fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "luna-high-pdf-2p-10-p2",
+      "caseId": "pdf-2p-10-p2",
+      "model": "luna-high",
+      "responseSha256": "d87bc58817bbe1025f8270eed8880dd8e4915aac56c7f612caf89dc23355ca9d",
+      "verdict": "failed",
+      "reason": "Sem resposta utilizavel: abstencao apos task_coverage_missing e duas tentativas, com os tres fatos disponiveis no contexto. Nao ha candidatas rejeitadas para atribuir causa exclusiva.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-01-p3",
+      "caseId": "pdf-8p-01-p3",
+      "model": "luna-high",
+      "responseSha256": "f6e5acd5d81cd3547ce4b8e5be8973e44477fe61d015935e203d02c9a845a4e9",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e negacao de aprovacao automatica corretos; sem omissao relevante ou acrescimo indevido, com fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:40:48.886Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-01-p3",
+      "caseId": "pdf-8p-01-p3",
+      "model": "sol61-low",
+      "responseSha256": "fbd35727db88c0abd5496205c7cea51ebdba66f3ca70a4a948651218ae20b284",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.780Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-01-p4",
+      "caseId": "pdf-8p-01-p4",
+      "model": "sol61-low",
+      "responseSha256": "8a3bb8c9c50c2d92cf3641e43f3e5c1aa7f7cb5add3b6baea18621d75287f4c8",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-01-p4",
+      "caseId": "pdf-8p-01-p4",
+      "model": "luna-high",
+      "responseSha256": "f0da5e209cf18babb82a35e65d421fcce5d13fa62f688424fff64b3340ad1146",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-01-p5",
+      "caseId": "pdf-8p-01-p5",
+      "model": "luna-high",
+      "responseSha256": "05f4d82c795af47ea2c9705aacd088db261e21f535507d876c9cba6ff9aa3430",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-01-p5",
+      "caseId": "pdf-8p-01-p5",
+      "model": "sol61-low",
+      "responseSha256": "f3a82909862166184818c4d32b39411aa2271d2b5a693a7dd5ac22359271d9c9",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-01-p6",
+      "caseId": "pdf-8p-01-p6",
+      "model": "sol61-low",
+      "responseSha256": "e5a9ea7b33c2d9a01dd94a83ada767f461c7f04aee7ecbcc35f003a32b302cf5",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-01-p6",
+      "caseId": "pdf-8p-01-p6",
+      "model": "luna-high",
+      "responseSha256": "b47c85494ace028c2ba26b66487c30d90b4ed976be9cecdf2a41399d4a0e35c8",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-01-p7",
+      "caseId": "pdf-8p-01-p7",
+      "model": "luna-high",
+      "responseSha256": "7e92081f18cc6a507f315b5a695878b2f859c26d3d8db46235c82c0def7fd543",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-01-p7",
+      "caseId": "pdf-8p-01-p7",
+      "model": "sol61-low",
+      "responseSha256": "a3ff402193d851156de593f3990603cc92391242db5e97349cbd2dbf5745dbda",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-01-p8",
+      "caseId": "pdf-8p-01-p8",
+      "model": "sol61-low",
+      "responseSha256": "a2c1323b0d8b762417604dbab417905c276a11fbdac08ea9f7c23125339b3d95",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-01-p8",
+      "caseId": "pdf-8p-01-p8",
+      "model": "luna-high",
+      "responseSha256": "bc4d2ccc4a85c24fb907b722ff3422b3e390d334381e1bbf43f5214dd2d2f393",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-02-p1",
+      "caseId": "pdf-8p-02-p1",
+      "model": "luna-high",
+      "responseSha256": "606148d8935805a6614f49a274defcaafddc379c843f61827a62855d886ad215",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-02-p1",
+      "caseId": "pdf-8p-02-p1",
+      "model": "sol61-low",
+      "responseSha256": "4f70da9a5ff5548597f1c7be41560e056fba1353d6f76d18dcc9fa89b0ef699f",
+      "verdict": "satisfactory",
+      "reason": "Resposta completa sobre os tres fatos e as duas pendencias da pagina correta, inclusive paginas 3 a 8; nega aprovacao/encerramento automaticos. Fontes e contrato validos, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:42:01.782Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-02-p2",
+      "caseId": "pdf-8p-02-p2",
+      "model": "luna-high",
+      "responseSha256": "8017d714b980fac02d7923496b7c9eb7bc82eeef590a43953bd3458a8b5d0bf0",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.364Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-02-p2",
+      "caseId": "pdf-8p-02-p2",
+      "model": "sol61-low",
+      "responseSha256": "b594167825f59e17e07914378e462ac4916b7c0182ef96d00e8ed62d4ea33cab",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.366Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-02-p3",
+      "caseId": "pdf-8p-02-p3",
+      "model": "sol61-low",
+      "responseSha256": "07c41cafa8b8c7262a443d9677f782797a31557fdef808a5d7a83bbd04e9ddc7",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.367Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-02-p3",
+      "caseId": "pdf-8p-02-p3",
+      "model": "luna-high",
+      "responseSha256": "f2a3884aaa435d5dbf3767e7069ee82083e8b47b8678ff5f3acb91d3bcf07ecd",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.367Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-02-p4",
+      "caseId": "pdf-8p-02-p4",
+      "model": "sol61-low",
+      "responseSha256": "e41328c74d4509ac22d19394c3466d824afc3382b0f7c1a9fbf3b3aa152be2be",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.367Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-02-p4",
+      "caseId": "pdf-8p-02-p4",
+      "model": "luna-high",
+      "responseSha256": "6a45532d3785e40f529a72bc13be5fd1f5bcb8f797ddcc33cd0975a256feca61",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.367Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-02-p5",
+      "caseId": "pdf-8p-02-p5",
+      "model": "luna-high",
+      "responseSha256": "6f575ac2a083580d7fe3a31b7819da5e4bef8dda93e8e4b9f15ecab9556e1032",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e limite corretos. Vistorias de entrega e de devolucao foram descritas por elipse; falso negativo lexical automatico. Fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:43:12.367Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-02-p6",
+      "caseId": "pdf-8p-02-p6",
+      "model": "luna-high",
+      "responseSha256": "db61c838f8c86e1408aaf67e36721817b6f32c7f8cf516a7f4dd2a1eb8838996",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.367Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-02-p5",
+      "caseId": "pdf-8p-02-p5",
+      "model": "sol61-low",
+      "responseSha256": "450637ca660d52363546c1a36e022ab273ef37f819876c79ec8306de5b13e5c9",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e limite corretos. Vistorias de entrega e de devolucao foram descritas por elipse; falso negativo lexical automatico. Fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-02-p6",
+      "caseId": "pdf-8p-02-p6",
+      "model": "sol61-low",
+      "responseSha256": "17701825bfa8ca2adeb244c6590ef3756aac1137c653d654834fd11f013640f3",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-02-p7",
+      "caseId": "pdf-8p-02-p7",
+      "model": "sol61-low",
+      "responseSha256": "dbe273eeb7cef2a8c5237982962e7bb614d8bed9fe57be6ca48ce5397a6bada7",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-02-p7",
+      "caseId": "pdf-8p-02-p7",
+      "model": "luna-high",
+      "responseSha256": "6ddda3f616c521b78f992fe8f1cc91d7275fb060ac604ed04c3bb386c2c0be29",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-02-p8",
+      "caseId": "pdf-8p-02-p8",
+      "model": "sol61-low",
+      "responseSha256": "f483dc9ffd130df9284c9dd25cd54bac571c056b0f2b8d09f2a80034694306eb",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-02-p8",
+      "caseId": "pdf-8p-02-p8",
+      "model": "luna-high",
+      "responseSha256": "c528b379d22c216dd01814c1a948860df5bec2634893ae104c0cecec7ebd7e05",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-03-p1",
+      "caseId": "pdf-8p-03-p1",
+      "model": "luna-high",
+      "responseSha256": "70ba82ce6a71cffd2792994d3d4d98c88dfdea5d3de88d0a5a4ae127d368c7bb",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e limite corretos. Vistorias de entrega e de devolucao foram descritas por elipse; falso negativo lexical automatico. Fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-03-p1",
+      "caseId": "pdf-8p-03-p1",
+      "model": "sol61-low",
+      "responseSha256": "c4baf340cd2347df969301870fad1c9ebe585f9ea3a0145658a8af500a9ba86e",
+      "verdict": "satisfactory",
+      "reason": "Fatos, pendencias e limite corretos. Vistorias de entrega e de devolucao foram descritas por elipse; falso negativo lexical automatico. Fontes da pagina-alvo validas.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-03-p2",
+      "caseId": "pdf-8p-03-p2",
+      "model": "sol61-low",
+      "responseSha256": "0b6a9d1a6a756f38e9289f730bcb853cbfc276d8e328f5fce82a613814aca969",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.368Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-03-p2",
+      "caseId": "pdf-8p-03-p2",
+      "model": "luna-high",
+      "responseSha256": "f2f46114a1291900514b4392ef2c90e1b78a7a970f34b2e0663b1cecb0062261",
+      "verdict": "satisfactory",
+      "reason": "Resposta integral correta sobre horario, limite, prazo e pendencias; preserva a distincao entre recebimento e aprovacao. Fontes da pagina-alvo verificadas, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:43:12.369Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-03-p3",
+      "caseId": "pdf-8p-03-p3",
+      "model": "luna-high",
+      "responseSha256": "7752f009d85809a88b70a10c8b275a506696486d0becbc58d88a1a7050d57e6d",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.052Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-03-p3",
+      "caseId": "pdf-8p-03-p3",
+      "model": "sol61-low",
+      "responseSha256": "b204afade207232fc78eedb4fa0b6f53cebf4f05ec13b69de4e5fb313cc6acef",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.055Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-03-p4",
+      "caseId": "pdf-8p-03-p4",
+      "model": "sol61-low",
+      "responseSha256": "fff8b9bd513edd80d654cde1779bd3741f9285b403c1f6645418a2d410a82a43",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.055Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-03-p4",
+      "caseId": "pdf-8p-03-p4",
+      "model": "luna-high",
+      "responseSha256": "b19cccd8f2e52d732db0a33c12fafc9484e8a804a6672ad938283be7a1e0c9a7",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.055Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-03-p5",
+      "caseId": "pdf-8p-03-p5",
+      "model": "luna-high",
+      "responseSha256": "50ab62b6e617f74470e8fd03f2c8858b9768223a3a338537e59f5761e24caed6",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.055Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-03-p5",
+      "caseId": "pdf-8p-03-p5",
+      "model": "sol61-low",
+      "responseSha256": "f7f32637c954d33ff23c10cc45edecfbaef9c77122db8e5dd9b858c4c87b23d8",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.055Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-03-p6",
+      "caseId": "pdf-8p-03-p6",
+      "model": "sol61-low",
+      "responseSha256": "f2888dfb90d4020de05998d99625939331dd16ccf6d6557fc4bb4fb28f33f650",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.055Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-03-p6",
+      "caseId": "pdf-8p-03-p6",
+      "model": "luna-high",
+      "responseSha256": "335c2f8a5ddc27e7d8ee0471dff5b41c2b09eab962af472cadafc671e14b690d",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.055Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-03-p7",
+      "caseId": "pdf-8p-03-p7",
+      "model": "luna-high",
+      "responseSha256": "ae321332b4440571772908219cad2c6d352c8e9a45755103715293c87066c393",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.055Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-03-p7",
+      "caseId": "pdf-8p-03-p7",
+      "model": "sol61-low",
+      "responseSha256": "66c0ffde6a14899359c709b2caa2c67f0903a3052466f7346c3c9ce5f8de0e1c",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-03-p8",
+      "caseId": "pdf-8p-03-p8",
+      "model": "sol61-low",
+      "responseSha256": "485af35649e7e8e83ba9a530cb1c8cd1782cd3fc7aa0ea6852802cf8c1040d13",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-03-p8",
+      "caseId": "pdf-8p-03-p8",
+      "model": "luna-high",
+      "responseSha256": "c3681a4fddd60f6dfd3e9fc61dedbc3548c915a0b49b33e7063042f8298a76d6",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-04-p1",
+      "caseId": "pdf-8p-04-p1",
+      "model": "sol61-low",
+      "responseSha256": "3d2e98f6f6ba98d6a82e385243bbc87bb39f9fd561f3dc4de9ab00d9d0882d15",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-04-p1",
+      "caseId": "pdf-8p-04-p1",
+      "model": "luna-high",
+      "responseSha256": "f53bcc2b10b62b47e443103ad8dda73ea2bb20a346746d0932b63a85cf9e1389",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-04-p2",
+      "caseId": "pdf-8p-04-p2",
+      "model": "sol61-low",
+      "responseSha256": "8ca7d7d0b361260850bca1624a7e7fb430876b15f402cea892b4692128a4025e",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-04-p3",
+      "caseId": "pdf-8p-04-p3",
+      "model": "luna-high",
+      "responseSha256": "ce3430b7a84cc862b3366a808be30f457a8d8ebe1543ee37012f0843f7987131",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-04-p3",
+      "caseId": "pdf-8p-04-p3",
+      "model": "sol61-low",
+      "responseSha256": "ebb48f1a123992dc6bd75023601e78326795908198d43c551fefce8cea210b2c",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-04-p4",
+      "caseId": "pdf-8p-04-p4",
+      "model": "sol61-low",
+      "responseSha256": "75eda6a9ae7c30c8d4c09b74a79a0d7786be68b6e4c4e4872c0391e32c87b98d",
+      "verdict": "satisfactory",
+      "reason": "Texto completo revisado: horario, quantidade/unidade, prazo e ambas as pendencias corretos; nega aprovacao automatica e preserva os limites da fonte. Citacoes da pagina-alvo e contrato validos.",
+      "reviewedAt": "2026-11-03T23:44:38.056Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-04-p2",
+      "caseId": "pdf-8p-04-p2",
+      "model": "luna-high",
+      "responseSha256": "1ae3791262800610a04c5683f965858c7908dc838fc981776605f8204ed218af",
+      "verdict": "partial",
+      "reason": "Fatos e pendencias corretos, mas identificadores internos de chunks expostos no corpo da resposta.",
+      "reviewedAt": "2026-11-03T23:46:06.965Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-04-p4",
+      "caseId": "pdf-8p-04-p4",
+      "model": "luna-high",
+      "responseSha256": "414fd91e1b2d00b9b3f601d0062a5a59b8cbd52be677cd82c1b54746ba1c49ff",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.967Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-04-p5",
+      "caseId": "pdf-8p-04-p5",
+      "model": "luna-high",
+      "responseSha256": "5b96b7a569fd0dfe64517c9be01e994bb2aa6763aa8c5c59bbc9aecfc52917b7",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.967Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-04-p5",
+      "caseId": "pdf-8p-04-p5",
+      "model": "sol61-low",
+      "responseSha256": "00f6244a7b6c6031bb45a815801b9e2456b8712922787aa98434d4eda8290849",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-04-p6",
+      "caseId": "pdf-8p-04-p6",
+      "model": "sol61-low",
+      "responseSha256": "2e403e4669c4a6c5401f85f89d8a7e8bf1e334f41a7ec99da8dd842de0aafb80",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-04-p7",
+      "caseId": "pdf-8p-04-p7",
+      "model": "sol61-low",
+      "responseSha256": "32d6a20adb15c84c1d1de4e48ddda6a54689a7d4fe753fd12c2c3bb1c852f5e4",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-04-p7",
+      "caseId": "pdf-8p-04-p7",
+      "model": "luna-high",
+      "responseSha256": "0974b44c2609ebaae1f08e44cfed1b9ab0d4675a3a8b3776108caece54038c08",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-04-p6",
+      "caseId": "pdf-8p-04-p6",
+      "model": "luna-high",
+      "responseSha256": "a7318da72965b4128d04cef4cd349409dd528573e5a8d002998bf66fc2819474",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-04-p8",
+      "caseId": "pdf-8p-04-p8",
+      "model": "sol61-low",
+      "responseSha256": "1d8109eb06391f95f92372c46622f41130c60b700af730546477f2d896e77e1d",
+      "verdict": "partial",
+      "reason": "Horario, quantidade e pendencias corretos; prazo ausente nas evidencias recuperadas, embora presente no PDF integral. Modelo se abstem desse campo corretamente: resposta parcial por retrieval, sem inventar data.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-05-p1",
+      "caseId": "pdf-8p-05-p1",
+      "model": "luna-high",
+      "responseSha256": "fdb3e1c3c373526de70b927bb6c74d8668cffbd5f0a9f9fd971553b8351286b5",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-04-p8",
+      "caseId": "pdf-8p-04-p8",
+      "model": "luna-high",
+      "responseSha256": "7954d7577c7d102e64fa55fc8c274e9f94ee8331c4425c17c7e9667a5fa143b2",
+      "verdict": "partial",
+      "reason": "Horario, quantidade e pendencias corretos; prazo ausente nas evidencias recuperadas, embora presente no PDF integral. Modelo se abstem desse campo corretamente: resposta parcial por retrieval, sem inventar data.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-05-p2",
+      "caseId": "pdf-8p-05-p2",
+      "model": "sol61-low",
+      "responseSha256": "74b7dc11a5ae0df6cdedf59ab679d329cee174579f94eace924d7e672758f8a5",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-05-p1",
+      "caseId": "pdf-8p-05-p1",
+      "model": "sol61-low",
+      "responseSha256": "e8a516e803c20bfcf84b9d5fa60600efa3883bb8847a5c4f50b0548cdd3e168f",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.968Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-05-p2",
+      "caseId": "pdf-8p-05-p2",
+      "model": "luna-high",
+      "responseSha256": "9c69d6b89d8217d4489c8a6099941713b4efcfcc392af8e07746cae3570f9f15",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.969Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-05-p3",
+      "caseId": "pdf-8p-05-p3",
+      "model": "sol61-low",
+      "responseSha256": "7d8f3fd6afe62c2f27084cfcac954a83cbd087c70fe6e21752d76cf01f75ce71",
+      "verdict": "satisfactory",
+      "reason": "Tres fatos e duas pendencias corretos, fontes da pagina-alvo verificadas e recebimento distinguido de aprovacao e encerramento.",
+      "reviewedAt": "2026-11-03T23:46:06.969Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-05-p4",
+      "caseId": "pdf-8p-05-p4",
+      "model": "sol61-low",
+      "responseSha256": "3432ca1f16ab9918043b51fcdf7dee83438900faa3faa7137dcb20e77359a595",
+      "verdict": "partial",
+      "reason": "Horario, quantidade e pendencias corretos; prazo ausente nas evidencias recuperadas, embora presente no PDF integral. Modelo se abstem desse campo corretamente: resposta parcial por retrieval, sem inventar data.",
+      "reviewedAt": "2026-11-03T23:46:06.969Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-05-p3",
+      "caseId": "pdf-8p-05-p3",
+      "model": "luna-high",
+      "responseSha256": "23d6858657e7ad5d14e4ea5272ff7c1b9ff081c114c66dcf8b48f7d0502a61b2",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.762Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-05-p5",
+      "caseId": "pdf-8p-05-p5",
+      "model": "sol61-low",
+      "responseSha256": "c75006043ede23203c9b3256dd068a7acd4d320e5e60b16e6427cf5274fee962",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.764Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-05-p5",
+      "caseId": "pdf-8p-05-p5",
+      "model": "luna-high",
+      "responseSha256": "d213b32a2cd7bb0fb30e7d028a978bac321bce634a51d1b28fcf08fdf4901a72",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.764Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-05-p6",
+      "caseId": "pdf-8p-05-p6",
+      "model": "sol61-low",
+      "responseSha256": "065851e6a6b42bff379abcb1e35b9998c22ee7795b3d72dcc7baf7517d2ef37a",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.764Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-05-p4",
+      "caseId": "pdf-8p-05-p4",
+      "model": "luna-high",
+      "responseSha256": "7c6d166262d2104d63d6c69ddc31ca719554ab669efbf95363023cf4e76bec4f",
+      "verdict": "partial",
+      "reason": "Horario, limite e pendencias corretos; o trecho do prazo nao entrou no contexto recuperado. Modelo informa a lacuna sem inventar data. Resposta parcial por retrieval apesar do PDF integral extraido.",
+      "reviewedAt": "2026-11-03T23:47:23.764Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-05-p6",
+      "caseId": "pdf-8p-05-p6",
+      "model": "luna-high",
+      "responseSha256": "67cf584828dff2b3c591c2229fa676101f685e7ddd19251cae4bad6cb460ecce",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.764Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-05-p7",
+      "caseId": "pdf-8p-05-p7",
+      "model": "sol61-low",
+      "responseSha256": "bf3cfc7c8ff404e717ac79f218d9ba95cd88fff05ca169fbd093bfc67ae16607",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.765Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-05-p7",
+      "caseId": "pdf-8p-05-p7",
+      "model": "luna-high",
+      "responseSha256": "4cb7d7cfb2290224157dc85506f3ad80ab1e9985074b1c18cb455e7c7b0f77da",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.765Z"
+    },
+    {
+      "key": "sol61-low-pdf-8p-05-p8",
+      "caseId": "pdf-8p-05-p8",
+      "model": "sol61-low",
+      "responseSha256": "4b9aab8a5c20c42953ae884ee5f68f63051629a6899b412520460ca00f9b8793",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.765Z"
+    },
+    {
+      "key": "luna-high-pdf-8p-05-p8",
+      "caseId": "pdf-8p-05-p8",
+      "model": "luna-high",
+      "responseSha256": "8bdd81b5fdbf6b5fd61ec924830d52d5a1a2a6b81a52da37092e176200fd3879",
+      "verdict": "satisfactory",
+      "reason": "Texto revisado integralmente: tres fatos e duas pendencias corretos, nega aprovacao automatica e cita a pagina correspondente, sem acrescimo indevido.",
+      "reviewedAt": "2026-11-03T23:47:23.765Z"
+    }
+  ],
+  "complete": true,
+  "datasetSha256": "e9fdf625647dbd03783cb8a235de623287954d1329f756ce728cfc4e64c6c21d",
+  "corpusSha256": "c41ee8cb098e958bd2ee023d29e1cd18aa3524cd33332254bf679fa4fb81b255",
+  "runKey": "2026-11-03-pdfs-preenchidos-r1",
+  "responseSetSha256": "027a4211568f6a9b60bc3782dca989f225e6a35c88e3e9ef9a42c56d1d29be77",
+  "cells": [
+    {
+      "model": "luna-high",
+      "reviewed": 80,
+      "satisfactory": 72,
+      "partial": 5,
+      "failed": 3,
+      "byPageCount": {
+        "1": {
+          "satisfactory": 18,
+          "partial": 2,
+          "failed": 0
+        },
+        "2": {
+          "satisfactory": 17,
+          "partial": 0,
+          "failed": 3
+        },
+        "8": {
+          "satisfactory": 37,
+          "partial": 3,
+          "failed": 0
+        }
+      }
+    },
+    {
+      "model": "sol61-low",
+      "reviewed": 80,
+      "satisfactory": 75,
+      "partial": 2,
+      "failed": 3,
+      "byPageCount": {
+        "1": {
+          "satisfactory": 20,
+          "partial": 0,
+          "failed": 0
+        },
+        "2": {
+          "satisfactory": 17,
+          "partial": 0,
+          "failed": 3
+        },
+        "8": {
+          "satisfactory": 38,
+          "partial": 2,
+          "failed": 0
+        }
+      }
+    }
+  ],
+  "limitation": "Revisao tecnica por IA sobre esta rodada sintetica, feita pelo assistente da mesma familia de um dos modelos. Nao e revisao humana independente ou aprovacao especializada."
+}

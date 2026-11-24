@@ -17,14 +17,19 @@ describe("experiência de chat único", () => {
     expect(app).toContain('visibleSetupMessages.some((message) => message.role === "user")');
     expect(app).toContain('aria-label="Conversa com a Alvitra"');
     expect(app).toContain('className="login-entry-button"');
-    expect(app).toContain('{entryPending ? "Entrando..." : "Entrar"}');
-    expect(app).toContain('htmlFor="login-name"');
-    expect(app).toContain('name="username"');
-    expect(app).toContain("acesso provisório para testes, sem senha");
-    expect(app).toContain("createDevelopmentIdentity(loginName)");
+    expect(app).toContain('"Retomando acesso..."');
+    expect(app).toContain('"Entrando..."');
+    expect(app).toContain('htmlFor="login-code"');
+    expect(app).toContain('name="access-code"');
+    expect(app).toContain("Use o código fornecido pela equipe.");
+    expect(app).toContain("requestAccessSession(fetch, accessCode)");
+    expect(app).toContain("requestAccessSession(");
+    expect(app).not.toContain("createDevelopmentIdentity(loginName)");
+    expect(app).not.toContain('name="username"');
+    expect(app).not.toContain("saveDevelopmentIdentity(");
     expect(app).toContain('fetch("/v1/chat/bootstrap"');
     expect(app).toMatch(
-      /async function enterConversation\(\): Promise<void> \{[\s\S]*?fetch\("\/v1\/chat\/bootstrap"/u
+      /async function enterConversation\(selectedIdentity: DevelopmentIdentity\): Promise<void> \{[\s\S]*?fetch\("\/v1\/chat\/bootstrap"/u
     );
     expect(app).not.toContain("type View");
     expect(app).not.toContain('useState<View>("landing")');
@@ -58,7 +63,7 @@ describe("experiência de chat único", () => {
     );
     expect(styles).toMatch(/\.login-entry-button\s*\{[\s\S]*?min-height:\s*40px;/u);
     expect(styles).toMatch(
-      /\.login-entry-button\s*\{[\s\S]*?border-radius:\s*8px;[\s\S]*?background:\s*var\(--alvitra-indigo\);/u
+      /\.login-entry-button\s*\{[\s\S]*?border-radius:\s*8px;[\s\S]*?background:\s*var\(--alvitra-primary\);/u
     );
     expect(styles).toMatch(
       /\.login-card\s*\{[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;[\s\S]*?box-shadow:\s*none;/u

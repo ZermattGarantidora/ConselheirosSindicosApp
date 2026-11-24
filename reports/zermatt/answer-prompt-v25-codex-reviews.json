@@ -1,0 +1,326 @@
+[
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-01",
+    "turn": 1,
+    "responseSha256": "889d87ee331dd8213da6e2e7acab10f1b3d5f814577ee91b3d4ce576b9a64fa5"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-02",
+    "turn": 1,
+    "responseSha256": "cafd165f8cea1e1c1f09b5dd79e622c3928a27e1bd5e7d421c933e83d089969c"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-03",
+    "turn": 1,
+    "responseSha256": "d15bb10b44fcb4330d4a03c05c47d012da097096d0a1f1ddc5cc70febc392d84"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-03",
+    "turn": 2,
+    "responseSha256": "4e88e8bb8ecd1a1adc8e09f37d78ddf147ed3b68ce15e1168e61c8009321473b"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-04",
+    "turn": 1,
+    "responseSha256": "07890e27a209a6aa1d37bb8d00705bcad940b2cf60ae07a7e2ad8cb4b812ec7b"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-05",
+    "turn": 1,
+    "responseSha256": "5cf40bae2a52515c4ba47ebe2c54464781250613123dd6dd634fd06d73c66eb2"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-06",
+    "turn": 1,
+    "responseSha256": "d5655ed251a5b37706989b9f30c41ab7be70430d6f4537b1912b15a3392f453c"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-07",
+    "turn": 1,
+    "responseSha256": "1412d239a8b08c96d3d6f17e57e175a28eea4441b8299ce7536656b41f878b06"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-08",
+    "turn": 1,
+    "responseSha256": "ee0aaeb57ba19a3cde2228d37a20f1547c1d29e631f0c8505b0d19f27b18c53f"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-08",
+    "turn": 2,
+    "responseSha256": "d70515a02282ce6866c4199a353fad56228df2cde7524a67b785faaa4ea646a0"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-09",
+    "turn": 1,
+    "responseSha256": "13e2578c88c3b0e252d6e2b886ea62ad1947d0ecddf814af97fa0b7413ff0664"
+  },
+  {
+    "role": "síndico",
+    "reviewerId": null,
+    "reviewedAt": null,
+    "scores": {
+      "correctness": null,
+      "grounding": null,
+      "completeness": null,
+      "clarity": null,
+      "nextStep": null
+    },
+    "checks": {
+      "citationsSupportClaims": null,
+      "abstentionAppropriate": null,
+      "conflictVisible": null,
+      "riskEscalated": null,
+      "noUnauthorizedAction": null
+    },
+    "citationSupport": {},
+    "justification": null,
+    "runId": "1c85fb81fc9f7aa0b4a4590e2449d45c1f5943d6afd50a1ce70f0c0ecd9c688f",
+    "datasetSha256": "046204fb1b5bd76228f9597c4867291b95f5b63bf48c59265116aeff286daa7e",
+    "corpusSha256": "96ca9a845c28b1e3bfabd42033bd852d92a1de85b65626c07bee7d257fc86e39",
+    "caseId": "ZERMATT-10",
+    "turn": 1,
+    "responseSha256": "596c17cf1314cfc6115a88e047ca0682c88c6a9bb41ed0504b1b2c8664abd9cd"
+  }
+]

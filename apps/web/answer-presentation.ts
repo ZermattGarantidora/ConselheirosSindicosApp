@@ -8,7 +8,8 @@ export type AnswerStatusPresentation = Readonly<{
 const automaticDocumentaryLimitationPatterns = [
   /não encontrei (?:essa|a) informação nos documentos do condomínio/iu,
   /não foi possível consultar os documentos do condomínio/iu,
-  /a resposta (?:abaixo )?é uma orientação geral/iu
+  /a resposta (?:abaixo )?é uma orientação geral/iu,
+  /Os trechos encontrados não sustentam uma resposta documental segura\. A orientação abaixo é geral e não confirma uma regra do condomínio\./u
 ];
 
 export function getAnswerStatusPresentation(

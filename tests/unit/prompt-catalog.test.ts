@@ -8,6 +8,45 @@ import {
 import { createEvidence } from "./answer-fixtures.js";
 
 describe("catálogo de prompts", () => {
+  it("AC-5715: distingue registro, aprovação documentada e ausência de comprovação", () => {
+    const prompt = buildAnswerPrompt({
+      question: "O que este envio de convenção permite confirmar?",
+      task: "grounded_answer",
+      riskClass: "high",
+      evidence: [
+        createEvidence({
+          content: "Convenção FICTÍCIA aprovada e subscrita. Registro não informado."
+        })
+      ]
+    });
+    expect(prompt).toContain("Diferencie aprovação e subscrição de registro em cartório");
+    expect(prompt).toContain(
+      "A ausência de registro, isoladamente, não comprova falta de vigência"
+    );
+    expect(prompt).toContain("não afirme que não ocorreram");
+    expect(prompt).toContain("fonte oficial autorizada e verificável");
+    expect(prompt).toContain("Convenção FICTÍCIA aprovada e subscrita. Registro não informado.");
+  });
+
+  it("AC-5714: comentário automático de convenção não vira análise financeira por cláusulas de rateio", () => {
+    const prompt = buildAnswerPrompt({
+      question: "Faça um comentário automático do arquivo recebido.",
+      task: "grounded_answer",
+      riskClass: "high",
+      evidence: [
+        createEvidence({ content: "Convenção FICTÍCIA: rateio das despesas e orçamento anual." })
+      ]
+    });
+    expect(prompt).toContain("No comentário automático de um envio sem análise financeira");
+    expect(prompt).toContain(
+      "não introduza balancetes, comparações financeiras nem a ausência desses arquivos"
+    );
+    expect(prompt).toContain(
+      "Uma convenção com regras de orçamento ou rateio não é, por isso, um balancete"
+    );
+    expect(prompt).not.toContain("Relacione os balancetes disponíveis usando somente");
+  });
+
   it("AC-1701 a AC-1705: aplica a personalidade aprovada sem abrir mão dos limites documentais", () => {
     const prompt = buildAnswerPrompt({
       question: "Como devo avisar os moradores sobre uma manutenção?",
@@ -16,7 +55,7 @@ describe("catálogo de prompts", () => {
       evidence: []
     });
 
-    expect(answerPromptVersion).toBe("answer-prompt-v22");
+    expect(answerPromptVersion).toBe("answer-prompt-v29");
     expect(prompt).toContain("muito gente boa e presente na conversa");
     expect(prompt).toContain("Diga claramente o que está bom");
     expect(prompt).toContain("Diga claramente o que está ruim, confuso, incompleto ou arriscado");
@@ -30,20 +69,25 @@ describe("catálogo de prompts", () => {
       "Use a legislação oficial recuperada quando for relevante e necessária"
     );
     expect(prompt).toContain("Cite lei ou documento apenas quando a fonte for necessária");
-    expect(prompt).toContain("nem precisa acontecer durante o cadastro inicial");
-    expect(prompt).toContain("os documentos relevantes são necessários para conhecer o condomínio");
-    expect(prompt).toContain("a pessoa pode enviá-lo depois");
+    expect(prompt).toContain("Os documentos relevantes são essenciais para conhecer o condomínio");
+    expect(prompt).toContain("sem eles, fica difícil ajudar com precisão");
+    expect(prompt).toContain("sem condicionar essa orientação a um upload");
+    expect(prompt).not.toContain("nem precisa acontecer durante o cadastro inicial");
+    expect(prompt).not.toContain("a pessoa pode enviá-lo depois");
     expect(prompt).not.toContain("documentos são opcionais");
     expect(prompt).toContain("Diferencie claramente legislação oficial de documento interno");
     expect(prompt).toContain("use até 90 palavras");
     expect(prompt).toContain("um ou dois detalhes úteis");
-    expect(prompt).toContain("Não termine perguntando como pode ajudar");
+    expect(prompt).toContain("uma pergunta de ajuda específica sobre um ponto encontrado");
+    expect(prompt).toContain("analise todos os arquivos efetivamente disponibilizados");
+    expect(prompt).toContain("não diga que analisou tudo");
+    expect(prompt).toContain("problema comprovável na convenção");
+    expect(prompt).toContain("proponha uma solução proporcional");
     expect(prompt).toContain("Não use gírias, linguagem infantil");
     expect(prompt).toContain("juridiquês");
     expect(prompt).toContain("Dê a orientação útil logo na primeira frase");
     expect(prompt).toContain("no máximo três frases curtas ou dois passos");
     expect(prompt).toContain("deixe attentionPoints vazio e suggestedNextStep como null");
-    expect(prompt).toContain("O envio de documentos não é pré-requisito para começar a conversa");
     expect(prompt).toContain("convenção vigente, completa e legível como a principal referência");
     expect(prompt).toContain("página ilegível, OCR incerto, trecho ausente ou versão conflitante");
     expect(prompt).toContain("PDF original completo, as páginas faltantes ou uma versão posterior");
@@ -68,9 +112,13 @@ describe("catálogo de prompts", () => {
     expect(prompt).toContain("Responda somente com um objeto JSON válido");
     expect(prompt).toContain("manager_name, condominium_count, condominium_name, unit_count");
     expect(prompt).toContain('"currentMessage":"Pode me dar um exemplo?"');
-    expect(prompt).toContain("não precisa enviar documentos agora");
-    expect(prompt).toContain("necessários para você conhecer o condomínio");
-    expect(prompt).toContain("nunca chame os documentos de opcionais");
+    expect(prompt).toContain("enviar os documentos relevantes é essencial");
+    expect(prompt).toContain("sem eles, fica difícil oferecer essa ajuda");
+    expect(prompt).toContain("Convide a pessoa a enviar o material pela conversa");
+    expect(prompt).toContain("sem minimizar sua importância, oferecer adiamento espontâneo");
+    expect(prompt).toContain("A orientação geral permanece disponível");
+    expect(prompt).not.toContain("não precisa enviar");
+    expect(prompt).not.toContain("pode enviá-los aos poucos, depois");
   });
 
   it("AC-411: exige resposta formulada sobre a evidência e permite abstenção de trecho tangencial", () => {
@@ -114,9 +162,10 @@ describe("catálogo de prompts", () => {
 
     expect(isBalanceteAnalysisRequest("Analise o balancete de setembro")).toBe(true);
     expect(isBalanceteAnalysisRequest("Como comunicar uma obra?")).toBe(false);
-    expect(prompt).toContain("Raio-X do mês");
-    expect(prompt).toContain("até três achados prioritários");
-    expect(prompt).toContain("‘ok’, ‘atenção’ ou ‘não foi possível verificar’");
+    expect(prompt).toContain("use os dez pontos como método de análise");
+    expect(prompt).toContain("sem transformar cada ponto em tópico obrigatório da fala");
+    expect(prompt).toContain("Não imponha quantidade fixa de achados");
+    expect(prompt).not.toContain("comece por até três achados prioritários e, depois, cubra");
     expect(prompt).toContain("valores de origem, a diferença absoluta");
     expect(prompt).toContain("Uma variação não prova irregularidade");
     expect(prompt).toContain("peça especificamente o balancete do período faltante");

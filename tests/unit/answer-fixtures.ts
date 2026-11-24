@@ -37,6 +37,7 @@ export function createEvidence(overrides: Partial<RetrievalEvidence> = {}): Retr
     documentTitle: overrides.documentTitle ?? "Convenção sintética",
     documentType: overrides.documentType ?? "convention",
     sourceKind: overrides.sourceKind ?? "user_upload",
+    ...(overrides.sourceScope === undefined ? {} : { sourceScope: overrides.sourceScope }),
     pageId: overrides.pageId ?? "page-1",
     pageNumber: overrides.pageNumber ?? 1,
     startOffset: overrides.startOffset ?? 0,

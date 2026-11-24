@@ -10,7 +10,8 @@ describe("configuração inicial pela conversa", () => {
     expect(app).toContain('requestSetupMessage({ stage: "welcome" }, selectedIdentity)');
     expect(app).toContain('setupStage === "manager_name"');
     expect(app).toContain("rememberDevelopmentManagerName");
-    expect(app).toContain('fetch("/v1/chat/setup-turn"');
+    expect(app).toContain('conversationFetch("/v1/chat/setup-turn"');
+    expect(app).toContain('headers.set("x-conversation-request-id", receipt)');
     expect(app).toContain("history: setupMessages.slice(-12)");
     expect(app).not.toContain("parseDevelopmentManagerName(trimmedAnswer)");
     expect(app).not.toContain("parseExplicitDevelopmentManagerName(trimmedAnswer)");
@@ -22,12 +23,12 @@ describe("configuração inicial pela conversa", () => {
     expect(app).not.toContain("function AlvitraMark");
     expect(styles).not.toContain('content: "ALVITRA"');
     expect(styles).toMatch(
-      /\.assistant-message\s*\{[\s\S]*?border-left:\s*2px solid rgba\(41, 71, 169, 0\.58\);[\s\S]*?background:\s*transparent;[\s\S]*?box-shadow:\s*none;/u
+      /\.assistant-message\s*\{[\s\S]*?border-left:\s*2px solid rgba\(var\(--alvitra-indigo-rgb\), 0\.58\);[\s\S]*?background:\s*transparent;[\s\S]*?box-shadow:\s*none;/u
     );
     expect(styles).toMatch(
-      /\.setup-message > p\s*\{[\s\S]*?font-family:\s*var\(--font-display\);[\s\S]*?font-size:\s*clamp\(21px, 3vw, 28px\);/u
+      /\.assistant-message > p,\s*\.answer-guidance\s*\{[^}]*font-family:\s*var\(--font-display\);[^}]*font-size:\s*clamp\(18\.9px, 2\.7vw, 25\.2px\);/u
     );
-    expect(styles).toMatch(/\.user-message\s*\{[\s\S]*?background:\s*var\(--alvitra-indigo\);/u);
+    expect(styles).toMatch(/\.user-message\s*\{[\s\S]*?background:\s*var\(--alvitra-primary\);/u);
     expect(app).toContain("type SetupStage =");
     expect(app).toContain("type DevelopmentIdentity");
     expect(app).toContain('"manager_name"');
@@ -47,14 +48,16 @@ describe("configuração inicial pela conversa", () => {
     expect(app).toContain("createCondominiumFromSetup(setupCondominiumName, update.value)");
   });
 
-  it("AC-2404: documentos necessários podem ser enviados depois do cadastro", async () => {
+  it("AC-2404: comunica documentos essenciais sem criar uma etapa obrigatória de upload", async () => {
     const app = await readFile("apps/web/App.tsx", "utf8");
     const setup = await readFile("apps/api/answers/setup-message.ts", "utf8");
 
-    expect(setup).toContain("não precisa enviar documentos agora");
-    expect(setup).toContain("eles são necessários para você conhecer o condomínio");
-    expect(setup).toContain("pode enviá-los aos poucos, depois");
-    expect(setup).toContain("nunca chame os documentos de opcionais");
+    expect(setup).toContain("enviar os documentos relevantes é essencial");
+    expect(setup).toContain("sem eles, fica difícil oferecer essa ajuda");
+    expect(setup).toContain("Convide a pessoa a enviar o material pela conversa");
+    expect(setup).toContain("sem minimizar sua importância, oferecer adiamento espontâneo");
+    expect(setup).not.toContain("não precisa enviar");
+    expect(setup).not.toContain("pode enviá-los aos poucos, depois");
     expect(setup).not.toContain("documentos são opcionais");
     expect(app).not.toMatch(/type SetupStage\s*=[^;]+"documents"/u);
     expect(app).toContain('setupStage !== "complete"');

@@ -8,8 +8,12 @@ export type DocumentProcessingStatus =
 
 export type DocumentValidityStatus =
   "pending" | "confirmed" | "disputed" | "superseded" | "not_applicable";
-export type DocumentMediaType = "application/pdf" | "image/jpeg" | "image/png";
-export type DocumentExtractionMethod = "pdf_text" | "ocr" | "image_vision";
+export type DocumentMediaType =
+  | "application/pdf"
+  | "image/jpeg"
+  | "image/png"
+  | "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export type DocumentExtractionMethod = "pdf_text" | "ocr" | "image_vision" | "docx_text";
 
 export type DocumentRecord = Readonly<{
   id: string;

@@ -1,8 +1,16 @@
 # Spec 024 — Entrada separada e configuração inicial conversacional
 
+> A Spec 068, autorizada em 05/11/2026, substitui a entrada por nome de usuário e a
+> lembrança local por código fornecido pela equipe, sessão persistente e código em Perfil.
+> As demais regras conversacionais e de autorização desta spec permanecem aplicáveis.
+
+> A Spec 044 substitui a localização e composição visual dos requisitos RQ-2404, RQ-2405 e
+> RQ-2407: condomínios e chats à esquerda; documentos e Perfil à direita. As demais regras de
+> cadastro, aparência, saída e autorização permanecem. Os trechos anteriores de menu abaixo são históricos.
+
 **Status:** implementada; entrada e identidade provisória complementadas pela Spec 027
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-26
+**Atualizado em:** 2026-11-03
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -12,6 +20,10 @@
 | ------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
 | Hipótese e problema | §§2 e 4            | Coleta o contexto mínimo sem formulário e reduz a ambiguidade da primeira conversa.          |
 | Experiência         | §§1 e 6            | Separa a entrada mínima do chat e faz a Alvitra iniciar a configuração.                      |
+| Escrita contínua    | §§1, 2 e 6.5       | Deixa o campo de mensagem pronto ao abrir e retomar o chat, reduzindo cliques sem criar outro fluxo. |
+| Identidade visual  | §§1, 6 e 7, Bloco 4 | Usa o azul principal solicitado nos controles e na conversa, com contraste nos modos claro e escuro. |
+| Leitura da conversa | §§1, 2 e 6 | Mantém a tipografia grande da configuração em todas as falas da Alvitra, evitando mudança de escala ao continuar a conversa. |
+| Acolhimento         | §§1, 6.2 e 7, Bloco 2 | Mantém boas-vindas geradas e naturais, sem atribuir gênero à pessoa pelo nome ou acesso provisório. |
 | Menu e perfil       | §7, Blocos 4 e 5   | Oferece perfil compacto sobre o chat, com nome confirmado, tema, saída e documentos autorizados; coleta nome e unidades pela conversa. |
 | Memória documental  | §8                 | Mantém documentos vinculados ao condomínio autorizado e visíveis por tipo.                   |
 | Segurança           | §§9 e 10           | Nenhum documento cruza condomínio e nenhuma criação ocorre sem resposta explícita da pessoa. |
@@ -35,6 +47,42 @@ menu já autorizado: reduz atrito de leitura e troca de acesso, preserva documen
 retomada contextual. O valor documental continua vindo da memória verificável, sem alterar a IA.
 Testes de preferências, saída e autorização verificam o resultado; a implementação local não
 introduz dependências, serviços ou custo de IA e não antecipa blocos posteriores.
+
+O ajuste de boas-vindas solicitado em 2026-10-27 detalha o acolhimento já autorizado: preserva a
+geração contextual e a memória documental verificável, reduz desconforto na primeira interação e
+na retomada, sem novo fluxo, provedor ou chamada adicional. Testes do prompt de configuração e
+uma conferência sintética da geração verificam a linguagem sem marcação de gênero.
+
+O foco automático solicitado em 2026-10-27 detalha a continuidade da conversa: atua no compositor
+existente, reduz cliques entre mensagens e preserva a navegação por teclado nos controles
+auxiliares. Não muda IA, documentos, autorização ou custos. Testes de foco e conferência no
+navegador validam a redução de atrito, sem dependência ou bloco adicional.
+
+O pedido de 2026-10-27 sobre a mensagem de documentos detalha briefing §§1, 6.4, 7 (Bloco 6) e 9:
+a fala deve destacar o envio como essencial para conhecer o condomínio e a dificuldade de ajudar
+com precisão sem essa base. O gate competitivo é atendido por esclarecer o diferencial da memória
+documental na conversa existente, preservando orientação geral, isolamento e envio explícito.
+Testes e geração sintética validam a mudança, sem novo fluxo, provedor ou chamada adicional.
+
+O azul principal solicitado em 2026-10-27 detalha a aparência da experiência existente: mantém
+o chat, pertence aos controles já autorizados, torna a marca consistente e preserva contraste e
+significado dos estados. O gate competitivo é atendido sem fluxo, dependência ou custo adicional;
+build, regressões visuais existentes e conferência no navegador validam o resultado.
+
+A uniformização tipográfica solicitada em 2026-10-29 detalha a conversa existente (briefing §§1,
+2 e 6): mantém o chat como experiência principal e a leitura contínua, sem antecipar blocos.
+Atende ao gate competitivo por reduzir atrito na consulta da memória documental já autorizada,
+preservando evidências, isolamento e confirmação humana. Uma regra de apresentação compartilhada,
+regressão de interface e conferência visual demonstram o resultado, sem dependência, serviço,
+chamada de IA ou complexidade de domínio adicional.
+
+A correção de 03/11/2026 detalha briefing §§6.2–6.5 e 7, Bloco 5: confirmar o nome do
+condomínio não encerra a configuração nem substitui a pergunta de apartamentos. Atende ao gate
+competitivo por manter a conversa existente e reduzir um bloqueio na coleta do contexto, sem
+novo fluxo ou dependência. Uma validação de saída e, somente quando necessária, uma tentativa
+adicional no mesmo gateway impedem publicar a omissão conhecida. Testes sintéticos verificam
+sequência, correções, limite de tentativas e ausência de gravação da fala rejeitada. O custo
+normal permanece uma geração; uma reparação pode acrescentar uma geração com o mesmo teto.
 
 ### Checklist de alinhamento
 
@@ -71,7 +119,7 @@ Síndico profissional ou morador entrando pela primeira vez ou complementando su
 - nenhuma pergunta pronta ou sugestão clicável no início do chat;
 - configuração de quantidade de condomínios, nome e quantidade de apartamentos, sem etapas ou contagem redundantes quando houver somente um;
 - sequência de um condomínio por vez, com progresso explícito, somente quando houver mais de um;
-- explicação clara de que documentos não são exigidos naquele momento, mas são necessários para a Alvitra conhecer o condomínio e dar respostas locais confiáveis; podem ser enviados depois, aos poucos.
+- explicação clara de que enviar os documentos relevantes é essencial para conhecer o condomínio e que, sem eles, fica difícil ajudar com precisão, com convite ao envio pela conversa.
 
 ## 5. Fora do escopo
 
@@ -95,6 +143,17 @@ Antes da conversa, a interface mostra somente a apresentação da Alvitra e o bo
 
 A primeira mensagem dá boas-vindas e pergunta como a pessoa prefere ser chamada, em uma mensagem da própria Alvitra, sem sugestões ou perguntas clicáveis. Em seguida, pergunta quantos condomínios a pessoa administra. Quando a resposta for um, pede diretamente o nome e a quantidade de apartamentos ou unidades, sem dizer “um por vez” nem mostrar “1 de 1”. Quando houver mais de um, configura um por vez e informa o progresso entre eles.
 
+Após confirmar um dado, a fala gerada precisa perguntar pelo próximo campo pendente, conforme
+a transição validada. Confirmar o nome do condomínio exige perguntar a quantidade de apartamentos
+ou unidades, sem anunciar o contexto concluído ou salvo. Correções de campos anteriores retomam
+a pergunta interrompida; depois das unidades de um condomínio intermediário, pede o nome do
+seguinte. A confirmação final fica restrita ao último condomínio com unidades informadas.
+
+As boas-vindas e a pergunta sobre como chamar a pessoa usam linguagem sem marcação de gênero,
+inclusive quando houver nome confirmado. A geração pode usar construções como “Olá” e “Que bom
+ter você aqui”, sem frase fixa. Não usa “bem-vindo”, “bem-vinda”, variantes com espaço, “(a)” ou
+“o/a”, nem deduz gênero pelo nome ou identificador provisório.
+
 As mensagens da Alvitra são identificadas visualmente pela posição à esquerda e por uma linha
 lateral anil discreta, mantendo fundo transparente e a tipografia editorial da conversa. O nome
 “Alvitra” não se repete sobre cada mensagem.
@@ -102,13 +161,20 @@ lateral anil discreta, mantendo fundo transparente e a tipografia editorial da c
 No modo de demonstração, o nome de usuário informado antes do chat identifica somente o acesso
 provisório e não responde essa pergunta nem alimenta o perfil do síndico.
 
-### RQ-2403 — Documentos necessários, enviados depois
+### RQ-2403 — Comunicar a importância essencial dos documentos
 
-O cadastro não pede documento nem espera uma resposta sobre anexos. Ao concluir o contexto inicial, a Alvitra explica que os documentos relevantes são necessários para conhecer o condomínio e responder com segurança sobre regras, decisões, valores e histórico, mas que a pessoa não precisa enviá-los naquele momento: convenções, regimentos, atas, contratos e balancetes podem ser enviados depois, aos poucos. Sem o material necessário, a Alvitra mantém orientação geral e próximos passos, mas não apresenta conclusões locais como confirmadas.
+Ao concluir o contexto inicial, a Alvitra explica que enviar os documentos relevantes é essencial para conhecer o condomínio e ajudar com precisão sobre suas regras, decisões, valores e histórico. Diz de forma natural que, sem eles, fica difícil oferecer essa ajuda e convida ao envio pela conversa. Não diz “não precisa enviar”, não sugere adiamento espontâneo nem trata os arquivos como opcionais. Pede somente o material pertinente à necessidade apresentada, sem lista genérica. A conclusão do cadastro não aguarda upload ou confirmação sobre anexos. Enquanto o material não estiver disponível, a Alvitra mantém orientação geral e próximos passos, sem apresentar conclusões locais como confirmadas.
 
 ### RQ-2406 — Continuidade conversacional
 
 Quando já existir um contexto autorizado, a Alvitra não reinicia o cadastro nem pede novamente o nome da pessoa, a quantidade de condomínios ou dados já confirmados. Ela cumprimenta a pessoa e abre espaço para uma solicitação em linguagem natural, sem perguntas sugeridas ou botões de atalho no início do chat.
+
+A saudação de retomada e a abertura de uma nova conversa seguem a mesma regra de acolhimento
+sem marcação de gênero de RQ-2402, mesmo quando usam o nome confirmado.
+
+A espera de uma pergunta contempla as duas gerações já permitidas para resposta e reparação,
+cada uma limitada a 300 segundos, com margem de 30 segundos. O navegador não abandona a resposta
+após 70 segundos enquanto o servidor ainda trabalha. Isso não cria tentativa ou reparação nova.
 
 ### RQ-2404 — Dados documentais organizados
 
@@ -155,6 +221,37 @@ destaca o selecionado e contém seu atalho “Documentos enviados”. O cartão 
 topo e uma tela intermediária de condomínios deixam de ser apresentados. A consulta documental
 continua autorizada e limitada ao condomínio selecionado.
 
+### RQ-2410 — Campo de mensagem pronto para escrever
+
+O campo de mensagem recebe foco quando o chat fica disponível, inclusive no cadastro inicial,
+na abertura ou troca de conversa e ao retornar de um menu ou documento. Depois de enviar uma
+mensagem ou anexo, ou de uma falha recuperável, o foco volta quando o campo é habilitado novamente.
+As mesmas condições que desabilitam o campo continuam impedindo digitação e envio.
+
+O foco automático não desloca a rolagem nem interfere enquanto a barra lateral, menu da conta,
+menu de anexos, biblioteca documental, visualizador ou citação estiverem abertos. A pessoa pode
+usar Tab, selecionar texto e interagir com outros controles; não há captura global de teclas,
+temporizador contínuo ou redirecionamento obrigatório ao perder o foco.
+
+### RQ-2411 — Azul principal
+
+O azul principal da Alvitra é `#0A1330`. A marca, os botões principais e as mensagens da pessoa
+usam essa base; sombras, foco e estados de hover derivam da mesma paleta. Entrada, chat, menus
+e documentos compartilham os tokens de cor. Os preenchimentos principais mantêm essa cor nos
+dois temas; textos, ícones e indicadores sobre superfícies escuras usam uma variante clara para
+preservar legibilidade. O tema claro continua sendo o padrão.
+
+### RQ-2412 — Tipografia uniforme nas falas da Alvitra
+
+Toda fala da Alvitra usa a fonte editorial e a escala grande já adotadas na configuração:
+`var(--font-display)`, tamanho `clamp(18.9px, 2.7vw, 25.2px)` e entrelinha `1.42`, conforme a
+redução de 10% autorizada em RQ-1606/AC-1608 da Spec 016 em 03/11/2026. A regra vale para
+boas-vindas, configuração, respostas atuais e do histórico, pontos de atenção, próximos passos,
+recomendação de especialista e falas sobre documentos, inclusive a confirmação de condomínio.
+O padrão permanece igual nos modos claro e escuro, com ajuste responsivo a partir de 320 px e
+quebra de palavras longas para não exceder a largura da mensagem. Controles, fontes documentais,
+relatórios calculados, estados operacionais e mensagens da pessoa mantêm sua tipografia própria.
+
 ## 8. Contratos
 
 - `GET /v1/chat/condominiums` lista somente contextos autorizados.
@@ -182,8 +279,10 @@ continua autorizada e limitada ao condomínio selecionado.
 - sair retorna à entrada sem reapresentar o nome anterior e permite retomar o cadastro explicitamente;
 - o menu alcança a base da tela, mantém os itens no topo e evita atalhos redundantes no perfil;
 - documentos enviados continuam autorizados, agrupados por tipo e identificados por condomínio;
-- o cadastro não solicita documento e a ausência de anexo não bloqueia o uso.
+- a conclusão do cadastro enfatiza que os documentos são essenciais e que a ausência deles dificulta a ajuda local; o fluxo continua oferecendo orientação geral enquanto aguarda o envio.
 - um contexto já configurado retoma a conversa sem repetir perguntas de cadastro ou exibir perguntas prontas.
+- o campo de mensagem recebe foco ao ficar disponível e permite continuar escrevendo entre turnos sem novo clique, preservando os controles auxiliares e a navegação por teclado.
+- todas as falas da Alvitra mantêm a fonte e o tamanho grande da configuração ao continuar ou retomar a conversa, inclusive orientações e falas documentais, em desktop e celular.
 
 ## 11. Questões em aberto
 

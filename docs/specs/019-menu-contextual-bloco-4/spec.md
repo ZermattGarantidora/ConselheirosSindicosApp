@@ -1,5 +1,8 @@
 # Spec 019 — Menu contextual, Bloco 4 da reestruturação
 
+> A Spec 044 substitui a composição visual: condomínios e chats à esquerda, documentos e Perfil
+> à direita. Contratos de autorização e criação conversacional continuam preservados.
+
 **Status:** implementada; composição do menu substituída pela Spec 024
 **Responsável:** produto e engenharia  
 **Atualizado em:** 2026-10-09

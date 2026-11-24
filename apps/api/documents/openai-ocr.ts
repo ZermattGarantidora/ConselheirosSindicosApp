@@ -10,6 +10,7 @@ const defaultModel = "gpt-5.6-luna";
 const defaultTimeoutMs = 30_000;
 
 type OpenAiOcrResponse = Readonly<{
+  status?: string;
   output?: readonly Readonly<{
     content?: readonly Readonly<{ type?: string; text?: string }>[];
   }>[];
@@ -20,6 +21,8 @@ export type OpenAiOcrAdapterOptions = Readonly<{
   model?: string;
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
+  maximumOutputTokens?: number;
+  requireCompletedResponse?: boolean;
 }>;
 
 function createOcrInstructions(): string {
@@ -99,12 +102,13 @@ function parsePages(text: string): readonly OcrPageResult[] | undefined {
     : Object.freeze(pages.sort((left, right) => left.pageIndex - right.pageIndex));
 }
 
-function createRequestBody(content: Buffer, model: string): string {
+function createRequestBody(content: Buffer, model: string, maximumOutputTokens?: number): string {
   const fileData = `data:application/pdf;base64,${content.toString("base64")}`;
 
   return JSON.stringify({
     model,
     store: false,
+    ...(maximumOutputTokens === undefined ? {} : { max_output_tokens: maximumOutputTokens }),
     input: [
       {
         role: "user",
@@ -174,6 +178,11 @@ export function createOpenAiOcrAdapter(options: OpenAiOcrAdapterOptions): OcrAda
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1) {
     throw new Error("O timeout do OCR deve ser um número inteiro positivo de milissegundos.");
   }
+  if (
+    options.maximumOutputTokens !== undefined &&
+    (!Number.isInteger(options.maximumOutputTokens) || options.maximumOutputTokens < 1)
+  )
+    throw new Error("O orçamento de saída do OCR deve ser um inteiro positivo.");
 
   return Object.freeze({
     async recognize(input: Parameters<OcrAdapter["recognize"]>[0]): Promise<OcrResult> {
@@ -184,25 +193,29 @@ export function createOpenAiOcrAdapter(options: OpenAiOcrAdapterOptions): OcrAda
 
       let timeout: ReturnType<typeof setTimeout> | undefined;
       try {
+        input.signal?.throwIfAborted();
         const abortController = new AbortController();
         timeout = setTimeout(() => abortController.abort(), timeoutMs);
         const response = await fetchImplementation(openAiResponsesUrl, {
           method: "POST",
-          signal: abortController.signal,
+          signal: input.signal
+            ? AbortSignal.any([input.signal, abortController.signal])
+            : abortController.signal,
           headers: {
             authorization: `Bearer ${apiKey}`,
             "content-type": "application/json"
           },
-          body: createRequestBody(content, model)
+          body: createRequestBody(content, model, options.maximumOutputTokens)
         });
 
         if (!response.ok) {
           return Object.freeze({ status: "unavailable", reason: "failed" });
         }
 
-        const pages = parsePages(
-          extractOutputText((await response.json()) as OpenAiOcrResponse) ?? ""
-        );
+        const providerResponse = (await response.json()) as OpenAiOcrResponse;
+        if (options.requireCompletedResponse && providerResponse.status !== "completed")
+          return Object.freeze({ status: "unavailable", reason: "failed" });
+        const pages = parsePages(extractOutputText(providerResponse) ?? "");
         if (pages === undefined) {
           return Object.freeze({ status: "unavailable", reason: "failed" });
         }

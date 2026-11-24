@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { startServer } from "../../apps/api/app/server.js";
+import {
+  startSyntheticServer as startServer,
+  syntheticAccessHeaders
+} from "../fixtures/synthetic-access.js";
 
 describe("servidor local", () => {
   it("inicia a demonstração somente quando ela é pedida explicitamente", async () => {
@@ -13,7 +16,7 @@ describe("servidor local", () => {
     const documents = await app.inject({
       method: "GET",
       url: "/v1/condominiums/alameda/documents",
-      headers: { "x-development-user-id": "sindico-demo" }
+      headers: await syntheticAccessHeaders(app)
     });
     expect(documents.statusCode).toBe(200);
     expect(documents.json()).toMatchObject({ documents: [] });
@@ -34,7 +37,7 @@ describe("servidor local", () => {
     const answer = await app.inject({
       method: "POST",
       url: "/v1/condominiums/alameda/questions",
-      headers: { "x-development-user-id": "sindico-demo" },
+      headers: await syntheticAccessHeaders(app),
       payload: { question: "Olá" }
     });
     expect(answer.statusCode).toBe(200);

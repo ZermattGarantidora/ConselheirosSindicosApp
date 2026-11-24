@@ -24,6 +24,7 @@ Qualidade de software e qualidade da IA são verificadas separadamente. Nenhum s
 | Segurança | Upload, auth, dados e dependências | Sem achado crítico ou alto não aceito |
 | Migração | Mudança de schema | Ida, compatibilidade e rollback/forward-fix verificados |
 | CI e proteção de branch | Todo merge | Todos os status checks obrigatórios aprovados no commit que será integrado |
+| Histórico completo e durável | Lançamento do produto | Perguntas e falas da Alvitra recuperáveis após reinício/atualização; confirmação só após gravação; recuperação e restauração de backup verificadas; zero acesso cruzado (Spec 058) |
 
 ## Invariantes P0
 
@@ -39,6 +40,11 @@ Os seguintes resultados exigem bloqueio da entrega:
 - apresentação de fato sem evidência em cenário que exige abstenção;
 - exposição de segredo ou dado pessoal em log, fixture ou telemetria;
 - ação externa sem confirmação humana.
+
+Para o lançamento do produto, também bloqueiam a liberação: perda de mensagem confirmada,
+histórico parcial dos dois lados, omissão silenciosa de falas de cadastro/documentos ou ausência
+de teste de recuperação/restauração do armazenamento durável. A volatilidade da demonstração
+em RAM não valida esse gate. O estado observado e a cobertura faltante estão na Spec 058.
 
 ## Metas iniciais para evals
 
@@ -115,3 +121,20 @@ pnpm run audit:dependencies
 ```
 
 Execute antes de releases; achados altos ou críticos bloqueiam a liberação até tratamento registrado.
+
+## Candidata do piloto presencial de 16/11/2026
+
+O [registro específico de liberação](pilot-2026-11-16-release-gates.md) reúne evidências por
+commit/configuração, incluindo restauração integral, direitos, abuso distribuído e gateway
+efetivo. Não reduz nenhum gate deste documento. Minutas de dados/termos não aprovam uso real.
+Durante as três frentes no mesmo checkout, só testes focados com temporários próprios; gates
+globais e relatórios compartilhados aguardam candidata estável coordenada. A frente de segurança
+registra resultados locais em `docs/reviews/2026-11-09-pilot-security-local.md`; isso não substitui
+code review independente ou teste contra o commit a integrar.
+
+Na continuação, a janela `security-local-20261109-02` estabilizou os arquivos e executou o check
+completo: 2.347 testes unitários, cobertura dos quatro indicadores >=80%, 72 specs e scanner
+aprovados; também 232 E2E, builds/runtime, matriz RLS e worker separado locais. O primeiro
+check encontrou teste antigo de startup; a correção acrescentou prova comportamental e a
+bateria completa foi repetida. Evidências em `docs/reviews/2026-11-09-pilot-integration-local.md`.
+Essas provas não dispensam CI remoto/review completo no commit a integrar nem autorizam uso real.

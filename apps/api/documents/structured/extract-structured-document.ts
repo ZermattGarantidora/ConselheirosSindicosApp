@@ -62,9 +62,10 @@ function source(
     uncertainty?: readonly string[];
   }>
 ): StructuredSourceReference {
-  const codePoints = Array.from(input.page.extractedText);
-  const startOffset = Array.from(input.page.extractedText.slice(0, input.startOffset)).length;
-  const endOffset = Array.from(input.page.extractedText.slice(0, input.endOffset)).length;
+  const startOffset = codePointLength(input.page.extractedText.slice(0, input.startOffset));
+  const endOffset =
+    startOffset +
+    codePointLength(input.page.extractedText.slice(input.startOffset, input.endOffset));
   const qualityUncertainty = pageQualityUncertainty(input.page);
   return Object.freeze({
     condominiumId: input.condominiumId,
@@ -73,10 +74,19 @@ function source(
     pageNumber: input.page.pageNumber,
     startOffset,
     endOffset,
-    excerpt: codePoints.slice(startOffset, endOffset).join(""),
+    excerpt: input.page.extractedText.slice(input.startOffset, input.endOffset),
     extractionMethod: input.page.extractionMethod,
     uncertainty: Object.freeze([...qualityUncertainty, ...(input.uncertainty ?? [])])
   });
+}
+
+function codePointLength(text: string): number {
+  let count = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    count += 1;
+    if (text.codePointAt(index)! > 0xffff) index += 1;
+  }
+  return count;
 }
 
 function pageQualityUncertainty(page: StructuredExtractionPage): readonly string[] {

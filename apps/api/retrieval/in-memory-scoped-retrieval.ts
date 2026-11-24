@@ -2,6 +2,7 @@ import type { AuthorizedCondominiumContext } from "../identity/authorized-condom
 import { createLocalSyntheticEmbeddingAdapter } from "./local-embedding.js";
 import type {
   EmbeddingAdapter,
+  GeneratedEmbedding,
   RetrievableChunk,
   ScopedRetrievalIndex
 } from "./retrieval-contract.js";
@@ -67,8 +68,7 @@ function queryTerms(query: string): readonly string[] {
     .filter((term) => term.length > 1 && !stopWords.has(term));
 }
 
-function hasLexicalOverlap(query: string, chunk: RetrievableChunk): boolean {
-  const terms = queryTerms(query);
+function hasLexicalOverlap(terms: readonly string[], chunk: RetrievableChunk): boolean {
   const searchableText = normalize(`${chunk.documentTitle} ${chunk.content}`);
   const contentTerms = searchableText.split(/[^\p{L}\p{N}]+/gu);
 
@@ -108,6 +108,15 @@ export function createInMemoryScopedRetrievalIndex(
   chunks: readonly RetrievableChunk[],
   embeddingAdapter: EmbeddingAdapter = createLocalSyntheticEmbeddingAdapter()
 ): ScopedRetrievalIndex {
+  // Weak keys let removal release cached vectors. Each index owns its adapter and tenant chunks.
+  const embeddings = new WeakMap<
+    RetrievableChunk,
+    Readonly<{
+      content: string;
+      hash: string;
+      embedding: GeneratedEmbedding;
+    }>
+  >();
   return Object.freeze({
     async findAuthorizedCandidates(
       context: AuthorizedCondominiumContext,
@@ -122,9 +131,10 @@ export function createInMemoryScopedRetrievalIndex(
         return Object.freeze([]);
       }
 
+      const terms = queryTerms(input.query);
       const authorized = chunks
         .filter((chunk) => chunk.condominiumId === context.condominiumId)
-        .filter((chunk) => hasLexicalOverlap(input.query, chunk));
+        .filter((chunk) => hasLexicalOverlap(terms, chunk));
       if (authorized.length === 0) {
         return Object.freeze([]);
       }
@@ -136,10 +146,17 @@ export function createInMemoryScopedRetrievalIndex(
       const scored: RetrievableChunk[] = [];
 
       for (const chunk of authorized) {
-        const embedding = await embeddingAdapter.embed({
-          content: chunk.content,
-          contentSha256: chunk.contentSha256
-        });
+        const content = chunk.content;
+        const contentSha256 = chunk.contentSha256;
+        const cached = embeddings.get(chunk);
+        const embedding =
+          cached?.content === content && cached.hash === contentSha256
+            ? cached.embedding
+            : await embeddingAdapter.embed({
+                content,
+                contentSha256
+              });
+        embeddings.set(chunk, { content, hash: contentSha256, embedding });
         scored.push(
           Object.freeze({
             ...chunk,

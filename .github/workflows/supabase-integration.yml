@@ -58,3 +58,14 @@ jobs:
           name: supabase-integration-${{ github.run_id }}
           path: reports/supabase-integration/
           if-no-files-found: ignore
+
+      - name: Verify separate compiled API and worker
+        run: pnpm run test:worker:separate -- --provider=supabase
+
+      - name: Upload separate worker report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: worker-separated-${{ github.run_id }}
+          path: reports/worker-separated/
+          if-no-files-found: ignore

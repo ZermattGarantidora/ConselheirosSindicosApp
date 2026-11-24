@@ -2,16 +2,25 @@ import { createHash } from "node:crypto";
 
 import {
   answerPipelineVersion,
+  specialistTypes,
   type GeneratedAnswer,
   type GeneratedCitation
 } from "./answer-contract.js";
 import {
   AnswerGatewayUnavailableError,
+  attachGatewayErrorTelemetry,
   type AnswerGateway,
   type AnswerGatewayInput,
   type AnswerGatewayResult
 } from "./answer-gateway.js";
 import { answerPromptVersion, buildAnswerPrompt } from "./prompt-catalog.js";
+import { InvalidAnswerValidationError } from "./citation-validator.js";
+import {
+  answerRoutingMode,
+  createRoutedAnswerGateway,
+  routedReasoningEfforts
+} from "./answer-model-routing.js";
+import { accountOpenAiUsage } from "./usage-accounting.js";
 
 const responsesUrl = "https://api.openai.com/v1/responses";
 const defaultModel = "gpt-6.1-sol";
@@ -26,7 +35,12 @@ type OpenAiResponse = Readonly<{
   usage?: Readonly<{
     input_tokens?: number;
     output_tokens?: number;
-    input_tokens_details?: Readonly<{ cached_tokens?: number }>;
+    input_tokens_details?: Readonly<{
+      cached_tokens?: number;
+      cache_write_tokens?: number;
+      cache_write_tokens_details?: Readonly<{ ttl_30m_tokens?: number; ttl_12h_tokens?: number }>;
+    }>;
+    output_tokens_details?: Readonly<{ reasoning_tokens?: number }>;
   }>;
 }>;
 
@@ -39,6 +53,7 @@ type ProviderAnswer = Readonly<
 export type OpenAiAnswerGatewayOptions = Readonly<{
   apiKey: string;
   model?: string;
+  reasoningEffort?: "low" | "high";
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
   now?: () => number;
@@ -48,7 +63,36 @@ function hash(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function answerSchema() {
+function recordedTokens(value: unknown): number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+}
+
+export function answerSchema(evidence?: AnswerGatewayInput["evidence"]) {
+  // Em uma comparação com minuta, todas as afirmações documentais são
+  // interpretações conservadoras; restringir só IDs incentivava trocar a citação.
+  const factualIds = evidence?.some((source) =>
+    ["pending", "disputed", "superseded"].includes(source.validityStatus)
+  )
+    ? []
+    : evidence?.map((source) => source.id);
+  const documentaryClaim = (type: "condominium_fact" | "interpretation") => ({
+    type: "object",
+    additionalProperties: false,
+    required: ["statement", "claimType", "evidenceRequired", "citationEvidenceIds"],
+    properties: {
+      statement: { type: "string" },
+      claimType: { type: "string", enum: [type] },
+      evidenceRequired: { type: "boolean", enum: [true] },
+      citationEvidenceIds: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "string",
+          ...(type === "condominium_fact" && factualIds ? { enum: factualIds } : {})
+        }
+      }
+    }
+  });
   return {
     type: "object",
     additionalProperties: false,
@@ -63,7 +107,10 @@ function answerSchema() {
     ],
     properties: {
       answer: { type: "string" },
-      answerMode: { type: "string", enum: ["grounded", "conflict", "abstained"] },
+      answerMode: {
+        type: "string",
+        enum: ["grounded", "conflict", "abstained"]
+      },
       citations: {
         type: "array",
         items: {
@@ -76,30 +123,47 @@ function answerSchema() {
       attentionPoints: { type: "array", items: { type: "string" } },
       suggestedNextStep: { type: ["string", "null"] },
       specialist: {
-        type: "object",
-        additionalProperties: false,
-        required: ["required", "type", "reason"],
-        properties: {
-          required: { type: "boolean" },
-          type: { type: ["string", "null"] },
-          reason: { type: ["string", "null"] }
-        }
+        anyOf: [
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["required", "type", "reason"],
+            properties: {
+              required: { type: "boolean", enum: [false] },
+              type: { type: "null" },
+              reason: { type: "null" }
+            }
+          },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["required", "type", "reason"],
+            properties: {
+              required: { type: "boolean", enum: [true] },
+              type: { type: "string", enum: [...specialistTypes] },
+              reason: { type: "string" }
+            }
+          }
+        ]
       },
       claims: {
         type: "array",
         items: {
-          type: "object",
-          additionalProperties: false,
-          required: ["statement", "claimType", "evidenceRequired", "citationEvidenceIds"],
-          properties: {
-            statement: { type: "string" },
-            claimType: {
-              type: "string",
-              enum: ["condominium_fact", "interpretation", "recommendation"]
-            },
-            evidenceRequired: { type: "boolean" },
-            citationEvidenceIds: { type: "array", items: { type: "string" } }
-          }
+          anyOf: [
+            ...(factualIds?.length === 0 ? [] : [documentaryClaim("condominium_fact")]),
+            documentaryClaim("interpretation"),
+            {
+              type: "object",
+              additionalProperties: false,
+              required: ["statement", "claimType", "evidenceRequired", "citationEvidenceIds"],
+              properties: {
+                statement: { type: "string" },
+                claimType: { type: "string", enum: ["recommendation"] },
+                evidenceRequired: { type: "boolean" },
+                citationEvidenceIds: { type: "array", items: { type: "string" } }
+              }
+            }
+          ]
         }
       }
     }
@@ -116,7 +180,7 @@ function outputText(response: OpenAiResponse): string {
   throw new AnswerGatewayUnavailableError("A OpenAI não retornou uma resposta completa.");
 }
 
-function structuredAnswer(text: string, input: AnswerGatewayInput): GeneratedAnswer {
+export function structuredAnswer(text: string, input: AnswerGatewayInput): GeneratedAnswer {
   let output: ProviderAnswer;
   try {
     output = JSON.parse(text) as ProviderAnswer;
@@ -126,9 +190,24 @@ function structuredAnswer(text: string, input: AnswerGatewayInput): GeneratedAns
     );
   }
   const citations: GeneratedCitation[] = [];
-  for (const candidate of Array.isArray(output.citations) ? output.citations : []) {
+  const citationReferences = [
+    ...(Array.isArray(output.citations) ? output.citations : []),
+    ...(Array.isArray(output.claims)
+      ? output.claims.flatMap((claim) =>
+          Array.isArray(claim?.citationEvidenceIds)
+            ? claim.citationEvidenceIds.map((evidenceId: string) => ({ evidenceId }))
+            : []
+        )
+      : [])
+  ];
+  for (const candidate of citationReferences) {
     const evidence = input.evidence.find((item) => item.id === candidate?.evidenceId);
-    if (evidence === undefined) continue;
+    if (evidence === undefined)
+      throw new InvalidAnswerValidationError(
+        "A citação aponta para uma evidência não autorizada.",
+        "citation_not_authorized"
+      );
+    if (citations.some((citation) => citation.evidenceId === evidence.id)) continue;
     citations.push(
       Object.freeze({
         evidenceId: evidence.id,
@@ -146,7 +225,7 @@ function structuredAnswer(text: string, input: AnswerGatewayInput): GeneratedAns
   return Object.freeze({ ...output, citations: Object.freeze(citations) });
 }
 
-function generalAnswer(text: string): GeneratedAnswer {
+export function generalAnswer(text: string): GeneratedAnswer {
   const answer = text.trim();
   if (answer.length === 0) throw new AnswerGatewayUnavailableError("A OpenAI não retornou texto.");
   return Object.freeze({
@@ -160,16 +239,40 @@ function generalAnswer(text: string): GeneratedAnswer {
   });
 }
 
-function requestBody(input: AnswerGatewayInput, prompt: string, model: string): string {
+function requestBody(
+  input: AnswerGatewayInput,
+  prompt: string,
+  model: string,
+  reasoningEffort: "low" | "high"
+): string {
   const questionMarker = "\nQUESTION_START\n";
   const questionOffset = prompt.indexOf(questionMarker);
   if (questionOffset < 0) throw new Error("O prompt da Alvitra está incompleto.");
+  const cacheInstructions = model === "gpt-6-luna" || model === "gpt-6.1-sol";
+  const taskOffset = prompt.indexOf("\nTASK=");
+  if (cacheInstructions && (taskOffset < 0 || taskOffset >= questionOffset))
+    throw new Error("O prefixo de instruções da Alvitra está incompleto.");
   return JSON.stringify({
     model,
     store: false,
-    reasoning: { effort: "low" },
+    reasoning: { effort: reasoningEffort },
+    ...(cacheInstructions ? { prompt_cache_options: { mode: "explicit", ttl: "30m" } } : {}),
     input: [
-      { role: "developer", content: prompt.slice(0, questionOffset) },
+      ...(cacheInstructions
+        ? [
+            {
+              role: "developer",
+              content: [
+                {
+                  type: "input_text",
+                  text: prompt.slice(0, taskOffset),
+                  prompt_cache_breakpoint: { mode: "explicit" }
+                }
+              ]
+            },
+            { role: "developer", content: prompt.slice(taskOffset + 1, questionOffset) }
+          ]
+        : [{ role: "developer", content: prompt.slice(0, questionOffset) }]),
       { role: "user", content: prompt.slice(questionOffset + 1) }
     ],
     max_output_tokens: input.budget.maximumOutputTokens,
@@ -201,6 +304,9 @@ export function createOpenAiAnswerGateway(options: OpenAiAnswerGatewayOptions): 
   if (apiKey.length === 0)
     throw new Error("A chave da OpenAI é obrigatória para habilitar o gateway.");
   const model = options.model?.trim() || defaultModel;
+  const reasoningEffort = options.reasoningEffort ?? "low";
+  if (reasoningEffort !== "low" && reasoningEffort !== "high")
+    throw new Error("O esforço OpenAI deve ser low ou high.");
   const fetchImplementation = options.fetch ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? defaultTimeoutMs;
   const now = options.now ?? (() => Date.now());
@@ -211,35 +317,16 @@ export function createOpenAiAnswerGateway(options: OpenAiAnswerGatewayOptions): 
     async generate(input: AnswerGatewayInput): Promise<AnswerGatewayResult> {
       const prompt = buildAnswerPrompt(input);
       const startedAt = now();
-      let response: Response;
-      try {
-        response = await fetchImplementation(responsesUrl, {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-          body: requestBody(input, prompt, model),
-          signal: AbortSignal.timeout(timeoutMs)
-        });
-      } catch {
-        throw new AnswerGatewayUnavailableError(
-          "Não foi possível consultar a OpenAI com segurança."
-        );
-      }
-      if (!response.ok) throw new AnswerGatewayUnavailableError(failureMessage(response.status));
-      let providerResponse: OpenAiResponse;
-      try {
-        providerResponse = (await response.json()) as OpenAiResponse;
-      } catch {
-        throw new AnswerGatewayUnavailableError("A OpenAI retornou uma resposta inválida.");
-      }
-      if (providerResponse.status !== "completed") {
-        throw new AnswerGatewayUnavailableError("A OpenAI não concluiu a resposta.");
-      }
-      const text = outputText(providerResponse);
-      const output =
-        input.evidence.length === 0 ? generalAnswer(text) : structuredAnswer(text, input);
-      return Object.freeze({
-        output,
-        telemetry: Object.freeze({
+      let providerResponse: OpenAiResponse | undefined;
+      let errorCode = "provider_transport_error";
+      const telemetry = (
+        status: "completed" | "failed",
+        outputHash: string | null,
+        failure: string | null
+      ) => {
+        const accounting = accountOpenAiUsage(model, providerResponse?.usage);
+        const validCounters = accounting.unavailableReason !== "usage_invalid";
+        return Object.freeze({
           providerKey: "openai",
           modelKey: model,
           modelVersion: "responses-v1",
@@ -251,18 +338,73 @@ export function createOpenAiAnswerGateway(options: OpenAiAnswerGatewayOptions): 
             input.evidence.length === 0
               ? "OpenAI configurada para orientação geral"
               : "OpenAI configurada para resposta com evidências",
-          status: "completed" as const,
-          inputTokens: providerResponse.usage?.input_tokens ?? 0,
-          outputTokens: providerResponse.usage?.output_tokens ?? 0,
-          cachedInputTokens: providerResponse.usage?.input_tokens_details?.cached_tokens ?? 0,
+          status,
+          inputTokens: validCounters ? recordedTokens(providerResponse?.usage?.input_tokens) : 0,
+          outputTokens: validCounters ? recordedTokens(providerResponse?.usage?.output_tokens) : 0,
+          cachedInputTokens: validCounters
+            ? recordedTokens(providerResponse?.usage?.input_tokens_details?.cached_tokens)
+            : 0,
+          usageAccounting: accounting,
           latencyMs: Math.max(0, now() - startedAt),
           estimatedCostMicrounits: 0,
           costCurrency: "BRL" as const,
           inputHash: hash(prompt),
-          outputHash: hash(text),
-          errorCode: null
-        })
-      });
+          outputHash,
+          errorCode: failure
+        });
+      };
+      try {
+        input.signal?.throwIfAborted();
+        const response = await fetchImplementation(responsesUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+          body: requestBody(input, prompt, model, reasoningEffort),
+          signal: input.signal
+            ? AbortSignal.any([input.signal, AbortSignal.timeout(timeoutMs)])
+            : AbortSignal.timeout(timeoutMs)
+        });
+        errorCode = "provider_http_error";
+        if (!response.ok) {
+          // Mesmo uma rejeição HTTP pode trazer consumo; não conservar o corpo de erro.
+          try {
+            providerResponse = (await response.json()) as OpenAiResponse;
+          } catch {
+            /* uso desconhecido */
+          }
+          throw new AnswerGatewayUnavailableError(failureMessage(response.status));
+        }
+        errorCode = "provider_invalid_json";
+        try {
+          providerResponse = (await response.json()) as OpenAiResponse;
+        } catch {
+          throw new AnswerGatewayUnavailableError("A OpenAI retornou uma resposta inválida.");
+        }
+        errorCode = "provider_incomplete";
+        if (providerResponse?.status !== "completed")
+          throw new AnswerGatewayUnavailableError("A OpenAI não concluiu a resposta.");
+        errorCode = "provider_output_rejected";
+        const text = outputText(providerResponse);
+        const output =
+          input.evidence.length === 0 ? generalAnswer(text) : structuredAnswer(text, input);
+        return Object.freeze({ output, telemetry: telemetry("completed", hash(text), null) });
+      } catch (error) {
+        const safeError =
+          error instanceof AnswerGatewayUnavailableError ||
+          error instanceof InvalidAnswerValidationError
+            ? error
+            : new AnswerGatewayUnavailableError(
+                "Não foi possível consultar a OpenAI com segurança."
+              );
+        attachGatewayErrorTelemetry(
+          safeError,
+          telemetry(
+            "failed",
+            null,
+            error instanceof InvalidAnswerValidationError ? error.code : errorCode
+          )
+        );
+        throw safeError;
+      }
     }
   });
 }
@@ -274,11 +416,26 @@ export function createOpenAiAnswerGatewayFromEnvironment(
   const apiKey = environment.OPENAI_API_KEY?.trim();
   if (apiKey === undefined || apiKey.length === 0) return undefined;
   const timeoutMs = Number(environment.OPENAI_ANSWER_TIMEOUT_MS);
-  return createOpenAiAnswerGateway({
+  const options = {
     apiKey,
     ...(environment.OPENAI_ANSWER_MODEL === undefined
       ? {}
       : { model: environment.OPENAI_ANSWER_MODEL }),
     ...(Number.isInteger(timeoutMs) && timeoutMs > 0 ? { timeoutMs } : {})
-  });
+  };
+  const routing = answerRoutingMode(environment.OPENAI_ANSWER_ROUTING, "OPENAI_ANSWER_ROUTING");
+  if (routing === "hybrid")
+    return createRoutedAnswerGateway({
+      "gpt-6-luna": createOpenAiAnswerGateway({
+        ...options,
+        model: "gpt-6-luna",
+        reasoningEffort: routedReasoningEfforts["gpt-6-luna"]
+      }),
+      "gpt-6.1-sol": createOpenAiAnswerGateway({
+        ...options,
+        model: "gpt-6.1-sol",
+        reasoningEffort: routedReasoningEfforts["gpt-6.1-sol"]
+      })
+    });
+  return createOpenAiAnswerGateway(options);
 }

@@ -1,0 +1,90 @@
+# Preparação apenas. Importar este Blueprint ativa serviços pagos; não usar para a demonstração.
+# Migrations, credenciais restritas e gates de piloto precedem a ativação.
+# Virgínia é proposta, não região aprovada. Conferir revisão idêntica em ambos os deploys manuais.
+# Spec 070: node scripts/run-tsx.mjs scripts/verify-pilot-preparation.ts
+services:
+  - type: web
+    name: alvitra-pilot-web
+    runtime: node
+    region: virginia
+    plan: 1c-2g
+    numInstances: 1
+    autoDeployTrigger: off
+    maxShutdownDelaySeconds: 300
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm run build:api && pnpm run build:web
+    startCommand: node dist/api/app/main.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: APP_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "false"
+      - key: DOCUMENT_WORKER_IN_API
+        value: "false"
+      - key: CODEX_ANSWER_ENABLED
+        value: "false"
+      - key: ALVITRA_DEMO_WEB_SEARCH_ENABLED
+        value: "false"
+      - key: ALVITRA_LOCAL_TEST_DOCUMENTS_ENABLED
+        value: "false"
+      - key: OPENAI_OCR_ENABLED
+        value: "false"
+      - key: OPENAI_IMAGE_ANALYSIS_ENABLED
+        value: "false"
+      - key: GEMINI_IMAGE_ANALYSIS_ENABLED
+        value: "false"
+      - key: GEMINI_ENABLED
+        value: "false"
+      - key: WEB_DIST_DIR
+        value: apps/web/dist
+      - key: DATABASE_URL
+        sync: false
+      - key: ACCESS_CODE_SECRET
+        sync: false
+      - key: AUTH_ACCOUNT_SECRET_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+  - type: worker
+    name: alvitra-pilot-documents
+    runtime: node
+    region: virginia
+    plan: 1c-2g
+    numInstances: 1
+    autoDeployTrigger: off
+    maxShutdownDelaySeconds: 300
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm run build:api
+    startCommand: node dist/api/worker/main.js
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: APP_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "false"
+      - key: DOCUMENT_WORKER_IN_API
+        value: "false"
+      - key: CODEX_ANSWER_ENABLED
+        value: "false"
+      - key: ALVITRA_DEMO_WEB_SEARCH_ENABLED
+        value: "false"
+      - key: ALVITRA_LOCAL_TEST_DOCUMENTS_ENABLED
+        value: "false"
+      - key: OPENAI_OCR_ENABLED
+        value: "false"
+      - key: OPENAI_IMAGE_ANALYSIS_ENABLED
+        value: "false"
+      - key: GEMINI_IMAGE_ANALYSIS_ENABLED
+        value: "false"
+      - key: GEMINI_ENABLED
+        value: "false"
+      - key: DOCUMENT_WORKER_DATABASE_URL
+        sync: false
+      - key: DOCUMENT_WORKER_POLL_MS
+        value: "1000"
+      - key: DOCUMENT_WORKER_LEASE_SECONDS
+        value: "300"
+      - key: DOCUMENT_WORKER_HEARTBEAT_MS
+        value: "30000"

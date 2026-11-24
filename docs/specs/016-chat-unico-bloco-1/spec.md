@@ -1,8 +1,12 @@
 # Spec 016 — Chat único, Bloco 1 da reestruturação
 
-**Status:** implementada; entrada visual substituída pelas Specs 024 e 027
+> A Spec 068, autorizada em 05/11/2026, substitui a entrada por nome de usuário e a
+> lembrança local por código fornecido pela equipe, sessão persistente e código em Perfil.
+> As demais regras conversacionais e de autorização desta spec permanecem aplicáveis.
+
+**Status:** implementada; entrada visual substituída pelas Specs 024 e 027; tipografia ajustada em 2026-11-03
 **Responsável:** produto e engenharia  
-**Atualizado em:** 2026-10-09
+**Atualizado em:** 2026-11-03
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -12,7 +16,7 @@
 | --------------------- | ------------------ | ------------------------------------------------------------------------------------- |
 | Problema e hipótese   | §§2 e 4            | Reduz o tempo até a primeira interação útil e mantém a ajuda em linguagem natural.    |
 | Público               | §3                 | Oferece uma entrada direta para síndicos profissionais e moradores.                   |
-| Proposta de valor     | §§5 e 6            | Faz da conversa a única experiência e pede contexto dentro dela.                      |
+| Proposta de valor     | §§5 e 6            | Faz da conversa a única experiência e mantém as falas claras e legíveis.              |
 | Prioridade atual      | §7, Bloco 1        | Remove as telas antigas e deixa somente uma entrada mínima antes do chat.             |
 | Memória documental    | §8                 | Preserva upload, processamento, vetorização e recuperação por condomínio.             |
 | Segurança e confiança | §§9 e 10           | Mantém evidências, abstenção, conflitos, autorização e revisão humana.                |
@@ -24,6 +28,8 @@
 - Não cria múltiplos chats, barra lateral, menu, perfil conversacional, raio-X ou níveis.
 - Não transforma a simplificação visual em acesso sem autorização ao domínio.
 - Não remove processamento, embeddings, busca ou citações documentais.
+- O ajuste tipográfico solicitado reduz em 10% somente o texto das falas da Alvitra e orientações;
+  não altera o prompt, o conteúdo ou os controles.
 
 ### Divergências da visão
 
@@ -109,6 +115,13 @@ O bundle principal não contém formulários para autenticação, cadastro, cria
 perfil ou configurações, nem painel administrativo. A configuração guiada e o menu contextual
 permanecem no chat conforme as Specs 019 e 024.
 
+### RQ-1606 — Escala tipográfica das falas da Alvitra
+
+Por pedido explícito do usuário em 2026-11-03, reduzir em 10% o tamanho visual do texto das falas
+da Alvitra no chat, incluindo respostas e orientações. Multiplicar por 0,9 os limites da escala
+tipográfica existente, preservando fonte, contraste, espaçamento relativo, responsividade e
+estrutura. Não reduzir texto do síndico, controles ou avisos operacionais da interface.
+
 ## 8. Contratos
 
 - `GET /v1/runtime` informa o modo de execução e o provedor disponível.
@@ -127,6 +140,8 @@ permanecem no chat conforme as Specs 019 e 024.
 - falha de inicialização ou rede é apresentada como mensagem compreensível na etapa atual;
 - nenhum identificador vindo do cliente é suficiente para autorizar acesso;
 - nenhuma alteração pode reduzir os testes de isolamento e vetorização existentes.
+- as falas da Alvitra usam os limites tipográficos originais multiplicados por 0,9, sem mudar os
+  textos do síndico, controles ou avisos operacionais.
 
 ## 10. Critérios de sucesso
 

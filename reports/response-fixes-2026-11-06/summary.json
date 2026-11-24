@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-06",
+  "timezone": "America/Sao_Paulo",
+  "syntheticOnly": true,
+  "targetedFixes": {
+    "jsonCases": ["SR-06-ATA", "SR-08-NOR", "SR-04-VER", "SR-07-CIT"],
+    "jsonCasesPassed": 4,
+    "jsonEnvelopesObservedInNewRound": 0,
+    "turn30SyntheticPassed": true,
+    "turn30RealGatewayPassed": true
+  },
+  "canonicalCheck": "passed",
+  "unitAndE2e": { "tests": 2238, "files": 201, "passed": 2238 },
+  "unitOnly": { "tests": 2024, "files": 169, "passed": 2024 },
+  "coverage": {
+    "unitAndE2e": { "statements": 91.94, "branches": 88.78, "functions": 96.35, "lines": 93.54 },
+    "unitOnly": { "statements": 88.32, "branches": 84.20, "functions": 93.34, "lines": 90.05 },
+    "thresholdEach": 80
+  },
+  "integration": { "provider": "neon", "tests": 17, "passed": 17 },
+  "workerSeparated": { "checkGroups": 9, "passed": true },
+  "conversationSyntheticContracts": { "scenarios": 280, "turns": 1010, "mechanicalFailures": 0, "failedAnswers": 0, "semanticApproved": null },
+  "documentaryRealGateway": {
+    "cases": 50,
+    "mechanicallyValid": 49,
+    "mechanicallyRejected": 1,
+    "rejectedCase": "SR-10-CIT",
+    "rejectionCode": "unsupported_monetary_assertion",
+    "unchangedSourcedPromptHashes": 41,
+    "semanticApproved": null,
+    "inputTokensObserved": 771770,
+    "outputTokensObserved": 13174
+  },
+  "conversationRealGateway": {
+    "caseId": "CONV-long-36",
+    "turns": 30,
+    "mechanicalFailures": 0,
+    "failedAnswers": 0,
+    "closingTargetPassedInTechnicalReading": true,
+    "semanticApproved": null,
+    "otherSemanticObservations": [15, 23],
+    "inputTokensObserved": 381531,
+    "outputTokensObserved": 4914
+  },
+  "newDependencies": false,
+  "newCoverageExclusions": false,
+  "deployed": false,
+  "demonstrationRestarted": false,
+  "independentReviewCompleted": false,
+  "details": "docs/specs/060-protocolo-json-recuperacao-completude/results-2026-11-06.md"
+}

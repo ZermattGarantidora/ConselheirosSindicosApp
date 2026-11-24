@@ -39,12 +39,12 @@ describe("detecção de conflito documental", () => {
     const convention = createEvidence({
       id: "convention-chunk",
       documentType: "convention",
-      content: "A convenção prevê prazo mínimo de noventa dias."
+      content: "A convenção prevê prazo mínimo de locação de noventa dias."
     });
     const rules = createEvidence({
       id: "rules-chunk",
       documentType: "internal_rules",
-      content: "O regimento prevê prazo mínimo de trinta dias."
+      content: "O regimento prevê prazo mínimo de locação de trinta dias."
     });
 
     expect(
@@ -66,10 +66,13 @@ describe("detecção de conflito documental", () => {
       "fontes sem sinais conflitantes",
       "Qual prazo mínimo de locação?",
       [
-        createEvidence({ documentType: "convention", content: "A convenção prevê sessenta dias." }),
+        createEvidence({
+          documentType: "convention",
+          content: "A locação tem prazo mínimo de sessenta dias."
+        }),
         createEvidence({
           documentType: "internal_rules",
-          content: "O regimento prevê sessenta dias."
+          content: "A locação tem prazo mínimo de sessenta dias."
         })
       ]
     ]

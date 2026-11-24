@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { ConversationStoreError } from "../answers/conversation-store.js";
 
 import type { Pool, PoolClient } from "pg";
 
@@ -48,7 +49,11 @@ export class CondominiumAlreadyExistsError extends Error {
 export interface CondominiumDirectory {
   listAuthorized(userId: UserId): Promise<readonly AuthorizedCondominium[]>;
   findAuthorizedByCnpj(userId: UserId, cnpj: string): Promise<AuthorizedCondominium | undefined>;
-  createForUser(userId: UserId, input: CreateCondominiumInput): Promise<AuthorizedCondominium>;
+  createForUser(
+    userId: UserId,
+    input: CreateCondominiumInput,
+    operation?: Readonly<{ requestKey: string; inputHash: string }>
+  ): Promise<AuthorizedCondominium>;
   leaveForUser(userId: UserId, condominiumId: string): Promise<void>;
   deleteForUser(userId: UserId, condominiumId: string): Promise<void>;
 }
@@ -136,11 +141,49 @@ export function createPostgresCondominiumDirectory(pool: PoolLike): CondominiumD
       }
     },
 
-    async createForUser(userId, input) {
+    async createForUser(userId, input, operation) {
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
         await client.query("SET LOCAL ROLE app_runtime");
+        let databaseUserId: string | undefined;
+        if (operation) {
+          if (
+            !operation.requestKey ||
+            operation.requestKey.length > 200 ||
+            !/^[a-f0-9]{64}$/.test(operation.inputHash)
+          )
+            throw new ConversationStoreError(400);
+          databaseUserId = (
+            await client.query<{ user_id: string }>("SELECT app.resolve_user_id($1) AS user_id", [
+              userId
+            ])
+          ).rows[0]?.user_id;
+          if (!databaseUserId) throw new ConversationStoreError(401);
+          await client.query("SELECT set_config('app.user_id',$1,true)", [databaseUserId]);
+          await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+            JSON.stringify([databaseUserId, operation.requestKey])
+          ]);
+          const receipt = (
+            await client.query<{ input_hash: string; condominium_id: string }>(
+              "SELECT input_hash,condominium_id FROM app.condominium_creation_receipts WHERE owner_user_id=app.current_user_id() AND request_key=$1",
+              [operation.requestKey]
+            )
+          ).rows[0];
+          if (receipt) {
+            if (receipt.input_hash !== operation.inputHash)
+              throw new ConversationStoreError(409, "A chave já foi usada para outro cadastro.");
+            const saved = (
+              await client.query<DirectoryRow>(
+                "SELECT * FROM app.list_authorized_condominiums($1) WHERE condominium_id=$2",
+                [userId, receipt.condominium_id]
+              )
+            ).rows[0];
+            if (!saved) throw new ConversationStoreError(403);
+            await client.query("COMMIT");
+            return toAuthorizedCondominium(saved);
+          }
+        }
         const result = await client.query<DirectoryRow>(
           `
             SELECT *
@@ -158,6 +201,16 @@ export function createPostgresCondominiumDirectory(pool: PoolLike): CondominiumD
             JSON.stringify(input.contact ?? {})
           ]
         );
+        if (operation && result.rows[0])
+          await client.query(
+            "INSERT INTO app.condominium_creation_receipts(owner_user_id,request_key,input_hash,condominium_id) VALUES ($1,$2,$3,$4)",
+            [
+              databaseUserId,
+              operation.requestKey,
+              operation.inputHash,
+              result.rows[0].condominium_id
+            ]
+          );
         await client.query("COMMIT");
 
         const row = result.rows[0];
