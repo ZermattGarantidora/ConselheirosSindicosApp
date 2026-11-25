@@ -112,6 +112,8 @@ pnpm run test:pilot:data:local
 pnpm run test:pilot:documents
 pnpm run pilot:preparation
 pnpm run test:pilot:operations
+pnpm run test:render
+pnpm run test:persistent-runtime
 pnpm run test:pilot:recovery:local
 pnpm run test:pilot:recovery:container
 pnpm run test:pilot:worker:local
@@ -147,6 +149,7 @@ pnpm run evals:comparison
 pnpm run evals:cost-30
 pnpm run evals:dense-documents
 pnpm run evals:dense-comparison
+pnpm run evals:dense-stress
 pnpm run evals:hybrid
 pnpm run evals:sol
 pnpm run evals:luna

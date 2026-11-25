@@ -1,12 +1,13 @@
-# Preparação apenas. Importar este Blueprint ativa serviços pagos; não usar para a demonstração.
+# Transição preparada: reutiliza o web pago existente e adiciona somente o worker.
 # Migrations, credenciais restritas e gates de piloto precedem a ativação.
-# Virgínia é proposta, não região aprovada. Conferir revisão idêntica em ambos os deploys manuais.
+# Oregon corresponde ao web conferido em 25/11/2026. Confirmar custo do worker antes de criar.
+# Não importar enquanto a integração Supabase e o startup persistente estiverem pendentes.
 # Spec 070: node scripts/run-tsx.mjs scripts/verify-pilot-preparation.ts
 services:
   - type: web
-    name: alvitra-pilot-web
+    name: alvitra-demo-sintetica
     runtime: node
-    region: virginia
+    region: oregon
     plan: 1c-2g
     numInstances: 1
     autoDeployTrigger: off
@@ -39,6 +40,10 @@ services:
         value: "false"
       - key: WEB_DIST_DIR
         value: apps/web/dist
+      - key: PUBLIC_APP_ORIGIN
+        value: https://alvitra.app
+      - key: PUBLIC_APP_ALIASES
+        value: www.alvitra.app,alvitraapp.com,www.alvitraapp.com
       - key: DATABASE_URL
         sync: false
       - key: ACCESS_CODE_SECRET
@@ -50,7 +55,7 @@ services:
   - type: worker
     name: alvitra-pilot-documents
     runtime: node
-    region: virginia
+    region: oregon
     plan: 1c-2g
     numInstances: 1
     autoDeployTrigger: off

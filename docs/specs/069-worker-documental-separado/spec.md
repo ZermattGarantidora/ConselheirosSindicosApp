@@ -1,8 +1,8 @@
 # Spec 069 — Worker documental contínuo e separado
 
-**Status:** implementada e validada com dados sintéticos; publicação não autorizada  
+**Status:** base validada com sintéticos; adaptação ao Render pago em preparação
 **Responsável:** engenharia da Alvitra  
-**Atualizado em:** 2026-11-09
+**Atualizado em:** 2026-11-25
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -21,7 +21,11 @@
 
 - O usuário autorizou em 05/11/2026 preparar código, publicação e testes antes de contratar serviços.
 - Reutiliza PostgreSQL, fila, processador e mesma base de código dos ADRs 0001/0006/0017.
-- Não contrata, publica, migra banco real, ativa faturamento, cria credencial nem reinicia a demonstração existente.
+- Em 25/11/2026, o usuário informou a contratação do Render e autorizou configurar site/API,
+  processamento separado e domínio. A consulta ao painel confirmou o web existente `alvitra-demo-sintetica`,
+  `1c-2g`, Oregon, sem worker ativo. Reutilizar esse web evita contratar um segundo site.
+- A preparação não altera o banco tratado em outro chat, não gera credenciais e não ativa dados reais.
+  Criar o worker continua dependendo de confirmar seu custo concreto e concluir a integração.
 - Não altera autenticação da Spec 068, prompt, análise financeira, política de OCR ou provedor de IA.
 - OCR real e síntese integral de lotes pela API continuam sujeitos às decisões próprias existentes; separar processos não autoriza novos envios de documentos.
 - Configuração de hospedagem é preparada para revisão; a liberação de dados reais continua dependendo das Specs 011/040/058.
@@ -51,6 +55,12 @@ Processar documentos em execução independente da API, com fila durável, retom
 ## 3. Usuário primário
 
 Síndico que envia PDFs e continua usando a conversa; operador que prepara um piloto de dez pessoas sem contratar infraestrutura nesta etapa.
+
+A adaptação de 25/11 aproveita infraestrutura já contratada. Briefing §§6, 8 e 12 autorizam
+mesma origem HTTPS, continuidade e encerramento coordenado; §§9–10 preservam autorização e
+evidência. Usar os domínios informados (`alvitra.app` e `alvitraapp.com`, DNS Wix) não cria
+tela, cadastro ou integração de produto. A comprovação depende dos testes abaixo e, separadamente,
+de DNS, TLS e jornada persistente no destino. Nenhuma aprovação de piloto deriva da assinatura.
 
 ## 4. Escopo
 
@@ -108,6 +118,23 @@ integral de recuperação não substitui a validação do worker em processos di
 ### RQ-6906 — Validação sem contratação
 
 Executar ensaio sintético em processos separados com banco dedicado, originais privados, documento de 300 páginas, consultas enquanto há trabalho pendente, retomada após interrupção e acesso negado entre condomínios. Simular dez identidades autorizadas, medir tempos sem apresentar resultado simulado como benchmark de IA ou capacidade do Render. O ensaio não chama APIs pagas.
+
+### RQ-6907 — Encerramento da API na hospedagem
+
+O entrypoint compilado trata SIGTERM/SIGINT chamando o fechamento do Fastify uma única vez,
+para aguardar trabalho ativo e executar os hooks de timers/pools. Sinais repetidos durante a
+espera não iniciam outro fechamento. Falha é comunicada por código fixo sem erro ou segredo,
+com saída não bem-sucedida. A janela do host não garante conclusão antes de término forçado.
+
+### RQ-6908 — Domínio principal e aliases explícitos
+
+Preparar origem HTTPS principal `alvitra.app` e aliases explícitos `www.alvitra.app`,
+`alvitraapp.com` e `www.alvitraapp.com`. A configuração é opcional e só entra no ambiente
+após DNS/TLS verificados. Um alias reconhecido recebe 308 para a origem fixa, mantendo caminho
+e query; Host/Forwarded/URL do pedido nunca determinam o destino externo. O principal não
+redireciona para si. `/health` permanece acessível sem redirecionamento. Origem ou aliases
+inválidos impedem a inicialização antes da conexão ao banco. Não substituir registros de e-mail.
+DNS não é redirecionamento HTTP; o domínio alternativo também precisa de certificado próprio.
 
 ## 8. Contratos
 

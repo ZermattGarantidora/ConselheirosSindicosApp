@@ -1,3 +1,5 @@
 import { startServer } from "./server.js";
+import { registerServerShutdown } from "./server-shutdown.js";
 
-await startServer();
+const app = await startServer();
+registerServerShutdown(() => app.close());

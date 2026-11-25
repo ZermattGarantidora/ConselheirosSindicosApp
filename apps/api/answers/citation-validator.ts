@@ -23,6 +23,7 @@ export const answerValidationCodes = [
   "specialist_reason_contradiction",
   "answer_schema_invalid",
   "answer_body_protocol_json",
+  "answer_body_internal_reference",
   "mode_incompatible",
   "citation_not_authorized",
   "citation_metadata_mismatch",

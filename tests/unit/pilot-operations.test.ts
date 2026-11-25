@@ -151,6 +151,15 @@ async function localBackup() {
 }
 
 describe("Spec 070 — preparação sem ativação", () => {
+  it("AC-6908: transição reutiliza o web pago, sua região e sua janela de encerramento", async () => {
+    const demo = await readFile(new URL("../../render.yaml", import.meta.url), "utf8");
+    const worker = blueprint.slice(blueprint.indexOf("  - type: worker"));
+    const [currentWeb] = parsePilotBlueprint(demo + worker);
+    const [persistentWeb] = parsePilotBlueprint(blueprint);
+    expect(currentWeb!.properties).toEqual(persistentWeb!.properties);
+    expect(currentWeb!.environment.DEMO_MODE).toEqual({ value: "true" });
+    expect(persistentWeb!.environment.DEMO_MODE).toEqual({ value: "false" });
+  });
   it("AC-7001: exemplos são revisáveis e mantêm decisões/ativação pendentes sem ler ambiente", () => {
     const result = inspectPilotPreparation(blueprint, decisions);
     expect(result).toMatchObject({
@@ -182,7 +191,7 @@ describe("Spec 070 — preparação sem ativação", () => {
       'DOCUMENT_WORKER_IN_API\n        value: "true"'
     ],
     ["autoDeployTrigger: off", "autoDeployTrigger: commit"],
-    ["region: virginia", "region: unknown"],
+    ["region: oregon", "region: unknown"],
     ["startCommand: node dist/api/app/main.js", "startCommand: pnpm run db:migrate:remote"],
     [
       "key: OPENAI_API_KEY\n        sync: false",
@@ -207,8 +216,9 @@ describe("Spec 070 — preparação sem ativação", () => {
     const web = blueprint.slice(0, start);
     const worker = blueprint.slice(start);
     for (const modified of [
-      worker.replace("region: virginia", "region: ohio"),
+      worker.replace("region: oregon", "region: ohio"),
       worker + "      - key: OPENAI_API_KEY\n        sync: false\n",
+      worker + "      - key: PUBLIC_APP_ORIGIN\n        value: https://alvitra.app\n",
       worker.replace(/ {6}- key: NODE_VERSION\r?\n {8}value: "24"\r?\n/u, ""),
       worker.replace("    envVars:", "    healthCheckPath: /health\n    envVars:")
     ])

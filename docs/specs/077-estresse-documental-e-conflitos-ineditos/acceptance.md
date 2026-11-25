@@ -1,0 +1,16 @@
+# Aceitação — Spec 077
+
+- **AC-7701:** sete PDFs, 350 páginas e 25.200 registros; 72 registros/página contra 50 na baseline, texto extraído completo e amostras renderizadas inspecionadas.
+- **AC-7702:** 40 casos novos com oracle/rubrica anteriores à inferência; conflitos reais, controles sem conflito, ausências, ataque e canário; valores/IDs antigos não substituem o novo corpus.
+- **AC-7703:** entrada do gateway contém somente pergunta/contexto permitido e evidências recuperadas; fonte do oracle não é injetada e corpus inteiro não é enviado.
+- **AC-7704:** dois braços sobre snapshot/corpus idênticos, mesma política de reparo, memória desligada e ordem alternada; checkpoints e recibos impedem reenvio de conclusão/envio incerto.
+- **AC-7705:** auditoria por hash distingue factual/completude, recuperação, segurança, validação e apresentação; conflito genérico incompleto é reprovado e avaliação humana não é fabricada.
+- **AC-7706:** custo de toda tentativa no numerador, usage desconhecido explícito, pares completos iguais e média/mediana/P95; tarifa histórica identificada e sem nova inferência OCR.
+- **AC-7707:** testes determinísticos do corpus/oracle/protocolo e gates de código/cobertura/alinhamento/scanner passam; comando único registrado em package.json/README/AGENTS e relatório com falhas preservadas.
+- **AC-7708:** classificação inicial comum não recusa `conflict` sustentado por mesmo registro, campo comparável divergente, pendência e dois trechos elegíveis; corpo mostra todos os lados e citações verificáveis. A política do modelo não muda.
+- **AC-7709:** outro ID/prefixo, tenant, referência tangencial, valor igual, fonte duplicada/ausente/pendente/hostil, bruto/líquido, conversão equivalente, exceção ou vigência futura resolvida não fabricam conflito. Omissão de valor/fonte, trecho adulterado e conciliação/vencedor inventados são recusados; risco e conflitos antigos preservados.
+- **AC-7710:** replay das saídas antigas conserva prova por hash sem nova inferência; nova comparação mantém os mesmos 40 casos, PDFs, oracle e budgets, informa falhas/reparos/consumo e separa revisão técnica de avaliação humana.
+- **AC-7711:** etapas e marcos monotônicos são coletados sem conteúdo; etapa indisponível é null, evento completo não é TTFT; erro síncrono/assíncrono do observador não muda sucesso, falha, timeout ou limpeza.
+- **AC-7712:** mesmo conjunto de fontes/estados produz schema compacto estável independentemente dos IDs privados; tradução é local à chamada, reversível, não altera textos e preserva restrições de minuta. Referências inventadas/fora do mapa e mistura de tenant são recusadas; não existe cache documental compartilhado.
+- **AC-7713:** os mesmos 40 pares são auditados contra a rodada corrigida: somente 40/40 completos em cada braço sem regressão de evidência/segurança permite aceitar o candidato. Manifest fixa layout; etapas, cache, custos e tempos são publicados e a baseline não é sobrescrita.
+- **AC-7714:** alias interno que não é literal das entradas não chega ao corpo entregue; recusa usa o reparo existente, sem apagar texto. Journal reconhece “não comprova aprovação” em claim interpretativa persistida, preservando seus demais guardas e recusando aprovação/dispensa de aprovação. Rodada reprovada r3 é preservada; correções recebem testes e outra medição congelada.

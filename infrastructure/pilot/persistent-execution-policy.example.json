@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "approvalReference": null,
+  "dataPolicyRevision": null,
+  "expiresAt": null,
+  "currency": null,
+  "allowedUserIds": [],
+  "provider": null,
+  "answerModel": null,
+  "maximumCostMicrounits": {
+    "setup": null,
+    "question": null,
+    "upload": null
+  }
+}

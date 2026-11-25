@@ -1,4 +1,5 @@
 import { execFile, type ChildProcess } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CodexProcessError,
@@ -10,6 +11,84 @@ vi.mock("node:child_process", () => ({ execFile: vi.fn() }));
 
 describe("processo Codex sem shell ou credenciais de API", () => {
   beforeEach(() => vi.resetAllMocks());
+
+  it("AC7711: mede eventos fragmentados sem conteúdo, sem confundir evento com token", async () => {
+    const timings: unknown[] = [];
+    vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+      const callback = args[3] as (error: null, stdout: string) => void;
+      const child = new EventEmitter(),
+        stdout = new EventEmitter();
+      queueMicrotask(() => {
+        child.emit("spawn");
+        stdout.emit("data", Buffer.from('aviso privado\n{"type":"turn.st'));
+        stdout.emit(
+          "data",
+          Buffer.from(
+            'arted"}\n{"type":"item.completed","item":{"type":"agent_message","text":"CANARIO_PRIVADO"}}\n'
+          )
+        );
+        callback(null, "output sintético");
+      });
+      return Object.assign(child, {
+        stdout,
+        stdin: { on: vi.fn(), end: vi.fn() }
+      }) as unknown as ChildProcess;
+    });
+    await runCodexProcess({
+      executable: "synthetic",
+      args: [],
+      input: "privado",
+      cwd: ".",
+      timeoutMs: 1000,
+      onTimings: (t) => {
+        timings.push(t);
+      }
+    });
+    const timing = timings[0] as {
+      spawnMs: number;
+      firstByteMs: number;
+      turnStartedMs: number;
+      firstAnswerEventMs: number;
+      totalMs: number;
+    };
+    expect(timing.spawnMs).toBeGreaterThanOrEqual(0);
+    expect(timing.firstByteMs).toBeGreaterThanOrEqual(timing.spawnMs);
+    expect(timing.turnStartedMs).toBeGreaterThanOrEqual(timing.firstByteMs);
+    expect(timing.firstAnswerEventMs).toBeGreaterThanOrEqual(timing.turnStartedMs);
+    expect(timing.totalMs).toBeGreaterThanOrEqual(timing.firstAnswerEventMs);
+    expect(JSON.stringify(timings)).not.toMatch(/CANARIO|privado|text|token/iu);
+  });
+  it.each([false, true])(
+    "AC7711: marcos ausentes sao null e observador nao interfere (async=%s)",
+    async (asyncObserver) => {
+      vi.mocked(execFile).mockImplementation((...args: unknown[]) => {
+        const callback = args[3] as (error: null, stdout: string) => void;
+        queueMicrotask(() => callback(null, "saida"));
+        return { stdin: { on: vi.fn(), end: vi.fn() } } as unknown as ChildProcess;
+      });
+      const observer = vi.fn((t) => {
+        expect(t).toMatchObject({
+          spawnMs: null,
+          firstByteMs: null,
+          turnStartedMs: null,
+          firstAnswerEventMs: null
+        });
+        if (asyncObserver) return Promise.reject(new Error("privado"));
+        throw new Error("privado");
+      });
+      await expect(
+        runCodexProcess({
+          executable: "synthetic",
+          args: [],
+          input: "",
+          cwd: ".",
+          timeoutMs: 100,
+          onTimings: observer
+        })
+      ).resolves.toBe("saida");
+      expect(observer).toHaveBeenCalledOnce();
+    }
+  );
 
   it("encaminha somente ambiente necessário ao CLI", () => {
     expect(

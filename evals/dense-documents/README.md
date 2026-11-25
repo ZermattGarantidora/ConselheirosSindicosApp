@@ -76,3 +76,41 @@ concluídos. Cada tentativa registra o envio antes da chamada e salva os eventos
 Uma retomada reutiliza apenas resultado íntegro da mesma entrada/modelo/manifest; marcador
 sem resultado ou falha sem usage impedem reenvio automático e mantêm consumo desconhecido.
 Rodadas interrompidas são diagnósticos separados, com custo conhecido e incertezas explícitas.
+
+## Estresse e conflitos inéditos — Spec 077
+
+```powershell
+pnpm run evals:dense-stress
+pnpm run evals:dense-stress --prepare --run-key=<id-novo> --python=<python-local-com-reportlab>
+pnpm run evals:dense-stress --preflight --run-key=<mesmo-id>
+pnpm run evals:dense-stress --execute --run-key=<mesmo-id>
+```
+
+Sete PDFs nativos, 350 páginas e 25.200 registros distratores (72 por página), com notas-alvo
+adicionais. Quarenta casos novos: 16 conflitos, 12 controles de diferenças de escopo/unidade,
+seis de precisão, quatro ausências e dois de segurança. A categoria de ausência inclui
+acusação indevida e pedido de envio externo, sem executar qualquer ação. Oracle e rubrica
+precedem a inferência e não entram no gateway. Não há novo OCR ou mudança de produção.
+
+ReportLab gera os originais; pypdf e o leitor da aplicação conferem todas as páginas.
+Poppler gera contatos e ampliações para inspeção, e a compilação de consulta conserva
+identidade/paginação dos originais. A densidade é relatada por registros e caracteres,
+sem confundir quantidade de páginas com dificuldade semântica.
+
+O caminho real de ingestão/HTTP e os utilitários de snapshot, marcadores e recibos da 076
+são reutilizados. Falhas de recuperação, compreensão e validação são separadas na auditoria;
+uma resposta correta do modelo descartada pela aplicação continua falha de entrega.
+Reparos e falhas entram no custo/tempo e consumo incerto não vale zero. Revisão técnica
+por IA não preenche os campos reservados ao especialista humano. Nenhum resultado é
+refeito para melhorar nota e as rodadas anteriores permanecem preservadas.
+
+Continuação de cache/instrumentação: `CODEX_ANSWER_REFERENCE_FORMAT=compact-v1` habilita
+o candidato local; `original` conserva o layout anterior e é o padrão até o gate. O manifest
+fixa essa opção e impede retomada com layout diferente. O candidato mantém as mesmas fontes,
+schema por bijeção, personalidade, modelos e budgets. Cwd genérico vazio não armazena dados;
+o schema continua privado por geração e a sessão efêmera. Não há cache local de respostas.
+`stageTimings` distingue etapas do caso de uso; `telemetry.performance` separa preparação,
+processo, parsing e limpeza e os recibos guardam marcos do subprocesso. Primeiro evento
+completo de resposta não é TTFT; dados ausentes são null. Usage prova reuse real de tokens.
+Só aceitar 40/40 completos por braço, sem regressão de segurança/citações/abstenção/risco;
+relatar tentativas, ressalvas e revisão humana pendente sem sobrescrever a baseline corrigida.

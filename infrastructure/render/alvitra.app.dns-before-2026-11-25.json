@@ -1,0 +1,16 @@
+{
+  "domain": "alvitra.app",
+  "observedAt": "2026-11-25",
+  "source": "Wix - Gerenciar registros DNS",
+  "dataClassification": "public-dns-configuration",
+  "a": [
+    { "name": "alvitra.app", "value": "185.230.63.171", "ttlSeconds": 3600 },
+    { "name": "alvitra.app", "value": "185.230.63.186", "ttlSeconds": 3600 },
+    { "name": "alvitra.app", "value": "185.230.63.107", "ttlSeconds": 3600 }
+  ],
+  "cname": [{ "name": "www.alvitra.app", "value": "cdn3.wixdns.net", "ttlSeconds": 3600 }],
+  "nameservers": ["ns4.wixdns.net", "ns5.wixdns.net"],
+  "txt": [],
+  "mx": [],
+  "rollback": "Recriar os três A e restaurar o CNAME www com estes valores, somente se a reversão for necessária; preservar os demais registros e nameservers."
+}

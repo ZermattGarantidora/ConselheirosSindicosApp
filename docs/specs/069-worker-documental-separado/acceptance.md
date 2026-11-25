@@ -40,3 +40,24 @@ Blueprint do piloto tem web/worker separados, sem worker incorporado na API, sem
 O complemento da Spec 070 verifica Node 24 e janela de encerramento de 300 segundos, flags de
 demo/IA não autorizadas desligadas e ausência de chave de conversa no worker. Validar sintaxe
 local não substitui validação do fornecedor nem comprova conclusão antes de SIGKILL.
+
+Em 25/11, o web do Blueprint persistente reutiliza `alvitra-demo-sintetica` em Oregon e
+ambos os serviços mantêm Node 24, `1c-2g`, auto-deploy desligado e a mesma revisão revisada.
+`render.yaml` espelha o plano já contratado, mas mantém a demonstração até a troca validada.
+Não criar automaticamente outro web, worker pago ou alterar o banco em integração.
+
+## AC-6909 — Fechamento da API em atualização (P0)
+
+SIGTERM e SIGINT iniciam o fechamento uma vez; com fechamento pendente, sinais repetidos
+não o duplicam e os hooks continuam aguardados. Ao concluir, os listeners são removidos.
+Falha chama diagnóstico sem expor a mensagem original e define saída de erro no entrypoint.
+O teste usa sinais simulados, sem terminar o processo de testes.
+
+## AC-6910 — Domínio canônico sem redirecionamento aberto (P0)
+
+Sem configuração, o atendimento mantém o comportamento atual. Com origem HTTPS e aliases
+válidos, GET/POST no alias retornam 308 para o principal, conservando caminho e query.
+Host principal, host desconhecido e `/health` não redirecionam. `X-Forwarded-Host` não muda
+o destino. URL iniciada em `//`, barras invertidas e caminho absoluto não podem produzir
+Location externo. Origem com usuário/senha/path/query, protocolo inseguro, aliases com URL,
+wildcard, duplicados ou iguais ao principal são recusados antes de iniciar o servidor.

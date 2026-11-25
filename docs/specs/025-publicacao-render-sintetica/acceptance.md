@@ -1,5 +1,9 @@
 # Critérios de aceitação — Spec 025
 
+Complemento de 25/11/2026: `render.yaml` espelha web existente em Oregon, plano `1c-2g`,
+Node 24, auto-deploy `off` e janela de encerramento de 300 segundos. Mantém `DEMO_MODE=true`
+até validação da transição persistente; o plano pago não é evidência de persistência.
+
 ## AC-2505 — API compilada e PDF sob demanda
 
 Depois de `build:api`, o servidor inicia com Node sem tsx. O ensaio `test:production` envia dois

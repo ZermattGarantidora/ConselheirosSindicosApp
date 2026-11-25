@@ -1,4 +1,64 @@
-# Matriz de rastreabilidade — Specs 001–076
+# Matriz de rastreabilidade — Specs 001–078
+
+### Runtime persistente autorizado — Spec 078
+
+| Requisito | Aceitação | Implementação e prova |
+|---|---|---|
+| RQ-7801 | AC-7801/7802 | `security/persistent-execution.ts`: manifesto estrito, hash canônico, contas, expiração, modelo e referências de revisão; `persistent-execution.test.ts`. |
+| RQ-7802 | AC-7803/7804/7805 | Composição de `createApiOperationControl` com store PostgreSQL, consulta da política corrente e guardas da Spec 072; testes de revogação, replay, duplicação e resultado incerto. Migration 044 preparada, sem aplicação remota presumida. |
+| RQ-7803 | AC-7806/7807 | `persistent-database.ts`, preflight somente leitura e `server.ts`; `persistent-startup.test.ts` verifica fechamento dos pools, ausência de listener e de fallback. TLS remoto verifica certificado. |
+| RQ-7804 | AC-7808/7809 | Stores PostgreSQL preservados e guardas documentais mantidas; comando `test:persistent-runtime` com relatórios exclusivos. Runbook `persistent-runtime-2026-11-25.md`; provas remotas e aprovação registradas separadamente. |
+
+### Render contratado e domínios — 25/11/2026
+
+| Requisito | Aceitação | Implementação e prova |
+|---|---|---|
+| RQ-2503 / RQ-6905 / RQ-7001 | AC-6908 / AC-7001 | `render.yaml`, `render.pilot.yaml`, `pilot-preparation.ts`: espelham web pago `1c-2g`, Oregon, Node 24, publicação manual, encerramento de 300 s e perfil persistente sem segundo web. `pilot-operations.test.ts` confere nomes/planos/região idênticos e mantém guardas negativas. |
+| RQ-6907 | AC-6909 | `main.ts` e `server-shutdown.ts`: SIGTERM/SIGINT fecham Fastify uma vez e aguardam hooks; falha usa código fixo. `server-shutdown.test.ts` cobre sinais repetidos, espera, limpeza e falhas síncronas/assíncronas. |
+| RQ-6908 | AC-6910 | `canonical-origin.ts` e `server.ts`: origem HTTPS fixa, aliases explícitos, 308, caminho/query e health preservados; configuração inválida falha antes do banco. `canonical-origin.test.ts` e `server.test.ts` cobrem Host/Forwarded, request-targets hostis, validação e atendimento real das rotas. |
+
+`pnpm run test:render` tem cache/cobertura próprios e `envDir:false`; 118 testes aprovados,
+cobertura 100/99,41/100/100 (statements/branches/functions/lines). Operações: 144 testes
+aprovados em execução separada. Builds isolados e limites de execução estão em
+`docs/reviews/2026-11-25-render-paid.md`. Não substitui check global, review independente,
+CI, jornada persistente, integração Supabase ou DNS/TLS. Painel: auto-deploy desligado e
+`alvitra.app`/`www` com DNS Wix aplicado, Google DNS conferido e domínio `Verified` no Render;
+última emissão TLS com `Certificate Error`, página efetiva pendente. Sem worker novo ou deploy.
+
+### Estresse documental e conflitos inéditos — 24/11/2026
+
+| Requisito | Aceitação | Implementação e prova |
+|---|---|---|
+| RQ-7701/7702 | AC-7701/7702 | `stress-fixture.ts`, `stress-pdf.py` e `dense-stress.test.ts`: 350 páginas, 25.200 registros, 40 casos novos, conflitos reais/aparentes, ausência e segurança. |
+| RQ-7703 | AC-7703/7704 | `stress-run.ts` reutiliza ingestão/HTTP, snapshots, marcadores e recibos duráveis; oracle não entra no gateway. |
+| RQ-7704/7705 | AC-7705/7706/7707 | Auditoria por hash, métricas pareadas, preservação de falhas e formulário humano pendente; resultados e gates registrados na Spec 077. |
+| RQ-7706 | AC-7708/7709/7710 | `documented-conflict.ts`, contrato interno e caso de uso: registro/campo/pendência, valores e citações por posição, sem reclassificar tarefa/modelo; testes `documented-conflict.test.ts` e regressão HTTP/replay em `documented-conflict.e2e.test.ts`. Baseline e mesmos 40 casos preservados. |
+| RQ-7707 | AC-7711 | `answer-performance.ts`, processo/gateway Codex, caso de uso e replay: relógio monotônico, etapas/marcos sem conteúdo, observador protegido e recibos duráveis. `answer-performance.test.ts`, `codex-process.test.ts`, `dense-durability.test.ts` e HTTP. |
+| RQ-7708/7709 | AC-7712/7713 | `codex-reference-layout.ts`: bijeção por chamada, schema equivalente e cwd genérico vazio, com schema privado por geração; opt-in fixado no manifest. `codex-cache-layout.test.ts`, `codex-cache-context.test.ts`, `local-test-documents.test.ts` e `codex-cache-layout.e2e.test.ts`; repetição dos mesmos 40 pares condicionada a zero regressão de qualidade. |
+| RQ-7708/7709 | AC-7714 | Decoder recusa referência interna no corpo e usa reparo; `question-document-citations.ts` reconhece negativa de comprovação de aprovação sem remover guardas. Testes de codec, HTTP e `question-document-citations.test.ts`; replay r3 403 → corretiva 200 sem inferência; r3 preservada como reprovada. |
+
+Rodada `2026-11-24-stress-r1`: 80 respostas auditadas, 100 recibos completos e zero consumo
+desconhecido. Sol 34/40 e híbrido 36/40 factuais/completos, com seis/quatro falhas de entrega
+na validação. Fontes exigidas recuperadas nos 40 casos de cada braço. Software: 2.903 unitários,
+273 E2E, cobertura 85,46/81,89/90,84/87,32 e alinhamento de 77 specs aprovados.
+[Resultados e limites](../specs/077-estresse-documental-e-conflitos-ineditos/results.md),
+[revisão do delta](../reviews/2026-11-24-dense-stress.md); revisão humana/independente pendente.
+
+Continuação `2026-11-24-stress-conflicts-r2`, RQ-7706: mesma matriz, PDFs, oracle, modelos
+iniciais e fontes recuperadas; replay das 80 primeiras saídas antigas sem inferência passa.
+Nova rodada: **40/40 completos por braço**, 80 recibos e zero reparos/consumo desconhecido;
+equivalência USD 1,3186968 Sol e 0,9493181 híbrido (28,01% menor), médias 15,671/15,604 s.
+2.946 unitários, 274 E2E, cobertura 85,56/81,98/91,01/87,40, alinhamento das 77 specs
+e scanner integral aprovados.
+[Resultado da correção](../specs/077-estresse-documental-e-conflitos-ineditos/results-conflicts-r2.md)
+e [revisão do delta](../reviews/2026-11-24-novel-conflicts.md); revisão humana/independente pendente.
+
+Instrumentação/cache: r3 reprovada e preservada; r4 com 40/40 por braço na revisão técnica
+por IA, automático 40/40 e 38/40 preservado, desacordos justificados. 83 recibos conhecidos,
+médias 13,115/13,628 s e equivalência USD 1,0877432/0,84342878. Cache 28,23%/25,17%; P95
+híbrido piorou a 25,107 s por reparos e o candidato permanece opt-in. 2.979 unitários, 275 E2E,
+cobertura 85,67/81,99/91,10/87,50 aprovados. [Resultados](../specs/077-estresse-documental-e-conflitos-ineditos/results-cache-r4.md)
+e [revisão](../reviews/2026-11-24-latency-cache.md); humana/independente pendentes.
 
 ### Recuperação e conferência integral — 23–24/11/2026
 

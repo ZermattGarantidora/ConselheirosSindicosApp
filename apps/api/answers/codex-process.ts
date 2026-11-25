@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { monotonicNow, safelyObserve, type CodexProcessTimings } from "./answer-performance.js";
 
 export type CodexProcessRequest = Readonly<{
   executable: string;
@@ -7,6 +8,7 @@ export type CodexProcessRequest = Readonly<{
   cwd: string;
   timeoutMs: number;
   signal?: AbortSignal;
+  onTimings?: (timings: CodexProcessTimings) => void | Promise<void>;
 }>;
 
 export type CodexProcessErrorCode =
@@ -42,6 +44,21 @@ export function codexProcessEnvironment(environment: NodeJS.ProcessEnv): NodeJS.
 
 export function runCodexProcess(request: CodexProcessRequest): Promise<string> {
   return new Promise((resolve, reject) => {
+    const started = monotonicNow();
+    const elapsed = () => Math.max(0, monotonicNow() - started);
+    let spawnMs: number | null = null;
+    let firstByteMs: number | null = null;
+    let turnStartedMs: number | null = null;
+    let firstAnswerEventMs: number | null = null;
+    let partial = "";
+    const report = () =>
+      safelyObserve(request.onTimings, {
+        spawnMs,
+        firstByteMs,
+        turnStartedMs,
+        firstAnswerEventMs,
+        totalMs: elapsed()
+      });
     let stdinFailed = false;
     try {
       const child = execFile(
@@ -59,12 +76,37 @@ export function runCodexProcess(request: CodexProcessRequest): Promise<string> {
           ...(request.signal ? { signal: request.signal } : {})
         },
         (error, stdout) => {
+          report();
           // Dar precedência ao erro nativo (ex.: timeout que também fecha stdin com EPIPE).
           if (error !== null) reject(new CodexProcessError(processErrorCode(error)));
           else if (stdinFailed) reject(new CodexProcessError("codex_stdin_failed"));
           else resolve(stdout);
         }
       );
+      child.on?.("spawn", () => {
+        spawnMs ??= elapsed();
+      });
+      child.stdout?.on("data", (chunk: string | Buffer) => {
+        firstByteMs ??= elapsed();
+        partial += chunk.toString();
+        // O mesmo teto do processo limita a memória da instrumentação.
+        if (partial.length > 2 * 1024 * 1024) {
+          partial = "";
+          return;
+        }
+        const lines = partial.split(/\r?\n/u);
+        partial = lines.pop() ?? "";
+        for (const line of lines) {
+          try {
+            const event = JSON.parse(line) as { type?: string; item?: { type?: string } };
+            if (event?.type === "turn.started") turnStartedMs ??= elapsed();
+            if (event?.type === "item.completed" && event.item?.type === "agent_message")
+              firstAnswerEventMs ??= elapsed();
+          } catch {
+            /* O parser principal continua responsável pela validade. */
+          }
+        }
+      });
       // Esperar o encerramento permite limpar o temporário depois que o processo terminou.
       child.stdin?.on("error", () => {
         stdinFailed = true;
@@ -76,6 +118,7 @@ export function runCodexProcess(request: CodexProcessRequest): Promise<string> {
         stdinFailed = true;
       }
     } catch {
+      report();
       reject(new CodexProcessError("codex_process_start_failed"));
     }
   });

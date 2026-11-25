@@ -1,9 +1,12 @@
 # Operação do worker documental separado — Spec 069
 
-Preparação local autorizada em 05/11/2026. Este documento e `render.pilot.yaml` não contratam,
-publicam nem autorizam dados reais. A região Virgínia é uma proposta editável, sujeita à aprovação
-de localização e tratamento dos dados antes de importar o Blueprint. O arquivo `render.yaml`
-continua exclusivo da demonstração sintética em RAM.
+Preparação local autorizada em 05/11/2026 e adaptação ao Render contratado autorizada em
+25/11/2026. O painel confirmou o web `alvitra-demo-sintetica`, plano `1c-2g`, Oregon, sem
+worker. `render.pilot.yaml` reutiliza esse web e prepara somente o worker adicional na mesma
+região; confirmar seu custo e concluir Supabase/composição persistente antes de importar.
+O arquivo `render.yaml` continua exclusivo da demonstração sintética em RAM, espelhando o
+plano contratado. Contratação não autoriza dados reais ou ativa OCR/IA hospedados.
+Estado, DNS Wix e dependências: [Render pago e domínios](render-paid-2026-11-25.md).
 
 ## Executar sem contratar
 
@@ -84,7 +87,7 @@ de desenvolvimento e o banco sintético, sem comprovar capacidade no Render ou q
 2. Provisionar banco de piloto distinto do sintético. Conferir versão/schema, fazer backup e
    aplicar migrations com `pnpm run db:migrate:remote` usando credencial de operador. O comando
    de integração e seu marcador não são migrations de piloto e nunca apontam para esse banco.
-3. Revisar e importar `render.pilot.yaml` somente quando a contratação for decidida. O arquivo
+3. Revisar e importar `render.pilot.yaml` somente após liberar a transição e o custo do worker. O arquivo
    prepara dois serviços pagos e desliga deploy automático. Fixar ambos na mesma revisão revisada.
 4. Configurar credenciais de API e worker e segredos estáveis de conta nos respectivos serviços.
    Somente a API precisa da chave de conversa. Validar workers com PDFs textuais sintéticos;

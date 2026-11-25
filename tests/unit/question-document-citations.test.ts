@@ -37,6 +37,32 @@ function fixture() {
   return { document, saved, response };
 }
 describe("Spec 076 — recibo de comparação pendente", () => {
+  it.each([
+    ["O registro não comprova aprovação da proposta.", true],
+    ["A ata não demonstra a aprovação da proposta.", true],
+    ["O documento não confirma aprovação.", true],
+    ["A aprovação foi comprovada pelo pagamento.", false],
+    ["Não é necessário comprovar aprovação.", false]
+  ])(
+    "AC7714: interpreta negativa de aprovacao sem promover vigencia: %s",
+    (statement, expected) => {
+      const { document, saved, response } = fixture();
+      const qualified = { ...saved, claims: saved.claims.map((c) => ({ ...c, statement })) };
+      expect(
+        canJournalCiteDocument(document, "question_answer", managerContext, response, qualified)
+      ).toBe(expected);
+      expect(document.validityStatus).toBe("pending");
+      expect(
+        canJournalCiteDocument(
+          { ...document, condominiumId: bosque },
+          "question_answer",
+          managerContext,
+          response,
+          qualified
+        )
+      ).toBe(false);
+    }
+  );
   it("AC7609: documento pronto não vira vigente por permitir interpretação persistida", () => {
     const { document, saved, response } = fixture();
     expect(

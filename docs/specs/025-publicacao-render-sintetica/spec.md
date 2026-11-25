@@ -2,7 +2,7 @@
 
 **Status:** demonstração publicada; conversa externa autorizada para teste sintético
 **Responsável:** engenharia
-**Atualizado em:** 2026-10-20
+**Atualizado em:** 2026-11-25
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -59,9 +59,15 @@ Disponibilizar uma URL HTTPS para testar remotamente a conversa sintética da Al
 
 ## 3. Escopo
 
-- Web Service gratuito no Render configurado por `render.yaml`.
+- Web Service no Render configurado por `render.yaml`; originalmente gratuito, atualizado
+  para o plano já contratado `1c-2g` em 25/11/2026, conforme conferência no painel.
 - API e build web entregues pela mesma origem, com endpoint de saúde.
 - Demonstração sem banco ou persistência no servidor; Gemini opcional, somente com autorização operacional registrada e segredo no Render.
+
+A adequação de 25/11 fixa Node 24, Oregon, publicação manual e encerramento de até 300 segundos,
+sem alterar a condição de demonstração. Briefing §§6, 8, 10 e 12 autorizam continuidade e
+configuração reproduzível. Contratação anterior foi informada pelo usuário; nenhum novo plano
+é contratado pela alteração do arquivo. A passagem para persistência segue as Specs 040/058/069.
 
 ## 4. Fora do escopo
 

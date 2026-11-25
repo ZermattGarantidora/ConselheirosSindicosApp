@@ -6,6 +6,28 @@ import {
 } from "../fixtures/synthetic-access.js";
 
 describe("servidor local", () => {
+  it("AC-6910: aplica domínio antes das rotas e recusa configuração inválida antes do banco", async () => {
+    await expect(
+      startServer(0, {
+        PUBLIC_APP_ORIGIN: "http://alvitra.app",
+        DATABASE_URL: "postgresql://synthetic:synthetic@127.0.0.1:1/unused"
+      })
+    ).rejects.toThrow("Configuração de domínio público inválida.");
+    const app = await startServer(0, {
+      DEMO_MODE: "true",
+      PUBLIC_APP_ORIGIN: "https://alvitra.app",
+      PUBLIC_APP_ALIASES: "alvitraapp.com"
+    });
+    try {
+      const alias = await app.inject({ url: "/", headers: { host: "alvitraapp.com" } });
+      expect(alias.statusCode).toBe(308);
+      expect(alias.headers.location).toBe("https://alvitra.app/");
+      const health = await app.inject({ url: "/health", headers: { host: "alvitraapp.com" } });
+      expect(health.statusCode).toBe(200);
+    } finally {
+      await app.close();
+    }
+  });
   it("inicia a demonstração somente quando ela é pedida explicitamente", async () => {
     const app = await startServer(0, { DEMO_MODE: "true" });
 

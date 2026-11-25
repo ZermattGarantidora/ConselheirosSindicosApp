@@ -1,5 +1,13 @@
 # ADR 0041 — Worker documental contínuo e separado da API
 
+> Atualização de 25/11/2026: o usuário informou o Render contratado e autorizou a adaptação.
+> O painel confirmou somente o web `alvitra-demo-sintetica`, `1c-2g`, Oregon. O Blueprint
+> persistente passa a reutilizá-lo, preparando o worker adicional sem duplicar o web.
+> O custo do worker, a integração Supabase e a liberação do runtime permanecem pendentes.
+> O entrypoint da API recebe encerramento por SIGTERM/SIGINT e os domínios informados no Wix
+> usam origem HTTPS fixa/aliases explícitos. Não altera prompt, provedor, banco ou política
+> de dados. Spec 069, AC-6908–6910; preparação testada por `test:render`.
+
 **Status:** aceito para preparação e validação sintética local; publicação não autorizada  
 **Data:** 2026-11-05
 

@@ -1,5 +1,6 @@
 import { createApi } from "../../apps/api/app/create-api.js";
 import { createAnswerUseCase } from "../../apps/api/answers/answer-use-case.js";
+import type { AnswerStageTiming } from "../../apps/api/answers/answer-performance.js";
 import { createInMemoryAnswerPersistence } from "../../apps/api/answers/in-memory-answer-persistence.js";
 import type { AnswerGateway } from "../../apps/api/answers/answer-gateway.js";
 import type { PublicAnswer } from "../../apps/api/answers/answer-contract.js";
@@ -25,6 +26,7 @@ export async function replayDenseCase(
   options: { repeatRequest?: boolean; beforeReplay?: () => void } = {}
 ) {
   const captures: GatewayCapture[] = [];
+  const stageTimings: AnswerStageTiming[] = [];
   const now = () => new Date("2026-11-03T12:00:00Z");
   const persistence = createInMemoryAnswerPersistence(undefined, now);
   const foreignText = "LAN-0059 | CANARIO_BOSQUE_7Q9 | outro condominio | R$999.999,99";
@@ -73,6 +75,9 @@ export async function replayDenseCase(
     retriever,
     documentSourceReader: reader,
     answerUseCase: createAnswerUseCase({
+      onStageTiming: (timing) => {
+        stageTimings.push(timing);
+      },
       now,
       persistence,
       retriever,
@@ -134,6 +139,7 @@ export async function replayDenseCase(
       statusCode: http.statusCode,
       replayStatusCode,
       latencyMs: Date.now() - started,
+      stageTimings,
       gatewayCalls: captures,
       validationFailures:
         saved?.invocations.flatMap((i) => (i.errorCode ? [i.errorCode] : [])) ?? [],

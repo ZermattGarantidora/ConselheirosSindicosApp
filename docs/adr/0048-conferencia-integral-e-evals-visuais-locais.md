@@ -43,3 +43,14 @@ da geração/reparo identifica as duas evidências reais, sem pressupor versões
 A cobertura exige ID, ambos os valores, pendência e citações. Essa prova satisfaz o tópico
 financeiro sem exigir uma palavra específica, sem remover outras coberturas ou validações.
 Não muda personalidade/system prompt, roteador de modelos, provedores, budgets ou quantidade de reparos.
+
+## Continuação após o estresse de 24/11/2026 — validação condicional
+
+A classificação da tarefa não esgota os modos documentais válidos. A Spec 077 permite
+`conflict` em tarefa documental/especializada quando o mesmo registro e campo apresentam
+valores distintos em fontes elegíveis, com pendência explícita e todos os lados citados.
+O contrato informa essa possibilidade antes da geração e no reparo; o servidor valida a
+prova depois das citações, sem reclassificar a tarefa/modelo nem aceitar conflitos genéricos.
+Precedência já resolvida e diferenças de escopo/unidade não viram divergência por contagem
+de fontes. A limitação do reconhecedor literal permanece explícita, com controles negativos,
+gates e repetição da matriz original. Sem schema, provedor ou dependência novos.
