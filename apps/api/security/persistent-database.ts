@@ -10,10 +10,10 @@ export function persistentDatabaseConfiguration(connectionString: string, certif
       throw new Error();
     const local = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
     const mode = url.searchParams.get("sslmode");
+    const keys = [...url.searchParams.keys()];
     if (
-      [...url.searchParams.keys()].some(
-        (key) => (/^ssl/iu.test(key) && key !== "sslmode") || key === "uselibpqcompat"
-      ) ||
+      keys.some((key) => !["sslmode", "application_name"].includes(key)) ||
+      new Set(keys).size !== keys.length ||
       (!local && !["require", "verify-full"].includes(mode ?? "")) ||
       (certificate !== undefined && !certificate.trim().startsWith("-----BEGIN CERTIFICATE-----"))
     )

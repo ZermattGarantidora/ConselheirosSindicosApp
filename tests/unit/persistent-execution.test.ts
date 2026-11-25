@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Pool } from "pg";
+import { Client, type Pool } from "pg";
 import type { ApiOperation } from "../../apps/api/app/operation-control.js";
 import {
   assertPersistentRuntimeReady,
@@ -271,6 +271,9 @@ describe("AC-7806 — conexões persistentes", () => {
     );
     expect(value.ssl).toEqual({ rejectUnauthorized: true });
     expect(value.connectionString).not.toContain("sslmode");
+    const client = new Client(value);
+    expect(client.host).toBe("synthetic.invalid");
+    expect(client.ssl).toEqual({ rejectUnauthorized: true });
   });
   it("CA explícita não enfraquece verificação", () => {
     const ca = "-----BEGIN CERTIFICATE-----\nSYNTHETIC\n-----END CERTIFICATE-----";
@@ -288,7 +291,12 @@ describe("AC-7806 — conexões persistentes", () => {
     "postgresql://synthetic.invalid/db",
     "postgresql://synthetic.invalid/db?sslmode=no-verify",
     "postgresql://synthetic.invalid/db?sslmode=require&sslrootcert=private-file",
-    "postgresql://synthetic.invalid/db?sslmode=require&uselibpqcompat=true"
+    "postgresql://synthetic.invalid/db?sslmode=require&uselibpqcompat=true",
+    "postgresql://localhost/db?host=synthetic.invalid&sslmode=disable",
+    "postgresql://localhost/db?%68ost=synthetic.invalid&sslmode=disable",
+    "postgresql://localhost/db?hostaddr=synthetic.invalid&sslmode=disable",
+    "postgresql://localhost/db?sslmode=disable&sslmode=require",
+    "postgresql://synthetic.invalid/db?sslmode=require&ssl=false"
   ])("recusa conexão insegura sem reproduzir URI", (value) => {
     expect(() => persistentDatabaseConfiguration(value)).toThrow(
       "A conexão persistente exige PostgreSQL e TLS remoto verificado."

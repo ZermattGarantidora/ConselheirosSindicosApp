@@ -12,7 +12,9 @@
 - **AC-7805 / RQ-7802:** a reserva mantém os contratos de conflito, incerteza e concorrência da
   Spec 072; não se recria ID de operação para contornar recibo pendente nem se apaga consumo.
 - **AC-7806 / RQ-7803:** URI inválida, TLS remoto ausente/inseguro e CA inválida são recusados;
-  CA válida mantém `rejectUnauthorized:true` nas conexões de API e sessão.
+  CA válida mantém `rejectUnauthorized:true` nas conexões de API e sessão. Overrides por
+  query string e parâmetros duplicados são recusados; parsing real do driver conserva o host
+  e a verificação TLS aprovados, sem abrir conexão.
 - **AC-7807 / RQ-7803:** preflight só lê; schema/função/RLS/papel incompatíveis impedem listener,
   fecham pools e não caem para demo. URLs e erros nativos não aparecem em mensagens.
 - **AC-7808 / RQ-7804:** perfil aprovado conserva stores PostgreSQL e não habilita OCR/fotos

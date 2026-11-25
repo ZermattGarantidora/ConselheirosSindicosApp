@@ -101,7 +101,9 @@ nega sem expor erro nativo. Revogar política impede replay e novas operações 
 ### RQ-7803 — Conexão e preflight
 
 Validar URI PostgreSQL e exigir TLS remoto com verificação de certificado; aceitar CA PEM
-opcional, sem `rejectUnauthorized:false`. Antes de abrir o perfil autorizado, conferir schema,
+opcional, sem `rejectUnauthorized:false`. Permitir somente os parâmetros de URI `sslmode` e
+`application_name`, sem duplicatas, impedindo que o driver substitua o host validado por um
+parâmetro de conexão. Antes de abrir o perfil autorizado, conferir schema,
 funções mínimas, RLS forçada nas tabelas essenciais, papel runtime sem privilégios elevados e
 capacidade de assumir esse papel. Não escrever, migrar ou corrigir permissões no preflight.
 Falha encerra pools e não abre listener nem retorna à demonstração.

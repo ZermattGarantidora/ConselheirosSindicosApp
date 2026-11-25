@@ -80,8 +80,8 @@ Não houve rollout de política, chamada cobrada, uso de cliente real ou libera�
 ## Fechamento da candidata local
 
 A composição final, incluindo preservação de Gemini, passou **3.087 unitários e 275 E2E**,
-com cobertura statements/branches/functions/lines **85,79/82,20/91,08/87,62%**. Fontes de
-produção não mudaram depois dessas execuções. Relatórios finais:
+com cobertura statements/branches/functions/lines **85,79/82,20/91,08/87,62%**. Essas execuções
+precedem a correção TLS documentada abaixo. Relatórios dessa candidata:
 `.local/persistent-runtime/final-unit-results.json`, `final-unit-junit.xml`,
 `final-global-coverage/coverage-summary.json`, `final-e2e-results.json` e `final-e2e-junit.xml`.
 Tipos/build API e lint repetidos após esse ajuste; formatação canônica e 78 specs aprovadas.
@@ -89,3 +89,17 @@ Tipos/build API e lint repetidos após esse ajuste; formatação canônica e 78 
 O usuário aprovou **R$100/dia** como teto global de IA para o piloto em 25/11/2026. Essa
 decisão não aprova dados reais, novo fornecedor ou os demais limites propostos da Spec 073.
 A ativação inicial permanece restrita à política sintética vigente e a uma conta de ensaio.
+
+## Revisão independente e correção TLS
+
+O usuário autorizou um segundo agente para revisar o diff completo do PR #22. O primeiro
+CI de `d3eb6f259c1feb41a174beafac89b5c139f14e60` passou, incluindo qualidade, evals,
+E2E e builds. A revisão independente encontrou um P1: o driver aceitava `?host=` sobre o
+host loopback validado, permitindo conexão remota sem TLS. O achado foi reproduzido sem rede.
+
+RQ-7803/AC-7806 passaram a exigir lista estrita de parâmetros (`sslmode`, `application_name`)
+sem duplicatas. A implementação recusa overrides de host, inclusive percent-encoded, e a
+regressão usa `Client` real do pg para conferir host e TLS efetivos sem abrir conexão.
+Após a correção: **64/64 focados**, cobertura **97,40/98,88/83,33/100%**, tipos, lint,
+formatação dos arquivos e gate das 78 specs aprovados. O novo commit requer seu próprio
+CI e revalidação independente; o sucesso do primeiro CI não é atribuído ao patch posterior.

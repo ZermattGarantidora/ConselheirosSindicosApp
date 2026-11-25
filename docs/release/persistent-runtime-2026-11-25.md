@@ -35,6 +35,8 @@ não são apagados ou convertidos. O valor contabilizado é o máximo conservado
 A configuração TLS da API e da conexão de sessão verifica certificado remoto, inclusive
 quando a URI usa `sslmode=require`. `DATABASE_SSL_CA` pode fornecer CA PEM. Nunca trocar
 por `no-verify` ou desabilitar `rejectUnauthorized` para contornar erro.
+Somente `sslmode` e `application_name` são aceitos na query string, sem duplicatas;
+overrides como `host`, `hostaddr`, `ssl` e parâmetros de arquivos TLS são recusados.
 
 Preflight do perfil autorizado confere schema/funções, RLS forçada e papéis antes do listener.
 Falha fecha os dois pools e não abre demo como fallback. A primeira fatia contempla PDFs
@@ -57,7 +59,7 @@ autorização e controle próprios da Spec 071, sem liberação por flags antiga
    aplicar a migration 044 e a configuração no destino autorizado. Conferir funções/grants.
    Uma moeda diferente de recibos existentes exige decisão de manutenção; não zerar recibos.
 5. Configurar `DATABASE_URL`, CA quando necessária, `ACCESS_CODE_SECRET`,
-   `AUTH_ACCOUNT_SECRET_KEY` e `OPENAI_API_KEY` exclusivamente no serviço/cofre autorizado.
+   `AUTH_ACCOUNT_SECRET_KEY` e a chave do provedor selecionado exclusivamente no serviço/cofre autorizado.
    `ALVITRA_PERSISTENT_EXECUTION_POLICY` recebe o JSON aprovado. Não imprimir valores.
 6. Publicar API e worker no mesmo SHA revisado, sem serviço ou assinatura adicional.
    O fato de o serviço estar contratado não aprova gasto de IA ou documentos reais.
