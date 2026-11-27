@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { IdentityQueryPool } from "./postgres-runtime-query.js";
 
 import { AccountAuthError, type AccountCredentials } from "./account-auth.js";
 import {
@@ -12,7 +12,7 @@ import {
 import type { SecretCipher } from "./account-security-crypto.js";
 import type { UserId } from "./authorized-condominium-context.js";
 
-type PoolLike = Pick<Pool, "query">;
+type PoolLike = IdentityQueryPool;
 
 type SecurityAccountRow = Readonly<{
   user_id: string;

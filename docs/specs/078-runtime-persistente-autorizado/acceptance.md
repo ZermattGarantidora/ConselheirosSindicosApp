@@ -25,3 +25,10 @@
 - **AC-7809 / RQ-7804:** documentação informa candidata, comandos/resultados, estado da política
   e limites; nenhuma prova mockada é apresentada como ensaio Supabase/restore ou liberação real.
   O Blueprint efetivo mantém `DEMO_MODE=false` após sincronização da transição autorizada.
+- **AC-7810 / RQ-7804 e RQ-6801/6802/6805:** login `NOINHERIT` sem acesso direto a `app`
+  executa as funções privadas de identidade somente após assumir `app_runtime` em transação.
+  Entrada por código, limite de tentativas e resolução/revogação de sessão usam essa composição;
+  autenticação/segurança de conta também recebem o executor restrito. Falhas de BEGIN, papel,
+  consulta ou COMMIT não confirmam resultado; rollback antecede release e sua falha descarta a
+  conexão. Duas operações concorrentes usam conexões/transações próprias. O CLI administrativo
+  permanece separado; nenhum grant, migration, credencial ou fallback em RAM é acrescentado.

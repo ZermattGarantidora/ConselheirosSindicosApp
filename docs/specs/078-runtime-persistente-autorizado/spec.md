@@ -122,6 +122,13 @@ Na transição autorizada do serviço existente, o Blueprint canônico `render.y
 `DEMO_MODE=false`; uma sincronização não pode reaplicar o modo demo sobre o manifesto persistente.
 Isso não habilita orçamento, provedor adicional, OCR ou dados reais.
 
+As consultas avulsas dos adaptadores de identidade (código/sessão, autenticação e segurança
+de conta) executam em uma conexão reservada, dentro de `BEGIN`/`SET LOCAL ROLE app_runtime`.
+Somente confirmar a operação após `COMMIT`; erro exige rollback antes da devolução ao pool.
+Descartar a conexão se o rollback falhar. Não usar `SET ROLE` persistente, herança ou GRANT
+ao login para corrigir a composição. O provisionamento administrativo por CLI conserva sua
+conexão própria; o executor runtime não recebe permissão para emitir/rotacionar códigos.
+
 ## 8. Contratos
 
 Migration 044 oferece somente função booleana de leitura da política corrente para runtime/worker;

@@ -1,9 +1,9 @@
-import type { Pool } from "pg";
+import type { IdentityQueryPool } from "./postgres-runtime-query.js";
 import type { AccessCodeStore, AccessCredential } from "./access-code.js";
 import { createUserId } from "./authorized-condominium-context.js";
 import { loginAttemptPolicy } from "../security/login-attempt-limit.js";
 
-export function createPostgresAccessCodeStore(pool: Pick<Pool, "query">): AccessCodeStore {
+export function createPostgresAccessCodeStore(pool: IdentityQueryPool): AccessCodeStore {
   async function find(operation: string, value: string): Promise<AccessCredential | undefined> {
     const result = await pool.query<{ user_id: string; revision: string; code_hash: string }>(
       `SELECT * FROM app.${operation}($1)`,

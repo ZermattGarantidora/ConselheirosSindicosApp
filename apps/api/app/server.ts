@@ -2,6 +2,7 @@ import { Pool } from "pg";
 import { createAccessCodeService } from "../identity/access-code.js";
 import { createLocalAccessCodeService } from "../identity/local-access-code-store.js";
 import { createPostgresAccessCodeStore } from "../identity/postgres-access-code-store.js";
+import { createRuntimeIdentityQueryPool } from "../identity/postgres-runtime-query.js";
 import { createPostgresConversationStore } from "../answers/postgres-conversation-store.js";
 import { createPostgresDocumentAnalysisReader } from "../analysis/document-analysis-reader.js";
 
@@ -333,8 +334,9 @@ export async function startServer(
     }
   }
   const accountActionDelivery = createAccountActionDeliveryFromEnvironment(environment);
+  const identityQueryPool = createRuntimeIdentityQueryPool(pool);
   const accountSecurity = createPostgresAccountSecurity(
-    pool,
+    identityQueryPool,
     createAccountSecretCipherFromEnvironment(environment)
   );
   const documentStorage = createPostgresPrivateDocumentStorage(pool);
@@ -384,14 +386,14 @@ export async function startServer(
       ? {}
       : {
           accessCodeAuth: createAccessCodeService(
-            createPostgresAccessCodeStore(pool),
+            createPostgresAccessCodeStore(identityQueryPool),
             environment.ACCESS_CODE_SECRET
           )
         }),
     membershipRepository: createPostgresMembershipRepository(pool),
     conversationStore: createPostgresConversationStore(pool),
     chatRepository: createPostgresChatRepository(pool),
-    accountAuth: createPostgresAccountAuth(pool),
+    accountAuth: createPostgresAccountAuth(identityQueryPool),
     accountSecurity,
     ...(accountActionDelivery === undefined ? {} : { accountActionDelivery }),
     ...(googleOAuth === undefined ? {} : { googleOAuth }),

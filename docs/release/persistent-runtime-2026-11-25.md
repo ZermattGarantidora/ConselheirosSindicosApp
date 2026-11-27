@@ -1,6 +1,7 @@
 # Runtime persistente — candidata de 25/11/2026
 
-**Estado:** candidata local validada; ativação e ensaio remoto pendentes.
+**Estado em 27/11:** API e worker publicados em `ff8aaa8`; correção da entrada e ensaio
+remoto completo pendentes. Orçamento permanece disabled; nenhuma chamada de IA.
 
 **Decisão de consumo:** usuário aprovou R$100 por dia para todo o piloto em 25/11/2026.
 Conservar BRL, sem converter recibos existentes nem multiplicar esse teto por conta/condomínio.
@@ -77,7 +78,14 @@ provisionados manualmente. A política continua disabled. O diagnóstico de star
 `docs/reviews/2026-11-27-persistent-startup.md`: sincronizar o Blueprint persistente antes do
 deploy, aceitar os dois modos Supabase e assumir `app_runtime` antes de resolver funções de
 `app`. Não conceder USAGE direto ao login NOINHERIT para contornar o erro de ordem.
-API e worker ainda precisam concluir publicação conjunta e a jornada sintética no destino.
+PR #23 foi aprovado e integrado em `ff8aaa8c4b6ccaa5cc270892545839f32aa7ab45`, com CI
+da main `46052276264` aprovado e conteúdo idêntico ao HEAD revisado. API e worker publicaram
+esse mesmo SHA. O health agora informa autenticação real e histórico durável. O primeiro
+login sintético devolveu 503: os adaptadores de identidade usavam consultas avulsas sem
+assumir `app_runtime`, incompatíveis com o login NOINHERIT correto. O diagnóstico e a
+correção estão em `docs/reviews/2026-11-27-persistent-identity.md`. Não conceder privilégios
+diretos ao login nem habilitar orçamento para contornar essa falha. A jornada completa,
+incluindo entrada funcional, continuidade e negativas entre contas, permanece pendente.
 
 `pnpm run test:persistent-runtime` não conecta serviços ou carrega `.env`; relatórios e
 cobertura ficam em `.local/persistent-runtime/tests-<timestamp>-<pid>/`.
