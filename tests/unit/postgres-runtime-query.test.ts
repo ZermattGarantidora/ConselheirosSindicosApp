@@ -9,7 +9,7 @@ function fixture(failAt?: string, rollbackFails = false) {
   let role = false;
   const result = { rows: [{ user_id: "synthetic-user" }] };
   const client = {
-    query: vi.fn(async (sql: string, _values?: unknown[]) => {
+    query: vi.fn<(sql: string, values?: unknown[]) => Promise<typeof result>>(async (sql) => {
       if (sql === failAt || (sql === "ROLLBACK" && rollbackFails)) throw error;
       if (sql === "BEGIN") active = true;
       if (sql === "SET LOCAL ROLE app_runtime") {
