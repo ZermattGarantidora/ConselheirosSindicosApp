@@ -131,6 +131,11 @@ no serviço existente. Limite de RSS na admissão não garante o pico de uma ope
 
 ## 7. Critérios de sucesso
 
+Estes critérios descrevem o perfil de demonstração sem banco. Na transição autorizada de
+27/11/2026, a Spec 078 passa a reger o serviço existente: o Blueprint canônico usa
+`DEMO_MODE=false`, stores duráveis e manifesto revisado. Isso não libera dados reais nem
+remove as guardas. O perfil demo continua disponível explicitamente, sem manifesto persistente.
+
 - a URL abre a página de entrada e a interface de chat; sem chave, a Alvitra comunica
   indisponibilidade em vez de gerar fala simulada;
 - `/health` responde `200`;

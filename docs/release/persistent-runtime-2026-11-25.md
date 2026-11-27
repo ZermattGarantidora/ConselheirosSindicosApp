@@ -72,6 +72,13 @@ autorização e controle próprios da Spec 071, sem liberação por flags antiga
 
 ## Validação
 
+Atualização de 27/11: PR #22 integrado, 044 aplicada e duas contas/códigos sintéticos
+provisionados manualmente. A política continua disabled. O diagnóstico de startup está em
+`docs/reviews/2026-11-27-persistent-startup.md`: sincronizar o Blueprint persistente antes do
+deploy, aceitar os dois modos Supabase e assumir `app_runtime` antes de resolver funções de
+`app`. Não conceder USAGE direto ao login NOINHERIT para contornar o erro de ordem.
+API e worker ainda precisam concluir publicação conjunta e a jornada sintética no destino.
+
 `pnpm run test:persistent-runtime` não conecta serviços ou carrega `.env`; relatórios e
 cobertura ficam em `.local/persistent-runtime/tests-<timestamp>-<pid>/`.
 As evidências finais, tentativas iniciais e limites ficam no review desta candidata.

@@ -11,7 +11,7 @@ export function chatSessionConnectionString(connectionString: string): string {
   if (url.hostname.endsWith(".neon.tech")) url.hostname = url.hostname.replace(/-pooler\./u, ".");
   else if (
     (url.hostname.endsWith(".pooler.supabase.com") || url.hostname.endsWith(".supabase.co")) &&
-    url.port === "6543"
+    ["", "5432", "6543"].includes(url.port)
   )
     url.port = "5432";
   else if (/pooler/iu.test(url.hostname))

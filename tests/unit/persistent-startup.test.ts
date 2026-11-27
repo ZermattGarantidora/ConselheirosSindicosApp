@@ -15,8 +15,12 @@ vi.mock("pg", () => ({
       captured.pools.push({ options, end: this.end });
     }
     async connect() {
+      let runtimeRole = false;
       return {
         async query(sql: string) {
+          if (sql === "SET LOCAL ROLE app_runtime") runtimeRole = true;
+          if (sql.includes("AS ready") && !runtimeRole)
+            throw new Error("permission denied for schema app");
           return {
             rows: sql.includes("AS ready") ? [{ ready: captured.ready }] : []
           };
@@ -67,6 +71,27 @@ beforeEach(() => {
   captured.listenCount = 0;
 });
 describe("AC-7807/7808 — composição real do startup persistente", () => {
+  it.each(["5432", "6543"])(
+    "aceita pooler Supabase %s e verifica TLS/CA também na sessão",
+    async (port) => {
+      const ca = "-----BEGIN CERTIFICATE-----\nSYNTHETIC\n-----END CERTIFICATE-----";
+      const app = await startServer(0, {
+        ...environment,
+        DATABASE_URL: `postgresql://synthetic:synthetic@aws-0-region.pooler.supabase.com:${port}/synthetic?sslmode=verify-full`,
+        DATABASE_SSL_CA: ca
+      });
+      try {
+        expect(captured.pools).toHaveLength(2);
+        expect(new URL(String(captured.pools[0]!.options.connectionString)).port).toBe(port);
+        expect(new URL(String(captured.pools[1]!.options.connectionString)).port).toBe("5432");
+        for (const pool of captured.pools)
+          expect(pool.options.ssl).toEqual({ rejectUnauthorized: true, ca });
+        expect(captured.listenCount).toBe(1);
+      } finally {
+        await app.close();
+      }
+    }
+  );
   it("preserva o provedor Gemini autorizado na composição hospedada", async () => {
     const app = await startServer(0, {
       ...environment,

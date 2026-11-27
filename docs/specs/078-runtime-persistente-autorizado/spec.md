@@ -107,6 +107,10 @@ parâmetro de conexão. Antes de abrir o perfil autorizado, conferir schema,
 funções mínimas, RLS forçada nas tabelas essenciais, papel runtime sem privilégios elevados e
 capacidade de assumir esse papel. Não escrever, migrar ou corrigir permissões no preflight.
 Falha encerra pools e não abre listener nem retorna à demonstração.
+Assumir `app_runtime` antes de resolver funções de `app`; o login `NOINHERIT` não precisa
+receber acesso direto ao schema. As verificações de identidade e privilégios continuam usando
+`session_user`. Reconhecer os modos Supabase nas portas 6543 e 5432: derivar 5432, preservar
+credenciais/banco/TLS e aceitar novamente a própria saída. Poolers desconhecidos continuam negados.
 
 ### RQ-7804 — Memória e publicação verificáveis
 
@@ -114,6 +118,9 @@ Conservar os adaptadores PostgreSQL de conversas, documentos e respostas. Guarda
 continuam negativas sem manifesto; ativação não altera o worker nem inicia chamadas por si só.
 Publicar somente candidata revisada/testada. A prova remota usa dados sintéticos próprios,
 sem TRUNCATE ou apagar dados anteriores, e registra revisão de API/worker e limites da validação.
+Na transição autorizada do serviço existente, o Blueprint canônico `render.yaml` também usa
+`DEMO_MODE=false`; uma sincronização não pode reaplicar o modo demo sobre o manifesto persistente.
+Isso não habilita orçamento, provedor adicional, OCR ou dados reais.
 
 ## 8. Contratos
 
