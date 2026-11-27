@@ -167,6 +167,7 @@ export async function assertPersistentRuntimeReady(pool: Pick<Pool, "connect">):
     client = await pool.connect();
     await client.query("BEGIN READ ONLY");
     await client.query("SET LOCAL statement_timeout = '5s'");
+    await client.query("SET LOCAL ROLE app_runtime");
     const result = await client.query<{ ready: boolean }>(`
       SELECT
         EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = session_user
@@ -191,7 +192,6 @@ export async function assertPersistentRuntimeReady(pool: Pick<Pool, "connect">):
         AS ready
     `);
     if (result.rows.length !== 1 || result.rows[0]?.ready !== true) throw invalid();
-    await client.query("SET LOCAL ROLE app_runtime");
     await client.query("SELECT app.persistent_execution_is_current($1,$2)", [
       "0".repeat(64),
       "USD"

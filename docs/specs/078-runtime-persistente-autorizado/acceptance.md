@@ -17,7 +17,11 @@
   e a verificação TLS aprovados, sem abrir conexão.
 - **AC-7807 / RQ-7803:** preflight só lê; schema/função/RLS/papel incompatíveis impedem listener,
   fecham pools e não caem para demo. URLs e erros nativos não aparecem em mensagens.
+  Um login `NOINHERIT` sem acesso direto a `app` assume `app_runtime` antes da consulta;
+  a identidade verificada continua sendo `session_user`, sem novo GRANT ao login.
+  Supabase 5432 é aceito, 6543 deriva 5432 e a transformação é idempotente, preservando TLS.
 - **AC-7808 / RQ-7804:** perfil aprovado conserva stores PostgreSQL e não habilita OCR/fotos
   pelas flags antigas. Ausência do manifesto mantém as regressões de startup 071/072.
 - **AC-7809 / RQ-7804:** documentação informa candidata, comandos/resultados, estado da política
   e limites; nenhuma prova mockada é apresentada como ensaio Supabase/restore ou liberação real.
+  O Blueprint efetivo mantém `DEMO_MODE=false` após sincronização da transição autorizada.

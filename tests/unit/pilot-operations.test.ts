@@ -157,7 +157,7 @@ describe("Spec 070 — preparação sem ativação", () => {
     const [currentWeb] = parsePilotBlueprint(demo + worker);
     const [persistentWeb] = parsePilotBlueprint(blueprint);
     expect(currentWeb!.properties).toEqual(persistentWeb!.properties);
-    expect(currentWeb!.environment.DEMO_MODE).toEqual({ value: "true" });
+    expect(currentWeb!.environment.DEMO_MODE).toEqual({ value: "false" });
     expect(persistentWeb!.environment.DEMO_MODE).toEqual({ value: "false" });
   });
   it("AC-7001: exemplos são revisáveis e mantêm decisões/ativação pendentes sem ler ambiente", () => {

@@ -42,10 +42,15 @@ const input: ApiOperation = {
   revalidate: async () => true
 };
 function database() {
-  const state = { allowed: true, ready: true, fail: false };
+  const state = { allowed: true, ready: true, fail: false, runtimeRole: false };
   const client = {
     query: vi.fn(async (sql: string) => {
       if (state.fail && sql !== "ROLLBACK") throw new Error("PRIVATE_DATABASE_DETAILS");
+      if (sql.startsWith("BEGIN")) state.runtimeRole = false;
+      if (sql === "SET LOCAL ROLE app_runtime") state.runtimeRole = true;
+      if (sql.includes("AS ready") && !state.runtimeRole)
+        throw new Error("permission denied for schema app");
+      if (sql === "COMMIT" || sql === "ROLLBACK") state.runtimeRole = false;
       if (sql.includes("AS allowed")) return { rows: [{ allowed: state.allowed }] };
       if (sql.includes("AS ready")) return { rows: [{ ready: state.ready }] };
       return { rows: [] };
@@ -245,6 +250,12 @@ describe("Spec 078 — runtime persistente autorizado", () => {
     const db = database();
     await assertPersistentRuntimeReady(db.pool);
     expect(db.client.query.mock.calls[0]?.[0]).toBe("BEGIN READ ONLY");
+    const queries = db.client.query.mock.calls.map(([sql]) => sql);
+    const roleIndex = queries.indexOf("SET LOCAL ROLE app_runtime");
+    const readinessIndex = queries.findIndex((sql) => sql.includes("AS ready"));
+    expect(roleIndex).toBeGreaterThan(0);
+    expect(readinessIndex).toBeGreaterThan(roleIndex);
+    expect(queries[readinessIndex]).toContain("session_user");
     expect(db.client.query.mock.calls.at(-1)?.[0]).toBe("COMMIT");
     expect(db.client.release).toHaveBeenCalledOnce();
   });

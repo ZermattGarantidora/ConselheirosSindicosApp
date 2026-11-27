@@ -6,8 +6,8 @@
 |---|---|---|
 | RQ-7801 | AC-7801/7802 | `security/persistent-execution.ts`: manifesto estrito, hash canônico, contas, expiração, modelo e referências de revisão; `persistent-execution.test.ts`. |
 | RQ-7802 | AC-7803/7804/7805 | Composição de `createApiOperationControl` com store PostgreSQL, consulta da política corrente e guardas da Spec 072; testes de revogação, replay, duplicação e resultado incerto. Migration 044 preparada, sem aplicação remota presumida. |
-| RQ-7803 | AC-7806/7807 | `persistent-database.ts`, preflight somente leitura e `server.ts`; `persistent-startup.test.ts` verifica fechamento dos pools, ausência de listener e de fallback. TLS remoto verifica certificado. |
-| RQ-7804 | AC-7808/7809 | Stores PostgreSQL preservados e guardas documentais mantidas; comando `test:persistent-runtime` com relatórios exclusivos. Runbook `persistent-runtime-2026-11-25.md`; provas remotas e aprovação registradas separadamente. |
+| RQ-7803 | AC-7806/7807 | `persistent-database.ts`, preflight somente leitura assume `app_runtime` antes da resolução de funções e valida `session_user`; `persistent-startup.test.ts` verifica fechamento dos pools, ausência de listener/fallback e CA nos pools Supabase 5432/6543. `chat-session-connection.test.ts` prova idempotência e preservação de opções. TLS remoto verifica certificado. |
+| RQ-7804 | AC-7808/7809 | Stores PostgreSQL preservados e guardas documentais mantidas; comando `test:persistent-runtime` com relatórios exclusivos. `render.yaml` conserva modo persistente após sincronização, verificado por `pilot-operations.test.ts`. Runbook `persistent-runtime-2026-11-25.md`; provas remotas e aprovação registradas separadamente. |
 
 ### Render contratado e domínios — 25/11/2026
 
