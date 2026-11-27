@@ -1,12 +1,19 @@
 import Fastify from "fastify";
+import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateApiOptions } from "../../apps/api/app/create-api.js";
+import { hashAccessSecret } from "../../apps/api/identity/access-code.js";
+
+type CredentialRow = { user_id: string; revision: string; code_hash: string };
 
 const captured = vi.hoisted(() => ({
   options: [] as CreateApiOptions[],
   pools: [] as { options: Record<string, unknown>; end: ReturnType<typeof vi.fn> }[],
   ready: true,
-  listenCount: 0
+  listenCount: 0,
+  statements: [] as string[],
+  credential: undefined as CredentialRow | undefined,
+  sessions: new Map<string, CredentialRow>()
 }));
 vi.mock("pg", () => ({
   Pool: class {
@@ -15,12 +22,32 @@ vi.mock("pg", () => ({
       captured.pools.push({ options, end: this.end });
     }
     async connect() {
-      let runtimeRole = false;
+      let role: "app_runtime" | "app_worker" | undefined;
       return {
-        async query(sql: string) {
-          if (sql === "SET LOCAL ROLE app_runtime") runtimeRole = true;
-          if (sql.includes("AS ready") && !runtimeRole)
+        async query(sql: string, values?: unknown[]) {
+          captured.statements.push(sql);
+          if (sql.startsWith("BEGIN")) role = undefined;
+          if (sql === "SET LOCAL ROLE app_runtime") role = "app_runtime";
+          if (sql === "SET LOCAL ROLE app_worker") role = "app_worker";
+          if (
+            (sql.includes("AS ready") && role !== "app_runtime") ||
+            (sql.includes("app.") && role === undefined)
+          )
             throw new Error("permission denied for schema app");
+          if (sql === "COMMIT" || sql === "ROLLBACK") role = undefined;
+          if (sql.startsWith("SELECT * FROM app.consume_access_login_attempt("))
+            return { rows: [{ allowed: true, retry_after_seconds: 0 }] };
+          if (sql.includes("find_access_code"))
+            return {
+              rows: captured.credential?.code_hash === values?.[0] ? [captured.credential] : []
+            };
+          if (sql.includes("create_device_session") && captured.credential)
+            captured.sessions.set(String(values?.[2]), captured.credential);
+          if (sql.includes("resolve_device_session")) {
+            const credential = captured.sessions.get(String(values?.[0]));
+            return { rows: credential ? [credential] : [] };
+          }
+          if (sql.includes("revoke_device_session")) captured.sessions.delete(String(values?.[0]));
           return {
             rows: sql.includes("AS ready") ? [{ ready: captured.ready }] : []
           };
@@ -69,8 +96,45 @@ beforeEach(() => {
   captured.pools = [];
   captured.ready = true;
   captured.listenCount = 0;
+  captured.statements = [];
+  captured.credential = undefined;
+  captured.sessions = new Map();
 });
 describe("AC-7807/7808 — composição real do startup persistente", () => {
+  it("AC-7810: compõe entrada, sessões independentes e os três stores com papel runtime local", async () => {
+    const revision = "22222222-2222-4222-8222-222222222222";
+    const code = createHmac("sha256", Buffer.from(environment.ACCESS_CODE_SECRET, "hex"))
+      .update(JSON.stringify(["alvitra-access-v1", userId, revision]))
+      .digest("hex")
+      .slice(0, 32)
+      .toUpperCase();
+    captured.credential = { user_id: userId, revision, code_hash: hashAccessSecret(code) };
+    const app = await startServer(0, environment);
+    try {
+      const options = captured.options.at(-1)!;
+      const access = options.accessCodeAuth!;
+      expect(await access.consumeLoginAttempt("synthetic-origin", new Date())).toEqual({
+        allowed: true,
+        retryAfterSeconds: 0
+      });
+      const first = (await access.login(code))!;
+      const second = (await access.login(code))!;
+      expect(first.userId).toBe(userId);
+      expect(first.token).not.toBe(second.token);
+      expect((await access.authenticate(first.token))?.userId).toBe(userId);
+      await access.logout(first.token);
+      expect(await access.authenticate(first.token)).toBeUndefined();
+      expect((await access.authenticate(second.token))?.userId).toBe(userId);
+      await options.accountAuth!.logout("synthetic-session-token");
+      await options.accountSecurity!.requestPasswordReset("synthetic@example.invalid");
+      expect(captured.statements.some((sql) => sql.includes("revoke_auth_session"))).toBe(true);
+      expect(
+        captured.statements.some((sql) => sql.includes("find_account_security_by_email"))
+      ).toBe(true);
+    } finally {
+      await app.close();
+    }
+  });
   it.each(["5432", "6543"])(
     "aceita pooler Supabase %s e verifica TLS/CA também na sessão",
     async (port) => {

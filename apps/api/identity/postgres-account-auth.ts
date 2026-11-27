@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { IdentityQueryPool } from "./postgres-runtime-query.js";
 
 import {
   AccountAuthError,
@@ -8,7 +8,7 @@ import {
 } from "./account-auth.js";
 import type { UserId } from "./authorized-condominium-context.js";
 
-type PoolLike = Pick<Pool, "query">;
+type PoolLike = IdentityQueryPool;
 
 type RetryOptions = Readonly<{
   attempts?: number;
