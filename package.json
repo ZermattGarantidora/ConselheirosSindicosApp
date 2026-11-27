@@ -10,6 +10,7 @@
     "pnpm": ">=11 <12"
   },
   "scripts": {
+    "test:persistent-runtime": "vitest run --config tests/vitest.persistent-runtime.config.ts --coverage",
     "test:authoring:financial:browser": "node scripts/run-tsx.mjs scripts/verify-financial-report-browser.ts",
     "test:authoring:financial": "vitest run tests/unit/financial-review.test.ts tests/unit/financial-dossier.test.ts tests/unit/financial-report.test.ts tests/e2e/financial-report.e2e.test.ts",
     "evals:financial-300": "node scripts/run-tsx.mjs evals/financial-dossier/run.ts",
@@ -59,6 +60,7 @@
     "test:pilot:documents": "vitest run --config tests/vitest.pilot-documents.config.ts",
     "pilot:preparation": "node scripts/run-tsx.mjs scripts/verify-pilot-preparation.ts",
     "test:pilot:operations": "vitest run --config infrastructure/pilot/vitest.operations.config.ts --coverage",
+    "test:render": "vitest run --config tests/vitest.render.config.ts --coverage",
     "test:pilot:recovery:local": "node scripts/run-tsx.mjs scripts/verify-pilot-recovery.ts",
     "test:pilot:recovery:container": "pwsh -NoProfile -File scripts/verify-pilot-recovery-container.ps1 -ConfirmSyntheticLocal",
     "test:pilot:worker:local": "pwsh -NoProfile -File scripts/verify-pilot-recovery-container.ps1 -ConfirmSyntheticLocal -Suite worker",
@@ -85,6 +87,7 @@
     "evals:cost-30": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs evals/conversation-comparison/run.ts --suite=cost30",
     "evals:dense-documents": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs evals/dense-documents/run.ts",
     "evals:dense-comparison": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs evals/dense-documents/compare.ts",
+    "evals:dense-stress": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs evals/dense-documents/stress-run.ts",
     "evals:hybrid": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs evals/conversation-comparison/run.ts --suite=hybrid",
     "evals:luna": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs evals/conversation-comparison/run.ts --suite=luna",
     "evals:sol": "node --env-file-if-exists=.env.local scripts/run-tsx.mjs evals/conversation-comparison/run.ts --suite=sol",

@@ -370,5 +370,9 @@ posterior nem aprovação de produção inferida da preparação local.
 
 ## Gate para mudar o status
 
+A Spec 078 prepara admissão operacional de setup/pergunta/upload no startup persistente,
+condicionada ao manifesto revisado e orçamento corrente. Não habilita OCR/fotos/síntese externa
+desta spec nem transforma as provas locais abaixo em aprovação do destino.
+
 Exige aceitação, rastreabilidade, revisão do diff e gates aplicáveis. A preparação local não
 remove bloqueios de dados reais; ativação requer decisão humana específica e provas faltantes.

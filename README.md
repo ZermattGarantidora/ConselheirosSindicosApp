@@ -1,5 +1,11 @@
 # Alvitra
 
+Runtime persistente autorizado (Spec 078): `pnpm run test:persistent-runtime` valida manifesto,
+revogação, admissão/recibos, TLS e preflight com sintéticos/mocks e relatórios exclusivos.
+A configuração continua negada sem manifesto revisado e política correspondente no banco.
+O comando não aplica migrations nem conecta Render/Supabase/IA. Procedimento e pendências em
+[runtime persistente](docs/release/persistent-runtime-2026-11-25.md).
+
 Pesquisa web pública experimental para a apresentação local (Spec 065):
 ALVITRA_DEMO_WEB_SEARCH_ENABLED=true exige DEMO_MODE=true e CODEX_ANSWER_ENABLED=true,
 fora de produção. Desligada por padrão; false seguido de reinício desativa a opção.
@@ -187,10 +193,17 @@ Na API, use também `DOCUMENT_WORKER_IN_API=false` e `DEMO_MODE=false`. O comand
 continua como diagnóstico de uma tarefa; `worker:continuous` aguarda novos documentos e renova
 as reservas. Depois do build, `worker:start` inicia o JavaScript compilado.
 
-A preparação da publicação está em [`render.pilot.yaml`](render.pilot.yaml), separada da
-demonstração existente. O Blueprint não foi importado e só deve ser ativado após a decisão de
-contratação e os gates de piloto. Procedimento completo, atualização e recuperação:
+A preparação da transição está em [`render.pilot.yaml`](render.pilot.yaml): reutiliza o web
+`alvitra-demo-sintetica` já contratado (`1c-2g`, Oregon) e prepara o worker separado na mesma
+região. Não importar antes de concluir a integração Supabase, a composição persistente e os
+gates; o worker adicional tem custo próprio a confirmar. Procedimento, atualização e recuperação:
 [`worker documental separado`](docs/release/worker-documental-separado.md).
+
+`pnpm run test:render` verifica domínio principal/aliases, fechamento da API e Blueprints com
+dados sintéticos, sem `.env`, IA, banco remoto ou DNS. Usa cache/cobertura exclusivos, com piso
+de 80% nos quatro indicadores. Não substitui o check global ou a validação no destino.
+Estado operacional de 25/11 e registros Wix:
+[`Render pago e domínios`](docs/release/render-paid-2026-11-25.md).
 
 `pnpm run test:worker:separate -- --provider=neon` valida API e worker compilados em processos
 distintos, retomada após queda, PDF de 300 páginas e dez identidades sintéticas, sem chamadas
@@ -215,12 +228,12 @@ O modo real é o padrão seguro: sem `DATABASE_URL` e sem `DEMO_MODE=true`, a AP
 
 ## Demonstração online no Render
 
-O arquivo [`render.yaml`](render.yaml) publica uma demonstração gratuita, intencionalmente efêmera
-e sintética. Ela executa a API e a interface na mesma origem HTTPS, sem `DATABASE_URL`, chaves de IA
-ou dados de clientes. Para criar o serviço, conecte este repositório ao Render e importe o Blueprint;
-o health check é `/health`.
+O arquivo [`render.yaml`](render.yaml) descreve a demonstração existente, intencionalmente efêmera
+e sintética, agora no plano pago `1c-2g` conferido em 25/11/2026. API e interface usam a mesma
+origem HTTPS e `/health`; o arquivo não inclui banco nem segredos de IA. A exceção de conversa
+sintética autorizada mantém sua chave somente no ambiente do serviço.
 
-Essa URL é somente uma prévia da interface e pode pausar por inatividade no plano gratuito.
+Essa URL continua sendo uma demonstração; contratar o plano pago não torna seu histórico durável.
 Sem provedor de IA configurado, a Alvitra informa indisponibilidade e não oferece conversa
 simulada por frases prontas. Para testar a conversa, configure a API em ambiente sintético
 controlado, com orçamento e sem dados reais.
@@ -607,6 +620,33 @@ Na [repetição de 24/11/2026](docs/specs/076-recuperacao-e-conferencia-integral
 os três conflitos foram corrigidos e os 60 casos repetidos por braço: 60/60 factuais/completos
 na revisão técnica por IA, 49,54% menos custo equivalente no híbrido e média 2,36% maior.
 Revisão humana permanece pendente; OCR anterior reutilizado, sem nova chamada visual.
+
+`pnpm run evals:dense-stress` mostra o plano da Spec 077 sem inferência: sete PDFs,
+350 páginas, 25.200 registros e 40 casos novos, Sol fixo versus híbrido. `--prepare
+--run-key=<id> --python=<python-local-com-reportlab>` gera PDFs e confere extração integral;
+`--execute` no mesmo id mede os dois braços, sem alterar produção ou refazer resultado
+concluído. Custos incluem reparos/falhas e são equivalências pela tarifa histórica, não fatura.
+Não faz OCR; [escopo e aceitação](docs/specs/077-estresse-documental-e-conflitos-ineditos/spec.md).
+O [resultado de 24/11/2026](docs/specs/077-estresse-documental-e-conflitos-ineditos/results.md)
+registra 34/40 Sol e 36/40 híbrido na revisão factual por IA, 25,14% menos custo equivalente
+no híbrido e falhas de validação de conflitos que permanecem visíveis. Revisão humana pendente.
+
+A [repetição após corrigir a validação](docs/specs/077-estresse-documental-e-conflitos-ineditos/results-conflicts-r2.md)
+mantém os mesmos 40 casos e PDFs: 40/40 completos nos dois braços na revisão técnica por IA,
+sem reparos. O híbrido consumiu 28,01% menos custo equivalente (USD 0,9493181 versus 1,3186968),
+com médias próximas de 15,60/15,67 s. Não altera a baseline, a tarifa histórica nem a pendência humana.
+
+A [continuação de instrumentação/cache](docs/specs/077-estresse-documental-e-conflitos-ineditos/results-cache-r4.md)
+mede etapas e reaproveitamento real no Codex local. `CODEX_ANSWER_REFERENCE_FORMAT=compact-v1`
+habilita o candidato, enquanto `original` mantém o caminho anterior. Sessão/schema/mapas são
+privados por chamada; cwd genérico fica vazio e não guarda dados de condomínio. O manifest
+do `evals:dense-stress` fixa a opção. Somente adotar após os mesmos 40/40 por braço, sem
+regressão; a [primeira tentativa reprovada](docs/specs/077-estresse-documental-e-conflitos-ineditos/results-cache-r3.md)
+permanece registrada. Primeiro evento completo de resposta não equivale a primeiro token.
+Na r4, a revisão técnica por IA manteve 40/40 por braço: médias 13,12/13,63 s e custos
+equivalentes USD 1,0877432/0,84342878. O P95 híbrido subiu a 25,11 s com três reparos;
+o candidato permanece opt-in. O automático original ficou 40/40 e 38/40, com justificativas
+por hash no relatório e aprovação humana pendente.
 
 `pnpm run evals:cost-30` prepara 30 cenários fixos (36 turnos por braço), Sol low versus
 híbrido do runtime (Luna high/Sol low). `--execute --run-key=<id>` executa uma rodada

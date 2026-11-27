@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
+import { monotonicNow, safelyObserve, type AnswerStageTiming } from "./answer-performance.js";
 import { coversRecordNoteConflict } from "./record-note-conflict.js";
+import { coversDocumentedConflict, findDocumentedConflicts } from "./documented-conflict.js";
 import {
   computeIntegralSum,
   integralReceipt,
@@ -143,6 +145,8 @@ export type AnswerUseCase = Readonly<{
 }>;
 
 export type AnswerUseCaseOptions = Readonly<{
+  performanceNow?: () => number;
+  onStageTiming?: (timing: AnswerStageTiming) => void | Promise<void>;
   retriever: AnswerRetriever;
   gateway: AnswerGateway;
   demoWebResearchGateway?: AnswerGateway;
@@ -756,6 +760,30 @@ function createAnswerRecord(
 }
 
 export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCase {
+  const performanceNow = options.performanceNow ?? monotonicNow;
+  const observeStage = (
+    context: AuthorizedCondominiumContext,
+    stage: AnswerStageTiming["stage"],
+    started: number
+  ) => {
+    safelyObserve(options.onStageTiming, {
+      condominiumId: context.condominiumId,
+      stage,
+      durationMs: Math.max(0, performanceNow() - started)
+    });
+  };
+  async function measure<T>(
+    context: AuthorizedCondominiumContext,
+    stage: AnswerStageTiming["stage"],
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const started = performanceNow();
+    try {
+      return await operation();
+    } finally {
+      observeStage(context, stage, started);
+    }
+  }
   const now = options.now ?? (() => new Date());
   const idFactory = options.idFactory ?? randomUUID;
   const maximumOutputTokens = options.maximumOutputTokens ?? defaultMaximumOutputTokens;
@@ -1013,10 +1041,12 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
       retrievalFinishedAt = now();
     } else {
       try {
-        retrievalResult = await options.retriever.search(context, {
-          query: searchQuestion,
-          asOf: referenceDate(question, referenceInstant)
-        });
+        retrievalResult = await measure(context, "retrieval", () =>
+          options.retriever.search(context, {
+            query: searchQuestion,
+            asOf: referenceDate(question, referenceInstant)
+          })
+        );
         if (retrievalResult.evidence.some((item) => item.condominiumId !== context.condominiumId))
           throw new Error("Escopo de evidência inválido.");
         const screening = screenDocumentInstructions(retrievalResult.evidence, searchQuestion);
@@ -1243,7 +1273,9 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
           await input.revalidateConversation?.();
           let generated;
           try {
-            generated = await options.gateway.generate(generationInput);
+            generated = await measure(context, "generation", () =>
+              options.gateway.generate(generationInput)
+            );
           } catch (error) {
             attempts.push({
               telemetry:
@@ -1261,6 +1293,7 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
           }
           const attempt = { telemetry: generated.telemetry, evidenceIds: invocationEvidenceIds };
           attempts.push(attempt);
+          const validationStarted = performanceNow();
           try {
             if (containsProtectedDocumentLiteral(generated.output, protectedDocumentLiterals)) {
               throw new ProtectedDocumentOutputError(
@@ -1271,7 +1304,11 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
               addressGeneratedAnswer(generated.output, preferredName),
               assessment
             );
-            if (!acceptsGeneratedMode(task, enforced.answerMode)) {
+            const conditionalConflict =
+              enforced.answerMode === "conflict" &&
+              task !== "document_conflict" &&
+              findDocumentedConflicts(searchQuestion, retrievalResult.evidence).length > 0;
+            if (!acceptsGeneratedMode(task, enforced.answerMode) && !conditionalConflict) {
               throw new InvalidAnswerValidationError(
                 "O gateway retornou um modo incompatível com a decisão de roteamento.",
                 "mode_incompatible"
@@ -1282,6 +1319,14 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
               retrievalResult.evidence,
               documentCalculation
             );
+            if (
+              conditionalConflict &&
+              !coversDocumentedConflict(searchQuestion, retrievalResult.evidence, validated)
+            )
+              throw new InvalidAnswerValidationError(
+                "O conflito exige registro, valores divergentes, pendência e fontes verificáveis.",
+                "conflict_sources_missing"
+              );
             if (documentCalculation) {
               try {
                 assertIntegralAnswer(documentCalculation, enforced);
@@ -1333,6 +1378,8 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
               });
             }
             throw error;
+          } finally {
+            observeStage(context, "validation", validationStarted);
           }
         };
         let result;
@@ -1639,7 +1686,7 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
 
     await input.revalidateConversation?.();
     try {
-      await options.persistence.saveInteraction(interaction);
+      await measure(context, "persistence", () => options.persistence.saveInteraction(interaction));
       return answer;
     } catch (error: unknown) {
       const concurrentAnswer = await options.persistence.findAnswerByIdempotencyKey(
@@ -1665,25 +1712,30 @@ export function createAnswerUseCase(options: AnswerUseCaseOptions): AnswerUseCas
         : undefined;
     },
     async ask(context, input): Promise<AnswerRecord> {
-      if (input.chatId !== undefined && !chatIdPattern.test(input.chatId))
-        throw new Error("O identificador da conversa é inválido.");
-      if (input.chatId === undefined) return askUnlocked(context, input);
-      if (input.revalidateConversation === undefined) throw new ConversationMemoryError();
-      await input.revalidateConversation();
-      let release;
+      const totalStarted = performanceNow();
       try {
-        release = await (options.persistence.acquireChatTurn ?? fallbackChatGuard)(
-          context,
-          input.chatId
-        );
-      } catch {
-        throw new ConversationMemoryError();
-      }
-      if (release === undefined) throw new ConversationMemoryError(409);
-      try {
-        return await askUnlocked(context, input);
+        if (input.chatId !== undefined && !chatIdPattern.test(input.chatId))
+          throw new Error("O identificador da conversa é inválido.");
+        if (input.chatId === undefined) return await askUnlocked(context, input);
+        if (input.revalidateConversation === undefined) throw new ConversationMemoryError();
+        await input.revalidateConversation();
+        let release;
+        try {
+          release = await (options.persistence.acquireChatTurn ?? fallbackChatGuard)(
+            context,
+            input.chatId
+          );
+        } catch {
+          throw new ConversationMemoryError();
+        }
+        if (release === undefined) throw new ConversationMemoryError(409);
+        try {
+          return await askUnlocked(context, input);
+        } finally {
+          await release();
+        }
       } finally {
-        await release();
+        observeStage(context, "total", totalStarted);
       }
     },
 

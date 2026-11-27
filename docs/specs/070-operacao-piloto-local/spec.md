@@ -2,7 +2,7 @@
 
 **Status:** validação local executada; revisão da candidata e liberação externas pendentes  
 **Responsável:** engenharia e operador a designar  
-**Atualizado em:** 2026-11-11
+**Atualizado em:** 2026-11-25
 
 ## 0. Alinhamento com a visão do projeto
 
@@ -99,6 +99,11 @@ ambiente sintético para diagnóstico. O wrapper exige confirmação antes de qu
 O verificador lê apenas Blueprint e decisões sem segredos, aponta pendências e sempre informa que
 não autoriza ativação. Recusa configuração fora do subconjunto local suportado em vez de inferir defaults.
 Não consulta contas, ambiente secreto ou serviços. Nenhuma aprovação é inventada a partir de testes.
+
+Na adaptação autorizada de 25/11/2026, o contrato do Blueprint reutiliza o web existente
+`alvitra-demo-sintetica` em Oregon e prepara somente o worker adicional. O plano já contratado
+foi conferido no painel; esse fato não preenche decisões de política, banco, custo do worker,
+restauração ou revisão. Os defaults negativos e `activationAuthorized=false` permanecem.
 
 ### RQ-7002 — Backup integral consistente
 

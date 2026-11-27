@@ -32,6 +32,30 @@ const stdout = JSON.stringify({
   usage: { input_tokens: 100, cached_input_tokens: 20, output_tokens: 10 }
 });
 describe("Spec 076 — recibos duráveis e progresso", () => {
+  it("AC7711: conserva marcos observados no recibo e no replay sem nova chamada", async () =>
+    temporary(async (folder) => {
+      const timings = {
+        spawnMs: 1,
+        firstByteMs: 2,
+        turnStartedMs: 3,
+        firstAnswerEventMs: 7,
+        totalMs: 8
+      };
+      const observe = vi.fn(),
+        run = vi.fn(async (request: CodexProcessRequest) => {
+          request.onTimings?.(timings);
+          return stdout;
+        });
+      await createDurableDenseProcess(folder, scope, run)({ ...request, onTimings: observe });
+      const saved = await readCheckpoint<{ processTimings: unknown }>(
+        join(folder, "attempts/sol-fixed-DENSE-001-1-result.json")
+      );
+      expect(saved?.processTimings).toEqual(timings);
+      await createDurableDenseProcess(folder, scope, run)({ ...request, onTimings: observe });
+      expect(run).toHaveBeenCalledOnce();
+      expect(observe).toHaveBeenCalledTimes(2);
+      expect(observe).toHaveBeenLastCalledWith(timings);
+    }));
   it("AC7606: duas filas nunca gravam progresso ao mesmo tempo", async () => {
     let active = 0,
       max = 0;

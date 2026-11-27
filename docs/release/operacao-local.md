@@ -1,5 +1,10 @@
 # Operação local, observabilidade e release
 
+Atualização de 25/11/2026: o web Render já está contratado e a adaptação/domínios foi
+autorizada. [Estado atual e DNS Wix](render-paid-2026-11-25.md) distingue mudanças efetivas
+de preparação. As restrições históricas de contratação abaixo não impedem configurar o
+serviço existente; banco, custo adicional, revisão e dados reais conservam seus próprios gates.
+
 ## Variáveis e segredos
 
 Copie `.env.example` para `.env.local`; o segundo arquivo é ignorado pelo Git. Chaves reais só existem no cofre/ambiente escolhido quando houver infraestrutura. Nunca registrar conteúdo de documentos, perguntas, respostas ou tokens em logs.

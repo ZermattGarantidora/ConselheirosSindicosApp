@@ -3,6 +3,11 @@
 **Status:** aceito para demonstração sintética
 **Data:** 2026-10-15
 
+> Em 25/11/2026, o usuário informou a contratação do Render. O web existente foi conferido
+> no painel em `1c-2g`, Oregon; `render.yaml` espelha esse plano, Node 24 e publicação manual.
+> A mudança não transforma a demonstração em runtime persistente. A transição ao Supabase
+> e ao worker separado está nas Specs 040/058/069 e usa o mesmo web para evitar duplicação.
+
 > Em 2026-10-19, a proibição de provedor de conversa neste serviço foi revisada pela decisão
 > explícita do usuário registrada no ADR 0025. Permanecem modo demonstração, ausência de
 > banco persistente, somente dados fictícios e segredos fora do repositório.

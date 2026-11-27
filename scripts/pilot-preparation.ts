@@ -29,6 +29,8 @@ const literalEnvironment: Record<string, string> = {
   GEMINI_IMAGE_ANALYSIS_ENABLED: "false",
   GEMINI_ENABLED: "false",
   WEB_DIST_DIR: "apps/web/dist",
+  PUBLIC_APP_ORIGIN: "https://alvitra.app",
+  PUBLIC_APP_ALIASES: "www.alvitra.app,alvitraapp.com,www.alvitraapp.com",
   DOCUMENT_WORKER_POLL_MS: "1000",
   DOCUMENT_WORKER_LEASE_SECONDS: "300",
   DOCUMENT_WORKER_HEARTBEAT_MS: "30000"
@@ -137,7 +139,7 @@ export function inspectPilotPreparation(blueprint: string, decisions: unknown) {
       const { properties, environment } = services[index]!;
       const expected = {
         type,
-        name: type === "web" ? "alvitra-pilot-web" : "alvitra-pilot-documents",
+        name: type === "web" ? "alvitra-demo-sintetica" : "alvitra-pilot-documents",
         runtime: "node",
         plan: "1c-2g",
         numInstances: "1",
@@ -181,6 +183,8 @@ export function inspectPilotPreparation(blueprint: string, decisions: unknown) {
         ...(type === "web"
           ? [
               "WEB_DIST_DIR",
+              "PUBLIC_APP_ORIGIN",
+              "PUBLIC_APP_ALIASES",
               "DATABASE_URL",
               "ACCESS_CODE_SECRET",
               "AUTH_ACCOUNT_SECRET_KEY",
@@ -200,6 +204,11 @@ export function inspectPilotPreparation(blueprint: string, decisions: unknown) {
         [...secretNames].some((key) => key !== "DOCUMENT_WORKER_DATABASE_URL" && environment[key])
       )
         failures.push("worker.excessSecret");
+      if (
+        type === "worker" &&
+        ["PUBLIC_APP_ORIGIN", "PUBLIC_APP_ALIASES"].some((key) => environment[key])
+      )
+        failures.push("worker.excessConfiguration");
     }
     if (services[0]!.properties.region !== services[1]!.properties.region)
       failures.push("sharedRegion");

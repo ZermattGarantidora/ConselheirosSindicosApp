@@ -14,6 +14,7 @@ import {
   routedReasoningEfforts
 } from "../../apps/api/answers/answer-model-routing.js";
 import type { AnswerGateway } from "../../apps/api/answers/answer-gateway.js";
+import type { CodexReferenceFormat } from "../../apps/api/answers/codex-reference-layout.js";
 
 export function observedGateway(
   condition: Condition,
@@ -22,6 +23,7 @@ export function observedGateway(
     executable: string;
     timeoutMs: number;
     run?: (request: CodexProcessRequest) => Promise<string>;
+    referenceFormat?: CodexReferenceFormat;
   }
 ): AnswerGateway {
   if (condition.routing === "hybrid")
@@ -57,6 +59,7 @@ export function observedGateway(
     });
   const run = options.run ?? runCodexProcess;
   const gateway = createCodexAnswerGateway({
+    ...(options.referenceFormat === undefined ? {} : { referenceFormat: options.referenceFormat }),
     model: condition.model,
     ...(condition.reasoningEffort === undefined
       ? {}

@@ -15,6 +15,7 @@ import type { AnswerValidationCode } from "./citation-validator.js";
 import { detectDocumentConflict } from "./conflict-detection.js";
 import { syntheticAgendaAnswer } from "./synthetic-agenda.js";
 import type { UsageAccounting } from "./usage-accounting.js";
+import type { CodexGenerationPerformance } from "./answer-performance.js";
 
 export type AnswerGatewayInput = Readonly<{
   question: string;
@@ -39,6 +40,7 @@ export type AnswerGatewayInput = Readonly<{
 }>;
 
 export type AnswerGatewayTelemetry = Readonly<{
+  performance?: CodexGenerationPerformance;
   usageAccounting?: UsageAccounting;
   providerKey: string;
   modelKey: string;

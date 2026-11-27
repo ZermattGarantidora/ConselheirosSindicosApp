@@ -3,6 +3,18 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { maximumGenerationTimeoutMs } from "../../shared/generation-limits.js";
+import {
+  codexReferenceFormat,
+  codexReferenceLayout,
+  codexCacheContextDirectory,
+  type CodexReferenceFormat
+} from "./codex-reference-layout.js";
+import {
+  monotonicNow,
+  safelyObserve,
+  type CodexGenerationPerformance,
+  type CodexProcessTimings
+} from "./answer-performance.js";
 
 import { answerPipelineVersion } from "./answer-contract.js";
 import {
@@ -104,6 +116,9 @@ function failure(
 }
 
 export type CodexAnswerGatewayOptions = Readonly<{
+  referenceFormat?: CodexReferenceFormat;
+  performanceNow?: () => number;
+  onPerformance?: (performance: CodexGenerationPerformance) => void | Promise<void>;
   model?: string;
   reasoningEffort?: "low" | "high";
   localTestDocumentsEnabled?: boolean;
@@ -221,6 +236,8 @@ export function createCodexAnswerGateway(options: CodexAnswerGatewayOptions = {}
     throw new Error("O timeout do Codex deve estar entre 1 e 300000 ms.");
   const run = options.run ?? runCodexProcess;
   const now = options.now ?? Date.now;
+  const performanceNow = options.performanceNow ?? monotonicNow;
+  const referenceFormat = codexReferenceFormat(options.referenceFormat);
 
   function diagnose(
     code: CodexDiagnostic["code"],
@@ -245,19 +262,62 @@ export function createCodexAnswerGateway(options: CodexAnswerGatewayOptions = {}
 
   return Object.freeze({
     async generate(input: AnswerGatewayInput) {
+      const performanceStarted = performanceNow();
+      type Phase = "preparationMs" | "processMs" | "parsingMs" | "cleanupMs";
+      const phases: Record<Phase, number | null> = {
+        preparationMs: null,
+        processMs: null,
+        parsingMs: null,
+        cleanupMs: null
+      };
+      let active: Phase | null = "preparationMs",
+        phaseStarted = performanceStarted;
+      let processTimings: CodexProcessTimings | null = null;
+      let schemaSha256: string | null = null,
+        prefixSha256: string | null = null;
+      let prefixCharacters: number | null = null,
+        promptCharacters: number | null = null;
+      let recordedPerformance: CodexGenerationPerformance | undefined;
+      const phase = (next: Phase | null) => {
+        const instant = performanceNow();
+        if (active !== null) phases[active] = Math.max(0, instant - phaseStarted);
+        active = next;
+        phaseStarted = instant;
+      };
+      const performanceReport = (): CodexGenerationPerformance => {
+        phase(null);
+        return Object.freeze({
+          ...phases,
+          totalMs: Math.max(0, performanceNow() - performanceStarted),
+          process: processTimings,
+          referenceFormat,
+          schemaSha256,
+          prefixSha256,
+          prefixCharacters,
+          promptCharacters
+        });
+      };
       const startedAt = now();
       let stage: CodexFailureStage = "preparation";
       let cleanupFailed = false;
       try {
         const useLocalTestDocuments =
           options.localTestDocumentsEnabled === true && input.task !== "setup_turn";
-        const basePrompt = buildAnswerPrompt(input);
+        const layout = codexReferenceLayout(input, referenceFormat);
+        const basePrompt = buildAnswerPrompt(layout.input);
         const prompt = useLocalTestDocuments
           ? `${localTestDocumentInstructions(input)}\n${basePrompt}`
           : basePrompt;
+        const prefixEnd = prompt.indexOf("\nTASK=");
+        if (prefixEnd < 0) throw new Error("Prefixo do prompt ausente.");
+        prefixCharacters = prefixEnd;
+        prefixSha256 = hash(prompt.slice(0, prefixEnd));
+        promptCharacters = prompt.length;
         const directory = await mkdtemp(join(tmpdir(), "alvitra-codex-"));
         let generated: AnswerGatewayResult;
         try {
+          const contextDirectory =
+            referenceFormat === "compact-v1" ? await codexCacheContextDirectory() : directory;
           const args = [
             "exec",
             "--ignore-user-config",
@@ -305,20 +365,33 @@ export function createCodexAnswerGateway(options: CodexAnswerGatewayOptions = {}
             args.push("-c", setting);
           if (input.evidence.length > 0) {
             const schemaPath = join(directory, "answer-schema.json");
-            await writeFile(schemaPath, JSON.stringify(answerSchema(input.evidence)), "utf8");
+            const schema = JSON.stringify(answerSchema(layout.input.evidence));
+            schemaSha256 = hash(schema);
+            await writeFile(schemaPath, schema, "utf8");
             args.push("--output-schema", schemaPath);
           }
           args.push("-");
           stage = "process";
-          const stdout = await run({ executable, args, input: prompt, cwd: directory, timeoutMs });
+          phase("processMs");
+          const stdout = await run({
+            executable,
+            args,
+            input: prompt,
+            cwd: contextDirectory,
+            timeoutMs,
+            onTimings: (timings) => {
+              processTimings = timings;
+            }
+          });
           stage = "parsing";
+          phase("parsingMs");
           const result = parseCodexResult(stdout);
           let output;
           try {
             output =
               input.evidence.length === 0
                 ? generalAnswer(result.text)
-                : structuredAnswer(result.text, input);
+                : structuredAnswer(layout.decode(result.text), input);
           } catch (error: unknown) {
             if (error instanceof InvalidAnswerValidationError) {
               // Preservar a fronteira de validação do chamador sem copiar texto da saída.
@@ -355,6 +428,7 @@ export function createCodexAnswerGateway(options: CodexAnswerGatewayOptions = {}
             })
           });
         } finally {
+          phase("cleanupMs");
           try {
             await rm(directory, { recursive: true, force: true });
           } catch {
@@ -363,7 +437,11 @@ export function createCodexAnswerGateway(options: CodexAnswerGatewayOptions = {}
         }
         if (cleanupFailed) throw failure("codex_cleanup_failed", "cleanup");
         diagnose("codex_completed", "completed", startedAt);
-        return generated;
+        recordedPerformance = performanceReport();
+        return Object.freeze({
+          ...generated,
+          telemetry: Object.freeze({ ...generated.telemetry, performance: recordedPerformance })
+        });
       } catch (error: unknown) {
         if (
           cleanupFailed &&
@@ -388,6 +466,8 @@ export function createCodexAnswerGateway(options: CodexAnswerGatewayOptions = {}
                 );
         diagnose(safeError.code, safeError.stage, startedAt, safeError.protocol);
         throw safeError;
+      } finally {
+        safelyObserve(options.onPerformance, recordedPerformance ?? performanceReport());
       }
     }
   });
@@ -416,6 +496,7 @@ export function createCodexAnswerGatewayFromEnvironment(
     throw new Error("O plano Codex exige demonstração pessoal local, fora de produção.");
   }
   const options = {
+    referenceFormat: codexReferenceFormat(environment.CODEX_ANSWER_REFERENCE_FORMAT),
     localTestDocumentsEnabled,
     ...(environment.CODEX_ANSWER_MODEL === undefined
       ? {}

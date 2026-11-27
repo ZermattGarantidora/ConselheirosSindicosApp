@@ -8,6 +8,7 @@ import { InvalidAnswerValidationError } from "./citation-validator.js";
 import type { AnswerValidationCode } from "./citation-validator.js";
 import { specialistTypes } from "./answer-contract.js";
 import { coversRecordNoteConflict } from "./record-note-conflict.js";
+import { coversDocumentedConflict, findDocumentedConflicts } from "./documented-conflict.js";
 import { queryEntities } from "../retrieval/retrieval-query.js";
 import {
   buildCompletionChecklist,
@@ -57,6 +58,8 @@ const clauses = [
 type RequirementKey = TaskTopic | (typeof clauses)[number]["key"];
 type TaskRequirement = Readonly<{ key: RequirementKey; question: string }>;
 const repairInstructions: Partial<Record<AnswerValidationCode, string>> = {
+  answer_body_internal_reference:
+    "Keep evidence references only in citations and claim citationEvidenceIds. Rewrite the visible answer without internal evidence labels or source markers, preserving all facts, caveats and cited sources. Do not delete a literal label when it is part of the question or quoted source content.",
   mode_citation_mismatch:
     "Rewrite with the same authorized sources: grounded requires at least one valid citation; conflict requires at least two conflicting sources. Abstained requires citations=[] and no documentary claims: only recommendations with evidenceRequired=false and citationEvidenceIds=[]. General guidance, including a supplier recommendation, may use abstained without a refusal in the visible answer. A partial documentary answer uses grounded with cited supported facts and explicit limits. Do not invent a source, add an irrelevant citation or relabel an unsupported local fact as a recommendation.",
   task_coverage_missing:
@@ -73,6 +76,11 @@ const repairInstructions: Partial<Record<AnswerValidationCode, string>> = {
     "For every claim citing pendingEvidenceIds, use claimType=interpretation and evidenceRequired=true, and rewrite the statement and visible prose as an unconfirmed proposal. Descriptions of a draft also use interpretation. Never confirm applicability or change only the claim type while retaining a confirmed assertion."
 };
 type ValidationContract = Readonly<{
+  conditionalConflict?: Readonly<{
+    rule: "same_record_distinct_values_with_cited_uncertainty";
+    recordIds: readonly string[];
+    evidenceIds: readonly string[];
+  }>;
   failedConstraint: AnswerValidationCode | null;
   permittedModes: readonly string[];
   availableEvidenceIds: readonly string[];
@@ -545,7 +553,8 @@ export function validateTaskCoverage(input: AnswerGatewayInput, generated: Gener
         !(item.key === "assemblies" && coversAssemblyDecision(generated, input.evidence)) &&
         !(
           item.key === "financial" &&
-          coversRecordNoteConflict(input.question, input.evidence, generated)
+          (coversRecordNoteConflict(input.question, input.evidence, generated) ||
+            coversDocumentedConflict(input.question, input.evidence, generated))
         )
     )
     .map((item) => item.key as string);
@@ -567,10 +576,16 @@ export function withValidationContract(
   missingKeys: readonly string[] = [],
   conflictEvidenceIds?: readonly string[]
 ): AnswerGatewayInput {
+  const conditional =
+    input.task !== "document_conflict" &&
+    ["grounded_answer", "specialist_review"].includes(input.task)
+      ? findDocumentedConflicts(input.question, input.evidence)
+      : [];
   const memory: ConversationContext | undefined =
     withAnswerTaskFocus(input.question, input.conversationContext, input.evidence) ??
     (code === "mode_citation_mismatch" ||
-    (input.task === "document_conflict" && conflictEvidenceIds?.length)
+    (input.task === "document_conflict" && conflictEvidenceIds?.length) ||
+    conditional.length > 0
       ? {
           policyVersion: "recent-chat-v1" as const,
           turns: [],
@@ -601,7 +616,18 @@ export function withValidationContract(
         ? ["abstained"]
         : input.task === "document_conflict"
           ? ["conflict"]
-          : ["grounded", "abstained"],
+          : conditional.length > 0
+            ? ["grounded", "conflict", "abstained"]
+            : ["grounded", "abstained"],
+    ...(conditional.length === 0
+      ? {}
+      : {
+          conditionalConflict: {
+            rule: "same_record_distinct_values_with_cited_uncertainty" as const,
+            recordIds: [...new Set(conditional.map((c) => c.recordId))],
+            evidenceIds: [...new Set(conditional.flatMap((c) => c.sides.map((s) => s.source.id)))]
+          }
+        }),
     availableEvidenceIds: input.evidence.map((source) => source.id),
     conflictEvidenceIds:
       input.task === "document_conflict"
@@ -697,7 +723,8 @@ export function withGenerationContract(
 ): AnswerGatewayInput {
   return input.evidence.length > 0 &&
     (input.task === "document_conflict" ||
-      input.conversationContext?.taskFocus?.kind === "synthesis")
+      input.conversationContext?.taskFocus?.kind === "synthesis" ||
+      findDocumentedConflicts(input.question, input.evidence).length > 0)
     ? withValidationContract(input, null, [], conflictEvidenceIds)
     : input;
 }

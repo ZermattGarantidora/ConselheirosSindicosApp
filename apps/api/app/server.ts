@@ -32,7 +32,12 @@ import { createDevelopmentDocumentUploadRepository } from "../documents/developm
 import { createPostgresPrivateDocumentStorage } from "../documents/postgres-private-document-storage.js";
 import { createPostgresDocumentRetentionRepository } from "../documents/postgres-document-retention-repository.js";
 import { createHostedDocumentProcessingAdapters } from "../documents/hosted-document-processing.js";
-import { deniedApiOperationControl } from "./operation-control.js";
+import {
+  assertPersistentRuntimeReady,
+  createPersistentApiOperationControl,
+  persistentExecutionConfiguration
+} from "../security/persistent-execution.js";
+import { persistentDatabaseConfiguration } from "../security/persistent-database.js";
 import {
   createDevelopmentDocumentSourceReader,
   createPostgresDocumentSourceReader
@@ -59,6 +64,7 @@ import { createScopedTextRetriever } from "../retrieval/text-retrieval.js";
 import { drainProcessingQueue } from "../worker/processing-worker.js";
 import { createPostgresProcessingJobQueue } from "../worker/postgres-processing-job-queue.js";
 import { registerWebAssets } from "./web-assets.js";
+import { canonicalOriginFromEnvironment, registerCanonicalOrigin } from "./canonical-origin.js";
 import { createDemoWorkAdmission } from "../operations/demo-work-admission.js";
 import { startMemoryDiagnostics } from "../operations/memory-diagnostics.js";
 import { createVerifiedLegalLibrary } from "../legislation/verified-legal-library.js";
@@ -107,6 +113,8 @@ export async function startServer(
   port = 3000,
   environment: NodeJS.ProcessEnv = process.env
 ): Promise<ReturnType<typeof createApi>> {
+  const canonicalOrigin = canonicalOriginFromEnvironment(environment);
+  const persistentExecution = persistentExecutionConfiguration(environment);
   const listeningOptions = {
     host: listeningHost(environment),
     port: listeningPort(port, environment)
@@ -288,18 +296,42 @@ export async function startServer(
         }
       })
     });
+    registerCanonicalOrigin(app, canonicalOrigin);
     attachMemoryDiagnostics(app, environment);
     if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
     await app.listen(listeningOptions);
     return app;
   }
 
-  const pool = new Pool({ connectionString: databaseUrl });
+  const databaseConfiguration =
+    persistentExecution === undefined
+      ? { connectionString: databaseUrl }
+      : persistentDatabaseConfiguration(databaseUrl, environment.DATABASE_SSL_CA);
+  if (
+    persistentExecution !== undefined &&
+    !/^[a-f0-9]{64}$/iu.test(environment.ACCESS_CODE_SECRET ?? "")
+  )
+    throw new Error("O runtime persistente autorizado exige autenticação por código.");
+  if (
+    persistentExecution !== undefined &&
+    !/^[a-f0-9]{64}$/iu.test(environment.AUTH_ACCOUNT_SECRET_KEY ?? "")
+  )
+    throw new Error("O runtime persistente autorizado exige chave de conta válida.");
+  const pool = new Pool(databaseConfiguration);
   const chatSessionPool = new Pool({
-    connectionString: chatSessionConnectionString(databaseUrl),
+    ...databaseConfiguration,
+    connectionString: chatSessionConnectionString(databaseConfiguration.connectionString),
     max: 10,
     connectionTimeoutMillis: 5_000
   });
+  if (persistentExecution !== undefined) {
+    try {
+      await assertPersistentRuntimeReady(pool);
+    } catch (error) {
+      await Promise.allSettled([chatSessionPool.end(), pool.end()]);
+      throw error;
+    }
+  }
   const accountActionDelivery = createAccountActionDeliveryFromEnvironment(environment);
   const accountSecurity = createPostgresAccountSecurity(
     pool,
@@ -344,7 +376,10 @@ export async function startServer(
     }
   };
   const app = createApi({
-    operationControl: deniedApiOperationControl,
+    operationControl: createPersistentApiOperationControl({
+      pool,
+      ...(persistentExecution === undefined ? {} : { configuration: persistentExecution })
+    }),
     ...(environment.ACCESS_CODE_SECRET === undefined
       ? {}
       : {
@@ -390,6 +425,7 @@ export async function startServer(
     answerTraceStore: createPostgresAnswerTraceStore(pool),
     documentSourceReader: createPostgresDocumentSourceReader(pool)
   });
+  registerCanonicalOrigin(app, canonicalOrigin);
   attachMemoryDiagnostics(app, environment);
   if (webDirectory !== undefined) registerWebAssets(app, webDirectory);
   let documentWorkerTimer: ReturnType<typeof setInterval> | undefined;

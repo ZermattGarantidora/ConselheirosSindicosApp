@@ -218,5 +218,9 @@ Alinha-se ao briefing §§7 Bloco 7, 8–10 e 13; melhora recuperação/controle
 
 ## Gate para mudar o status
 
+A ligação opcional de setup/pergunta/upload ao startup é detalhada pela Spec 078. Exige
+manifesto revisado, conta/expiração válidas e revisão/moeda concordantes no banco; ausência
+mantém admissão negativa. Nenhum orçamento positivo ou dado real é aprovado por essa composição.
+
 Alinhamento, aceitação, rastreabilidade, testes focados, revisão e gate estrutural. Liberação exige
 política real, ligação central, resultado durável, SQL/isolamento reais e revisão independente.

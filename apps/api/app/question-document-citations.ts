@@ -46,7 +46,7 @@ export function canJournalCiteDocument(
         (claim) =>
           claim.claimType === "interpretation" &&
           claim.evidenceRequired &&
-          /propost|prop[oõ]e|penden|disput|sem assinatura|n[aã]o.{0,20}(?:aprovad|confirmad|vigente|autoriza|permite|substitui)/iu.test(
+          /propost|prop[oõ]e|penden|disput|sem assinatura|n[aã]o (?:comprova|confirma|demonstra) (?:a )?aprova[cç][aã]o|n[aã]o.{0,20}(?:aprovad|confirmad|vigente|autoriza|permite|substitui)/iu.test(
             claim.statement
           )
       )

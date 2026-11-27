@@ -4,6 +4,10 @@ import { join } from "node:path";
 import { runCodexProcess, type CodexProcessRequest } from "../../apps/api/answers/codex-process.js";
 import { readCheckpoint, writeCheckpoint } from "../full-page-documents/checkpoints.js";
 import { usageFromEvents } from "../conversation-comparison/protocol.js";
+import {
+  safelyObserve,
+  type CodexProcessTimings
+} from "../../apps/api/answers/answer-performance.js";
 
 type Scope = { manifestHash: string; condition: string; caseId: string };
 type Receipt = Scope & {
@@ -13,6 +17,7 @@ type Receipt = Scope & {
   rawEvents?: string;
   latencyMs: number;
   usage: ReturnType<typeof usageFromEvents>;
+  processTimings?: CodexProcessTimings;
   errorCode?: string;
 };
 export function createDurableDenseProcess(
@@ -45,6 +50,7 @@ export function createDurableDenseProcess(
       if (receipt.status !== "completed" || typeof receipt.rawEvents !== "string")
         throw new Error("Tentativa anterior falhou; não reenviar automaticamente.");
       onReuse();
+      if (receipt.processTimings) safelyObserve(request.onTimings, receipt.processTimings);
       return receipt.rawEvents;
     }
     const prior = await readCheckpoint<{ manifestHash: string; inputHash: string }>(startedPath);
@@ -52,8 +58,15 @@ export function createDurableDenseProcess(
       throw new Error("Tentativa anterior com envio incerto; consumo desconhecido, não reenviar.");
     await writeCheckpoint(startedPath, { ...scope, inputHash, model, possiblyDispatched: true });
     const started = Date.now();
+    let processTimings: CodexProcessTimings | undefined;
     try {
-      const stdout = await run(request);
+      const stdout = await run({
+        ...request,
+        onTimings: (timings) => {
+          processTimings = timings;
+          safelyObserve(request.onTimings, timings);
+        }
+      });
       await writeCheckpoint(resultPath, {
         ...scope,
         inputHash,
@@ -61,7 +74,8 @@ export function createDurableDenseProcess(
         status: "completed",
         rawEvents: stdout,
         latencyMs: Date.now() - started,
-        usage: usageFromEvents(stdout)
+        usage: usageFromEvents(stdout),
+        ...(processTimings ? { processTimings } : {})
       } satisfies Receipt);
       return stdout;
     } catch (error) {
@@ -74,7 +88,8 @@ export function createDurableDenseProcess(
           status: "failed",
           latencyMs: Date.now() - started,
           usage: null,
-          errorCode: "dense_process_failed"
+          errorCode: "dense_process_failed",
+          ...(processTimings ? { processTimings } : {})
         } satisfies Receipt);
       throw error;
     }

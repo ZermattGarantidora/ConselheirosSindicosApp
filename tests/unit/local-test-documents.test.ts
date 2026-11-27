@@ -60,6 +60,25 @@ function respond(text = JSON.stringify(answer())) {
 }
 
 describe("Spec 066 — documentos de teste locais", () => {
+  it("AC7712: layout compacto opt-in restaura a mesma fonte sem alterar a personalidade", async () => {
+    const run = respond(JSON.stringify(answer("e1")));
+    const result = await createCodexAnswerGatewayFromEnvironment({
+      ...environment,
+      CODEX_ANSWER_REFERENCE_FORMAT: "compact-v1"
+    })!.generate(request);
+    expect(validateGeneratedAnswer(result.output, [source]).citations[0]?.evidenceId).toBe(
+      source.id
+    );
+    expect(result.telemetry.performance?.referenceFormat).toBe("compact-v1");
+    expect(run.mock.calls[0]![0].input).toContain(source.content);
+    expect(run.mock.calls[0]![0].input).toContain('"evidenceId":"e1"');
+    expect(() =>
+      createCodexAnswerGatewayFromEnvironment({
+        ...environment,
+        CODEX_ANSWER_REFERENCE_FORMAT: "unknown"
+      })
+    ).toThrow("CODEX_ANSWER_REFERENCE_FORMAT");
+  });
   afterEach(() => vi.mocked(runCodexProcess).mockReset());
 
   it.each([undefined, "false"])("AC-6601: preserva o padrão sem opt-in (%s)", async (value) => {
